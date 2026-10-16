@@ -7,7 +7,7 @@ system-browser flow when the webview fails; manual cookie paste.
 
 **Blocked by:** 08, 20.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] QR renders and logs in on confirm (wiremock-backed)
 - [ ] GeeTest captcha loads in webview; fallback loopback path exercised headless
