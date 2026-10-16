@@ -193,8 +193,10 @@ version = "2.21.0"
 dependencies = [
  "anyhow",
  "auth",
+ "chrono",
  "config",
- "dirs 5.0.1",
+ "database",
+ "dirs 6.0.0",
  "gpui-kit",
  "image",
  "interprocess",
@@ -206,6 +208,7 @@ dependencies = [
  "qrcode",
  "serde_json",
  "services",
+ "tasks",
  "tempfile",
  "tokio",
  "tray-icon",
@@ -6632,9 +6635,9 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91c1b7e4904c873ef0710c1f407dde2e6287de2bebc1bbbf7d430bb7cbffd939"
+checksum = "9cb23c424d8ee841bb4d813677ca237e2a610067d594fec130f87d6093495ab5"
 dependencies = [
  "windows-sys 0.61.2",
 ]
@@ -6887,11 +6890,19 @@ dependencies = [
  "anyhow",
  "config",
  "database",
+ "libc",
+ "network",
  "regex",
+ "reqwest",
+ "serde",
  "serde_json",
  "sys-locale",
  "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
  "urls",
+ "windows-sys 0.52.0",
+ "wiremock",
 ]
 
 [[package]]

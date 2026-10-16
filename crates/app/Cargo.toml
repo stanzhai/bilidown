@@ -19,6 +19,8 @@ config = { path = "../config" }
 urls = { path = "../urls" }
 network = { path = "../network" }
 services = { path = "../services" }
+tasks = { path = "../tasks" }
+database = { path = "../database" }
 parking_lot.workspace = true
 qrcode = "=0.14.1"
 image = { version = "=0.25.10", default-features = false, features = ["png"] }
@@ -28,7 +30,8 @@ tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "net", "io-u
 tray-icon.workspace = true
 muda.workspace = true
 interprocess.workspace = true
-dirs = "=5.0.1"
+chrono = { version = "=0.4.45" }
+dirs = "=6.0.0"
 
 [target."cfg(windows)".dependencies]
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }

@@ -1,6 +1,6 @@
 //! App services (ticket 19): i18n catalogs, theme tokens, log viewer backend,
 //! clipboard monitor, notifications, window-state memory, teaching tips,
-//! terms gate, parse history service.
+//! terms gate, parse history service, Verhub update service.
 //!
 //! Non-parser app services ported from the Python build's `src/gui` +
 //! `src/util/misc`. Persistence goes through `config::ConfigStore` and
@@ -17,4 +17,5 @@ pub mod notify;
 pub mod terms;
 pub mod theme;
 pub mod tips;
+pub mod update;
 pub mod window_state;
