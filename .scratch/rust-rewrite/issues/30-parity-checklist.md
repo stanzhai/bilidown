@@ -7,7 +7,7 @@ test checklist. This is the gate the cutover ticket consumes.
 
 **Blocked by:** 22, 23, 24, 25, 26, 27, 28, 29.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Every user story 1-64 mapped to a checklist row with pass/fail + evidence
 - [ ] Automated seams (wiremock/golden/unit) enumerated per feature with their test names
@@ -15,3 +15,7 @@ test checklist. This is the gate the cutover ticket consumes.
 - [ ] Three-platform CI green recorded as evidence
 
 ## Comments
+
+## Answer
+
+(work in progress)

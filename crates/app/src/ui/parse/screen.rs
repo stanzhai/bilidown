@@ -184,7 +184,8 @@ impl ParseScreen {
         self.status = "Parsing…".to_string();
         self.refresh_tree(cx);
 
-        let auth = auth::AuthState::default();
+        // Parity with Python's parse worker: watch-later/history/lesson families need the live login session.
+        let auth = cx.entity().read(cx).auth_state.clone();
         cx.spawn(async move |shell, cx| {
             let service = super::dispatch::ParseService::new(&config::ConfigStore::open()?);
             let req = super::dispatch::ParseRequest {
