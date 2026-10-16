@@ -9,7 +9,7 @@ manual cookie paste; persisted login state + wbi keys.
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] enc_wbi signature vectors from test_wbi_signature pass verbatim
 - [ ] Anonymous provisioning produces the full cookie set (wiremock-pinned endpoints, murmur3 outputs match Python's algorithm)
