@@ -4,7 +4,6 @@
 //! ported verbatim; the remaining coverage exercises the selection paths the
 //! Python suite drives through the GUI dialog (no portable vectors there).
 
-use network::cdn::CdnConfig;
 use network::{ClientOptions, HttpClient, ProxyConfig};
 use parsers::playurl::{
     audio_quality_label, available_codecs, build_available_streams, check_drm,
@@ -16,7 +15,7 @@ use parsers::playurl::{
 };
 use parsers::preview::{
     audio_quality_choice_data, check_need_parse, video_codec_choice_data,
-    video_quality_choice_data, Priorities, Preview,
+    video_quality_choice_data, Preview, Priorities,
 };
 use parsers::tree::{Attribute, Number, TreeItem};
 use serde_json::{json, Value};
@@ -137,8 +136,8 @@ fn dash_flac_forces_30251_and_dolby_unifies_30255_to_30250() {
     let streams = build_available_streams("video", MediaType::Dash, &data);
     let mut ids = streams.audio_ids.clone();
     sort_audio_ids_preview(&mut ids);
-    assert_eq!(streams.audio_map.get(&30251).is_some(), true);
-    assert_eq!(streams.audio_map.get(&30250).is_some(), true);
+    assert!(streams.audio_map.contains_key(&30251));
+    assert!(streams.audio_map.contains_key(&30250));
     assert!(ids.contains(&30251) && ids.contains(&30250) && ids.contains(&30280));
 }
 
@@ -171,7 +170,10 @@ fn resolve_target_priority_auto_and_fallbacks() {
     let available = vec![80, 64];
     let priority = vec![127, 126, 125, 80, 64];
     // auto → first priority id present.
-    assert_eq!(resolve_quality(&available, QUALITY_AUTO, &priority), Some(80));
+    assert_eq!(
+        resolve_quality(&available, QUALITY_AUTO, &priority),
+        Some(80)
+    );
     // requested not in list → best available.
     assert_eq!(resolve_quality(&available, 116, &priority), Some(80));
     // exact match wins.
@@ -224,8 +226,13 @@ fn list_family_attributes_skip_parsing() {
 // TestDownloadSideWarning (test_codec_fallback.py:54-101) — verbatim vectors
 // ---------------------------------------------------------------------------
 
+// ponytail: process-global dedup set is shared test state — a static mutex
+// serializes these five; swap for per-test sets in the lib if more collide.
+static WARN_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
 #[test]
 fn fallback_emits_a_warning() {
+    let _guard = WARN_LOCK.lock();
     clear_warned_for_test();
     let warning = warn_codec_fallback(Some(13), 7).expect("expected a warning");
     assert_eq!(warning.category(), "WARNING");
@@ -236,7 +243,7 @@ fn fallback_emits_a_warning() {
 
 #[test]
 fn same_pair_warns_only_once() {
-    clear_warned_for_test();
+    let _guard = WARN_LOCK.lock();
     warn_codec_fallback(Some(13), 7);
     assert!(warn_codec_fallback(Some(13), 7).is_none());
     clear_warned_for_test();
@@ -244,7 +251,7 @@ fn same_pair_warns_only_once() {
 
 #[test]
 fn different_pair_warns_again() {
-    clear_warned_for_test();
+    let _guard = WARN_LOCK.lock();
     warn_codec_fallback(Some(13), 7);
     let second = warn_codec_fallback(Some(13), 12).expect("different pair warns");
     assert!(second.message.contains("HEVC/H.265"));
@@ -253,14 +260,14 @@ fn different_pair_warns_again() {
 
 #[test]
 fn no_warning_when_codec_matches() {
-    clear_warned_for_test();
+    let _guard = WARN_LOCK.lock();
     assert!(warn_codec_fallback(Some(13), 13).is_none());
     clear_warned_for_test();
 }
 
 #[test]
 fn no_warning_for_auto() {
-    clear_warned_for_test();
+    let _guard = WARN_LOCK.lock();
     assert!(warn_codec_fallback(Some(CODEC_AUTO), 7).is_none());
     assert!(warn_codec_fallback(None, 7).is_none());
     clear_warned_for_test();
@@ -308,7 +315,9 @@ async fn video_fetch_and_supplement_round_trip() {
     let list = fetch_video_streams(&c, &apis, "BV1xx", 42, 80).await;
     let mut map = std::collections::HashMap::new();
     merge_video_streams(&mut map, &list);
-    assert!(map.get(&80).is_some_and(|e| e.iter().any(|(cc, _)| *cc == 12)));
+    assert!(map
+        .get(&80)
+        .is_some_and(|e| e.iter().any(|(cc, _)| *cc == 12)));
 }
 
 #[tokio::test]
@@ -336,7 +345,9 @@ async fn bangumi_fetch_uses_result_body_and_fnval_143312() {
         .mount(&server)
         .await;
 
-    let fetched = fetch_bangumi_info(&c, &apis, "BV1xx", 42, 80).await.unwrap();
+    let fetched = fetch_bangumi_info(&c, &apis, "BV1xx", 42, 80)
+        .await
+        .unwrap();
     assert_eq!(fetched.parser_type, "bangumi");
     assert_eq!(fetched.media_type, MediaType::Dash);
     // bangumi never declares (parser_type != "video") → sorted map keys.
@@ -370,7 +381,13 @@ async fn cheese_fetch_uses_fnval_16_and_avid_epid() {
     assert_eq!(fetched.media_type, MediaType::Mp4);
     let streams = build_available_streams("cheese", MediaType::Mp4, &fetched.info_data);
     assert_eq!(streams.quality_ids, vec![16]);
-    assert_eq!(fetched.info_data["query_url"], format!("{}/pugv/player/web/playurl?avid=100&cid=42&qn=0&fnver=0&fnval=16&fourk=1&ep_id=200", server.uri()));
+    assert_eq!(
+        fetched.info_data["query_url"],
+        format!(
+            "{}/pugv/player/web/playurl?avid=100&cid=42&qn=0&fnver=0&fnval=16&fourk=1&ep_id=200",
+            server.uri()
+        )
+    );
 }
 
 #[tokio::test]
@@ -385,7 +402,9 @@ async fn lesson_fetch_posts_payload_and_synthesizes_mp4() {
     });
     Mock::given(method("POST"))
         .and(path("/mall-search-items/items/course/section/play/detail"))
-        .and(body_partial_json(json!({"courseId": 1, "lessonId": 2, "itemId": 3, "sectionId": 4})))
+        .and(body_partial_json(
+            json!({"courseId": 1, "lessonId": 2, "itemId": 3, "sectionId": 4}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .expect(1)
         .mount(&server)
@@ -450,7 +469,9 @@ async fn paid_content_error_maps_to_message() {
         .mount(&server)
         .await;
 
-    let err = fetch_video_info(&c, &apis, "BV1xx", 42, 127).await.unwrap_err();
+    let err = fetch_video_info(&c, &apis, "BV1xx", 42, 127)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("Paid content requires purchasing"));
 }
 
@@ -476,7 +497,6 @@ async fn preview_query_video_supplements_missing_quality_then_probes_size() {
     let cdn = MockServer::start().await;
     let apis = PlayurlApis::with_base(&api.uri());
     let c = client();
-    let cdn_conf = CdnConfig::default();
 
     let mut base = dash_body();
     // The old-video gap: qn=127 response carries q127+q64 only; q80 is
@@ -519,8 +539,13 @@ async fn preview_query_video_supplements_missing_quality_then_probes_size() {
     let mut it = item(Attribute::VIDEO_BIT);
     it.bvid = "BV1xx".into();
     it.cid = 42;
-    let fetched = parsers::playurl::fetch_media_info(&c, &apis, &it, None).await.unwrap();
-    preview.start(Attribute::VIDEO_BIT, "BV1xx", 42, async { Ok(fetched) }).await.unwrap();
+    let fetched = parsers::playurl::fetch_media_info(&c, &apis, &it, None)
+        .await
+        .unwrap();
+    preview
+        .start(Attribute::VIDEO_BIT, "BV1xx", 42, async { Ok(fetched) })
+        .await
+        .unwrap();
 
     // Declared list keeps q80 selectable even though its stream was missing.
     assert_eq!(preview.info.quality_ids, vec![127, 80, 64]);
@@ -559,12 +584,13 @@ async fn preview_query_audio_uses_priority_and_size_short_circuit() {
         }
     });
     let mut preview = Preview::new(Priorities::default());
-    preview.adopt(parsers::playurl::FetchedMedia {
-        parser_type: "video",
-        media_type: MediaType::Dash,
-        info_data: data,
-    })
-    .unwrap();
+    preview
+        .adopt(parsers::playurl::FetchedMedia {
+            parser_type: "video",
+            media_type: MediaType::Dash,
+            info_data: data,
+        })
+        .unwrap();
 
     // Auto: flac (30251) is first in the audio priority list.
     let info = preview.query_audio(AUDIO_QUALITY_AUTO).unwrap();
@@ -582,14 +608,19 @@ async fn preview_query_video_short_circuits_on_declared_size() {
         v["size"] = json!(2048);
     }
     let mut preview = Preview::new(Priorities::default());
-    preview.adopt(parsers::playurl::FetchedMedia {
-        parser_type: "video",
-        media_type: MediaType::Dash,
-        info_data: data,
-    })
-    .unwrap();
+    preview
+        .adopt(parsers::playurl::FetchedMedia {
+            parser_type: "video",
+            media_type: MediaType::Dash,
+            info_data: data,
+        })
+        .unwrap();
 
-    let info = preview.query_video(&client(), &PlayurlApis::default(), 80, 7).await.unwrap().unwrap();
+    let info = preview
+        .query_video(&client(), &PlayurlApis::default(), 80, 7)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(info.file_size, 2048);
 }
 
@@ -633,9 +664,15 @@ async fn preview_falls_back_to_best_when_supplement_returns_nothing() {
 
     let fetched = fetch_video_info(&c, &apis, "BV1xx", 42, 127).await.unwrap();
     let mut preview = Preview::new(Priorities::default());
-    preview.start(Attribute::VIDEO_BIT, "BV1xx", 42, async { Ok(fetched) }).await.unwrap();
+    preview
+        .start(Attribute::VIDEO_BIT, "BV1xx", 42, async { Ok(fetched) })
+        .await
+        .unwrap();
 
     // q80 supplement yields no stream → error surfaces (worker.py message).
-    let err = preview.query_video(&c, &apis, 80, CODEC_AUTO).await.unwrap_err();
+    let err = preview
+        .query_video(&c, &apis, 80, CODEC_AUTO)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("无法获取该清晰度的视频流"));
 }
