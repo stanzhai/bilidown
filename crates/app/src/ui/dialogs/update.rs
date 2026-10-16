@@ -15,61 +15,13 @@ use gpui_kit::{ParentElement, Window, div, prelude::*};
 
 use super::{active_catalog, format_tr};
 
-pub const VERHUB_BASE_URL: &str = "https://verhub.hanloth.cn/api/v1";
-pub const VERHUB_PROJECT_KEY: &str = "scottsloan-bili23-downloader";
+pub use services::update::{
+    to_verhub_locale, UpdateInfo, VERHUB_BASE_URL, VERHUB_PROJECT_KEY,
+};
 
-const LOCALE_ZH_CN: &str = "zh-CN";
-const LOCALE_ZH_TW: &str = "zh-TW";
-const LOCALE_EN_US: &str = "en-US";
-const TRADITIONAL_CHINESE_SUBTAGS: [&str; 4] = ["tw", "hk", "mo", "hant"];
-
-/// App version reported to Verhub (`config.app_version`, the
-/// workspace version line).
+/// App version shown in the dialog tip (workspace version line).
 pub fn app_version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
-}
-
-/// `to_verhub_locale`: accept config literals (`zh_CN`, `Auto`), Qt
-/// locale names (`zh_HK`) and BCP-47 tags (`zh-Hant-TW`, `en`).
-/// `Auto`/empty → `None` (no preference).
-pub fn to_verhub_locale(language: Option<&str>) -> Option<&'static str> {
-    let tag = language.unwrap_or_default().trim().replace('_', "-").to_lowercase();
-    if tag.is_empty() || tag == "auto" {
-        return None;
-    }
-    let subtags: Vec<&str> = tag.split('-').collect();
-    if subtags[0] == "zh" {
-        if subtags[1..].iter().any(|s| TRADITIONAL_CHINESE_SUBTAGS.contains(s)) {
-            Some(LOCALE_ZH_TW)
-        } else {
-            Some(LOCALE_ZH_CN)
-        }
-    } else {
-        Some(LOCALE_EN_US)
-    }
-}
-
-/// The flattened info dict the dialog consumes (`parse_response`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct UpdateInfo {
-    pub should_update: bool,
-    pub required: bool,
-    pub version: String,
-    pub content: String,
-    pub update_url: String,
-}
-
-/// `parse_response`: flatten the Verhub response into
-/// [`UpdateInfo`]. Missing fields default like the Python `.get() or ""`.
-pub fn parse_response(response: &Value) -> UpdateInfo {
-    let latest = &response["latest_version"];
-    UpdateInfo {
-        should_update: response["should_update"].as_bool().unwrap_or(false),
-        required: response["required"].as_bool().unwrap_or(false),
-        version: latest["version"].as_str().unwrap_or_default().to_owned(),
-        content: latest["content"].as_str().unwrap_or_default().to_owned(),
-        update_url: latest["download_url"].as_str().unwrap_or_default().to_owned(),
-    }
+    services::update::APP_VERSION
 }
 
 
@@ -86,16 +38,17 @@ pub enum UpdateAction {
     Silent,
 }
 
-/// The gate (`Updater.check(info, manual)`).
+/// The gate (`Updater.check(info, manual)`), delegating the
+/// skip-version comparison to `services::update::suppresses_prompt`.
 pub fn decide(info: &UpdateInfo, cfg: &config::ConfigStore, manual: bool) -> UpdateAction {
-    if info.should_update {
-        let skipped = cfg
-            .get("Application", "skip_version")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if skipped == info.version && !manual {
-            return UpdateAction::Skip;
-        }
+    let skipped = cfg
+        .get("Application", "skip_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    if services::update::suppresses_prompt(info, &skipped, manual) {
+        UpdateAction::Skip
+    } else if info.should_update {
         UpdateAction::Show(info.clone())
     } else if manual {
         UpdateAction::AlreadyLatest
@@ -104,31 +57,29 @@ pub fn decide(info: &UpdateInfo, cfg: &config::ConfigStore, manual: bool) -> Upd
     }
 }
 
-/// The check request body (exactly what the Verhub SDK posts).
-fn request_body(include_preview: bool, locale: Option<&str>) -> Value {
-    serde_json::json!({
-        "current_version": app_version(),
-        "current_comparable_version": app_version(),
-        "include_preview": include_preview,
-        "locale": locale,
-    })
-}
-
-/// One blocking check against `base` (`check_for_update`). `base` is
-/// the Verhub API base (`https://verhub.hanloth.cn/api/v1`); tests
-/// point it at a wiremock server.
+/// One check against Verhub (`check_for_update`), via the shared
+/// `services::update` client. `base` is for tests (wiremock origin);
+/// production passes `VERHUB_BASE_URL`.
 pub async fn check_for_update(
     client: &network::HttpClient,
     base: &str,
     include_preview: bool,
     locale: Option<&str>,
-) -> anyhow::Result<UpdateInfo> {
-    let url = format!("{base}/public/{VERHUB_PROJECT_KEY}/versions/check-update");
-    let resp: Value = client
-        .post_json(&url, &[], &request_body(include_preview, locale))
-        .await?;
-    let parsed = parse_response(&resp);
-    Ok(parsed)
+) -> Result<UpdateInfo, services::update::UpdateError> {
+    let params = services::update::CheckUpdateParams {
+        include_preview,
+        locale: locale.map(str::to_owned),
+        ..Default::default()
+    };
+    services::update::VerhubClient::with_options(
+        client,
+        base,
+        VERHUB_PROJECT_KEY,
+        app_version(),
+    )
+    .check_update(&params)
+    .await
+    .map(|outcome| outcome.info)
 }
 
 /// Assemble the params from a config store (`request_update`).
@@ -290,6 +241,7 @@ pub fn open_update_dialog(
 mod tests {
     use super::*;
     use services::i18n::{catalog, tip_messages, ResolvedLanguage};
+    use services::update::parse_response;
 
     // ---- to_verhub_locale (the Python matrix) ----
 
@@ -369,6 +321,7 @@ mod tests {
             should_update,
             required: false,
             version: version.to_owned(),
+            title: None,
             content: String::new(),
             update_url: String::new(),
         }
@@ -441,19 +394,20 @@ mod tests {
     // ---- wiremock: the request the client actually sends ----
 
     #[tokio::test]
-    async fn check_posts_the_sdk_body_and_parses_the_response() {
+    async fn check_via_services_client_parses_the_response() {
+        // Wire contract (path, dropped-unset body) is pinned by
+        // services/tests/update.rs; this only checks the delegation
+        // glue still hands the parsed info to the dialog side.
         use wiremock::matchers::{body_partial_json, method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
 
         let server = MockServer::start().await;
         let body = serde_json::json!({
-            "current_version": app_version(),
-            "include_preview": false,
-            "locale": null,
+            "current_version": services::update::APP_VERSION,
         });
         Mock::given(method("POST"))
             .and(path(format!(
-                "/public/{VERHUB_PROJECT_KEY}/versions/check-update"
+                "/api/v1/public/{VERHUB_PROJECT_KEY}/versions/check-update"
             )))
             .and(body_partial_json(body))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({

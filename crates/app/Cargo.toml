@@ -18,18 +18,12 @@ parsers = { path = "../parsers" }
 config = { path = "../config" }
 urls = { path = "../urls" }
 network = { path = "../network" }
-auth = { path = "../auth" }
-services = { path = "../services" }
-serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.154", features = ["preserve_order"] }
-tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread"] }
-
-[dev-dependencies]
-wiremock = "=0.6.5"
 parking_lot.workspace = true
 qrcode = "=0.14.1"
 image = "=0.25.10"
 open = "=5.4.4"
+services = { path = "../services" }
+serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "net", "io-util", "time", "macros"] }
 
