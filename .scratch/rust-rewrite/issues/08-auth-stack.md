@@ -20,6 +20,6 @@ manual cookie paste; persisted login state + wbi keys.
 
 ## Answer
 
-Implemented in `crates/auth` (wbi/murmur3/exclimbwuzhi/session/login modules, 13 tests: 2 verbatim enc_wbi vectors, 5 murmur3 vectors incl. the real config.json buvid_fp, 2 GenWebTicket hexsign vectors, ExClimbWuzhi structure, config round-trip, parse_cookies matrix) — commit 6b425da9.
+Implemented in `crates/auth` (wbi/murmur3/exclimbwuzhi/session/login modules, 13 tests: 2 verbatim enc_wbi vectors, 5 murmur3 vectors incl. the real config.json buvid_fp, 2 GenWebTicket hexsign vectors, ExClimbWuzhi structure, config round-trip, parse_cookies matrix) — commit 03264b5e.
 
 ## Comments
