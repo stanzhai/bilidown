@@ -15,7 +15,7 @@
     <img src="https://img.shields.io/github/license/ScottSloan/Bili23-Downloader?style=flat-square" alt="License"/>
     <img src="https://img.shields.io/github/downloads/ScottSloan/Bili23-Downloader/total?style=flat-square" alt="Downloads"/>
     <img src="https://img.shields.io/github/stars/ScottSloan/Bili23-Downloader?style=flat-square" alt="Stars"/>
-    <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/publish.yml?style=flat-square" alt="Build"/>
+    <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/rust.yml?style=flat-square" alt="Build"/>
 </p>
 
 <div align="center">
@@ -75,8 +75,6 @@ By continuing to use this software, you indicate your full understanding and agr
 This project is released under the **GPLv3 License**.
 
 Wbi signature, specific APIs, and buvid3 generation parameters are inspired by [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect).
-
-The Windows launcher (`launcher/` directory) is forked from [skywind3000/PyStand](https://github.com/skywind3000/PyStand) (MIT License), with customizations such as embedded application source and integrity verification. See [launcher/README.md](launcher/README.md) for details.
 
 ## 🛠️ Contributors
 New ideas and pull requests are always welcome!

@@ -3,7 +3,6 @@ name: Rust release
 # Ticket 29: release packaging for the Rust build. One job per platform,
 # each building the workspace release binary, staging bundle/ffmpeg via
 # crates/packaging/src/bin/packager.py, and uploading runnable artifacts.
-# Python's publish.yml keeps running until the clean cutover deletes it.
 on:
   push:
     tags:

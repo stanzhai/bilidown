@@ -15,9 +15,8 @@
     <img src="https://img.shields.io/github/license/ScottSloan/Bili23-Downloader?style=flat-square" alt="License"/>
     <img src="https://img.shields.io/github/downloads/ScottSloan/Bili23-Downloader/total?style=flat-square" alt="Downloads"/>
     <img src="https://img.shields.io/github/stars/ScottSloan/Bili23-Downloader?style=flat-square" alt="Stars"/>
-    <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/publish.yml?style=flat-square" alt="Build"/>
+    <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/rust.yml?style=flat-square" alt="Build"/>
 </p>
-<!-- NOTE: full Rust + gpui-kit rewrite in progress; see docs/adr/0001-rust-gpui-kit-rewrite.md and .scratch/rust-rewrite/spec.md -->
 
 <div align="center">
     <h3>
@@ -76,8 +75,6 @@
 本项目在 **GPLv3 License** 许可协议下进行发布。
 
 wbi 签名、部分接口以及 buvid3 等参数生成参考 [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)  
-
-Windows 端启动器（`launcher/` 目录）fork 自 [skywind3000/PyStand](https://github.com/skywind3000/PyStand)（MIT 协议），并在此基础上做了应用源码内嵌、完整性校验等定制，详见 [launcher/README.md](launcher/README.md)  
 
 ## 🛠️ 参与贡献
 欢迎提出新的点子~
