@@ -12,6 +12,7 @@
 //! Writes call `App::notify` on that entity and the shell observes it, so
 //! the window re-renders. Pages rebuild every frame from fresh reads.
 
+use crate::ui::dialogs::update::UpdateInfo;
 use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
@@ -22,9 +23,9 @@ use gpui_kit::component::setting::{
 };
 use gpui_kit::component::switch::Switch;
 use gpui_kit::{
-    AnyElement, App, AppContext, ClipboardItem, Context, Entity, EntityId, InteractiveElement,
-    IntoElement, ParentElement, PathPromptOptions, SharedString, Styled, Window, div, px,
-    prelude::*, rgb,
+    div, prelude::*, px, rgb, AnyElement, App, AppContext, ClipboardItem, Context, Entity,
+    EntityId, InteractiveElement, IntoElement, ParentElement, PathPromptOptions, SharedString,
+    Styled, Window,
 };
 use naming::conventions::{ConventionType, VariableListFactory};
 use naming::naming_rules::RuleEntry;
@@ -58,15 +59,15 @@ pub struct SettingsUi {
 
 impl SettingsUi {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let cfg = config::ConfigStore::open()
-            .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let cfg =
+            config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
         let lang = Lang::from_config(&model::get_str(&cfg, "Interface", "language"));
         let rules = RuleListModel::new(&cfg);
         let initial = rules.editor.clone();
-        let rule_name = cx
-            .new(|cx| InputState::new(window, cx).default_value(initial.name_text.clone()));
-        let rule_body = cx
-            .new(|cx| InputState::new(window, cx).default_value(initial.rule_text.clone()));
+        let rule_name =
+            cx.new(|cx| InputState::new(window, cx).default_value(initial.name_text.clone()));
+        let rule_body =
+            cx.new(|cx| InputState::new(window, cx).default_value(initial.rule_text.clone()));
         let rules_search = cx.new(|cx| InputState::new(window, cx));
         Self {
             media: model::MediaOptions::load(&cfg),
@@ -97,8 +98,10 @@ impl SettingsUi {
 
     /// Restart-required notice shared by language/scaling/theme changes.
     fn restart_notice(&mut self) {
-        self.notice =
-            Some(self.tr("SettingInterface", "Configuration takes effect after restart"));
+        self.notice = Some(self.tr(
+            "SettingInterface",
+            "Configuration takes effect after restart",
+        ));
     }
 }
 
@@ -118,11 +121,67 @@ impl SettingsScreen {
         let ui = self.ui.clone();
         let notice = ui.read(cx).notice.clone();
         let rules_open = ui.read(cx).rules_open;
+        // Configure… rows only record a seam; open the real dialog here,
+        // where both window and app context are live.
+        let pending = ui.update(cx, |ui, _| ui.pending_dialog.take());
+        if let Some(seam) = pending {
+            let cfg = config::ConfigStore::open()
+                .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+            match seam {
+                "danmaku_style" => crate::ui::dialogs::styles::open_danmaku_style(cfg, window, cx),
+                "subtitle_style" => {
+                    crate::ui::dialogs::styles::open_subtitle_style(cfg, window, cx)
+                }
+                "check_update" => {
+                    // Python's "check for updates" row runs the check and
+                    // only opens the dialog when an update exists; the
+                    // dialog needs a live window, so open it on the next
+                    // frame from the shell update.
+                    let slot =
+                        std::rc::Rc::new(std::cell::RefCell::<Option<UpdateInfo>>::new(None));
+                    let tail = slot.clone();
+                    let c = config::ConfigStore::open()
+                        .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+                    cx.spawn(async move |shell, cx| {
+                        let (include_preview, locale) =
+                            crate::ui::dialogs::update::check_params(&c);
+                        let service = crate::ui::parse::dispatch::ParseService::new(&c);
+                        let fetched = crate::ui::dialogs::update::check_for_update(
+                            &service.client,
+                            crate::ui::dialogs::update::VERHUB_BASE_URL,
+                            include_preview,
+                            locale,
+                        )
+                        .await;
+                        let Ok(fetched) = fetched else { return };
+                        if let crate::ui::dialogs::update::UpdateAction::Show(found) =
+                            crate::ui::dialogs::update::decide(&fetched, &c, true)
+                        {
+                            *tail.borrow_mut() = Some(found);
+                            let _ = shell.update(cx, |_, cx| cx.notify());
+                        }
+                    })
+                    .detach();
+                    window.defer(cx, move |window, cx| {
+                        if let Some(info) = slot.borrow().clone() {
+                            crate::ui::dialogs::update::open_update_dialog(&info, cfg, window, cx);
+                        }
+                    });
+                }
+                _ => {}
+            }
+        }
         div()
             .id("settings-screen")
             .size_full()
             .when_some(notice, |this, notice| {
-                this.child(div().id("settings-notice").px_4().py_2().child(Label::new(notice)))
+                this.child(
+                    div()
+                        .id("settings-notice")
+                        .px_4()
+                        .py_2()
+                        .child(Label::new(notice)),
+                )
             })
             .child(render_pages(&ui, window, cx))
             .when(rules_open, |this| {
@@ -222,7 +281,9 @@ fn cfg_number(
         NumberFieldOptions { min, max, step },
         move |cx| model::get_int(&get.read(cx).cfg, group, item, fallback) as f64,
         move |v, cx| {
-            set.update(cx, |ui, _| ui.put(group, item, Value::from(v.round() as i64)));
+            set.update(cx, |ui, _| {
+                ui.put(group, item, Value::from(v.round() as i64))
+            });
             kick(cx, id);
         },
     )
@@ -381,19 +442,15 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
 
     SettingPage::new(t("Behavior"))
         .icon(IconName::Wand)
-        .group(
-            SettingGroup::new()
-                .title(t("Parsing"))
-                .items([
-                    configure_button(ui, "batch_parse"),
-                    configure_button(ui, "auto_parse"),
-                    configure_button(ui, "auto_select"),
-                    SettingItem::new(
-                        t("Save parse history"),
-                        cfg_switch(ui, "Behavior", "parse_history"),
-                    ),
-                ]),
-        )
+        .group(SettingGroup::new().title(t("Parsing")).items([
+            configure_button(ui, "batch_parse"),
+            configure_button(ui, "auto_parse"),
+            configure_button(ui, "auto_select"),
+            SettingItem::new(
+                t("Save parse history"),
+                cfg_switch(ui, "Behavior", "parse_history"),
+            ),
+        ]))
         .group(
             SettingGroup::new()
                 .title(t("Window behavior"))
@@ -449,11 +506,7 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                         ui,
                         "Behavior",
                         "duplicate_download_resolution",
-                        vec![
-                            (0, t("Continue")),
-                            (1, t("Skip")),
-                            (2, t("Always ask")),
-                        ],
+                        vec![(0, t("Continue")), (1, t("Skip")), (2, t("Always ask"))],
                         2,
                     ),
                 ))
@@ -650,15 +703,11 @@ fn download_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage {
                         .disabled(!media.keep_type_enabled()),
                 ),
         )
-        .group(
-            SettingGroup::new()
-                .title(t("Priority"))
-                .items([
-                    configure_button(ui, "video_priority"),
-                    configure_button(ui, "audio_priority"),
-                    configure_button(ui, "codec_priority"),
-                ]),
-        )
+        .group(SettingGroup::new().title(t("Priority")).items([
+            configure_button(ui, "video_priority"),
+            configure_button(ui, "audio_priority"),
+            configure_button(ui, "codec_priority"),
+        ]))
         .group(
             SettingGroup::new()
                 .title(t("Download format"))
@@ -791,75 +840,96 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
         .group(
             SettingGroup::new()
                 .title(t("Cover"))
-                .item(SettingItem::new(
-                    t("Download cover"),
-                    {
+                .item(SettingItem::new(t("Download cover"), {
+                    let get = ui.clone();
+                    let set = ui.clone();
+                    let id = ui.entity_id();
+                    SettingField::switch(
+                        move |cx| {
+                            model::get_bool(&get.read(cx).cfg, "Additional", "download_cover")
+                        },
+                        move |v, cx| {
+                            set.update(cx, |ui, _| {
+                                let ctype = model::get_str(&ui.cfg, "Additional", "cover_type");
+                                let attach = model::get_bool(&ui.cfg, "Additional", "attach_cover");
+                                let delete = model::get_bool(
+                                    &ui.cfg,
+                                    "Additional",
+                                    "delete_cover_after_attach",
+                                );
+                                let (download, attach, delete, _) =
+                                    model::cover_cascade(v, &ctype, attach, delete);
+                                ui.put("Additional", "download_cover", Value::from(download));
+                                ui.put("Additional", "attach_cover", Value::from(attach));
+                                ui.put(
+                                    "Additional",
+                                    "delete_cover_after_attach",
+                                    Value::from(delete),
+                                );
+                            });
+                            kick(cx, id);
+                        },
+                    )
+                }))
+                .item(SettingItem::new(t("Cover format"), {
+                    let get = ui.clone();
+                    let set = ui.clone();
+                    let id = ui.entity_id();
+                    SettingField::dropdown(
+                        vec![
+                            (SharedString::from("png"), t("PNG")),
+                            (SharedString::from("jpg"), t("JPG")),
+                            (SharedString::from("webp"), t("WebP")),
+                            (SharedString::from("avif"), t("AVIF")),
+                        ],
+                        move |cx| {
+                            model::get_str(&get.read(cx).cfg, "Additional", "cover_type").into()
+                        },
+                        move |v, cx| {
+                            set.update(cx, |ui, _| {
+                                let download =
+                                    model::get_bool(&ui.cfg, "Additional", "download_cover");
+                                let attach = model::get_bool(&ui.cfg, "Additional", "attach_cover");
+                                let delete = model::get_bool(
+                                    &ui.cfg,
+                                    "Additional",
+                                    "delete_cover_after_attach",
+                                );
+                                let (_, attach, delete, _) =
+                                    model::cover_cascade(download, v.as_ref(), attach, delete);
+                                ui.put("Additional", "cover_type", Value::from(v.to_string()));
+                                ui.put("Additional", "attach_cover", Value::from(attach));
+                                ui.put(
+                                    "Additional",
+                                    "delete_cover_after_attach",
+                                    Value::from(delete),
+                                );
+                            });
+                            kick(cx, id);
+                        },
+                    )
+                }))
+                .item(
+                    SettingItem::new(t("Attach cover to audio"), {
                         let get = ui.clone();
                         let set = ui.clone();
                         let id = ui.entity_id();
                         SettingField::switch(
                             move |cx| {
-                                model::get_bool(&get.read(cx).cfg, "Additional", "download_cover")
-                            },
-                            move |v, cx| {
-                                set.update(cx, |ui, _| {
-                                    let ctype = model::get_str(&ui.cfg, "Additional", "cover_type");
-                                    let attach =
-                                        model::get_bool(&ui.cfg, "Additional", "attach_cover");
-                                    let delete = model::get_bool(
-                                        &ui.cfg,
-                                        "Additional",
-                                        "delete_cover_after_attach",
-                                    );
-                                    let (download, attach, delete, _) =
-                                        model::cover_cascade(v, &ctype, attach, delete);
-                                    ui.put("Additional", "download_cover", Value::from(download));
-                                    ui.put("Additional", "attach_cover", Value::from(attach));
-                                    ui.put(
-                                        "Additional",
-                                        "delete_cover_after_attach",
-                                        Value::from(delete),
-                                    );
-                                });
-                                kick(cx, id);
-                            },
-                        )
-                    },
-                ))
-                .item(SettingItem::new(
-                    t("Cover format"),
-                    {
-                        let get = ui.clone();
-                        let set = ui.clone();
-                        let id = ui.entity_id();
-                        SettingField::dropdown(
-                            vec![
-                                (SharedString::from("png"), t("PNG")),
-                                (SharedString::from("jpg"), t("JPG")),
-                                (SharedString::from("webp"), t("WebP")),
-                                (SharedString::from("avif"), t("AVIF")),
-                            ],
-                            move |cx| {
-                                model::get_str(&get.read(cx).cfg, "Additional", "cover_type").into()
+                                model::get_bool(&get.read(cx).cfg, "Additional", "attach_cover")
                             },
                             move |v, cx| {
                                 set.update(cx, |ui, _| {
                                     let download =
                                         model::get_bool(&ui.cfg, "Additional", "download_cover");
-                                    let attach =
-                                        model::get_bool(&ui.cfg, "Additional", "attach_cover");
+                                    let ctype = model::get_str(&ui.cfg, "Additional", "cover_type");
                                     let delete = model::get_bool(
                                         &ui.cfg,
                                         "Additional",
                                         "delete_cover_after_attach",
                                     );
-                                    let (_, attach, delete, _) = model::cover_cascade(
-                                        download,
-                                        v.as_ref(),
-                                        attach,
-                                        delete,
-                                    );
-                                    ui.put("Additional", "cover_type", Value::from(v.to_string()));
+                                    let (_, attach, delete, _) =
+                                        model::cover_cascade(download, &ctype, v, delete);
                                     ui.put("Additional", "attach_cover", Value::from(attach));
                                     ui.put(
                                         "Additional",
@@ -870,47 +940,7 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
                                 kick(cx, id);
                             },
                         )
-                    },
-                ))
-                .item(
-                    SettingItem::new(
-                        t("Attach cover to audio"),
-                        {
-                            let get = ui.clone();
-                            let set = ui.clone();
-                            let id = ui.entity_id();
-                            SettingField::switch(
-                                move |cx| {
-                                    model::get_bool(&get.read(cx).cfg, "Additional", "attach_cover")
-                                },
-                                move |v, cx| {
-                                    set.update(cx, |ui, _| {
-                                        let download = model::get_bool(
-                                            &ui.cfg,
-                                            "Additional",
-                                            "download_cover",
-                                        );
-                                        let ctype =
-                                            model::get_str(&ui.cfg, "Additional", "cover_type");
-                                        let delete = model::get_bool(
-                                            &ui.cfg,
-                                            "Additional",
-                                            "delete_cover_after_attach",
-                                        );
-                                        let (_, attach, delete, _) =
-                                            model::cover_cascade(download, &ctype, v, delete);
-                                        ui.put("Additional", "attach_cover", Value::from(attach));
-                                        ui.put(
-                                            "Additional",
-                                            "delete_cover_after_attach",
-                                            Value::from(delete),
-                                        );
-                                    });
-                                    kick(cx, id);
-                                },
-                            )
-                        },
-                    )
+                    })
                     .disabled(!attach_gate),
                 )
                 .item(
@@ -984,8 +1014,7 @@ fn file_naming_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPag
         0,
     );
 
-    let global_mode =
-        model::get_int(&ui.read(cx).cfg, "File Naming", "numbering_type", 0) == 2;
+    let global_mode = model::get_int(&ui.read(cx).cfg, "File Naming", "numbering_type", 0) == 2;
 
     let starting_number = {
         let get = ui.clone();
@@ -1015,8 +1044,7 @@ fn file_naming_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPag
                 .item(convention)
                 .item(SettingItem::new(t("Numbering mode"), numbering))
                 .item(
-                    SettingItem::new(t("Starting number"), starting_number)
-                        .disabled(!global_mode),
+                    SettingItem::new(t("Starting number"), starting_number).disabled(!global_mode),
                 ),
         )
 }
@@ -1050,35 +1078,31 @@ fn advanced_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
             ] {
                 let h2 = hh.clone();
                 let copied = copied.clone();
-                row = row.child(
-                    Button::new(bid)
-                        .label(label)
-                        .outline()
-                        .on_click(move |_, _, cx| match bid {
-                            "mcp-copy-token" => {
-                                let token = h2.update(cx, |ui, _| {
-                                    model::get_str(&ui.cfg, "MCP", "mcp_token")
-                                });
-                                cx.write_to_clipboard(ClipboardItem::new_string(token));
-                            }
-                            "mcp-regen" => {
-                                h2.update(cx, |ui, _| {
-                                    let token = uuid::Uuid::new_v4().simple().to_string();
-                                    ui.put("MCP", "mcp_token", Value::from(token));
-                                });
-                                kick(cx, id);
-                            }
-                            _ => {
-                                let conf = h2.update(cx, |ui, _| {
-                                    let token = model::get_str(&ui.cfg, "MCP", "mcp_token");
-                                    model::http_client_config(&ui.cfg, &token).to_string()
-                                });
-                                cx.write_to_clipboard(ClipboardItem::new_string(conf));
-                                h2.update(cx, |ui, _| ui.notice = Some(copied.clone()));
-                                kick(cx, id);
-                            }
-                        }),
-                );
+                row = row.child(Button::new(bid).label(label).outline().on_click(
+                    move |_, _, cx| match bid {
+                        "mcp-copy-token" => {
+                            let token =
+                                h2.update(cx, |ui, _| model::get_str(&ui.cfg, "MCP", "mcp_token"));
+                            cx.write_to_clipboard(ClipboardItem::new_string(token));
+                        }
+                        "mcp-regen" => {
+                            h2.update(cx, |ui, _| {
+                                let token = uuid::Uuid::new_v4().simple().to_string();
+                                ui.put("MCP", "mcp_token", Value::from(token));
+                            });
+                            kick(cx, id);
+                        }
+                        _ => {
+                            let conf = h2.update(cx, |ui, _| {
+                                let token = model::get_str(&ui.cfg, "MCP", "mcp_token");
+                                model::http_client_config(&ui.cfg, &token).to_string()
+                            });
+                            cx.write_to_clipboard(ClipboardItem::new_string(conf));
+                            h2.update(cx, |ui, _| ui.notice = Some(copied.clone()));
+                            kick(cx, id);
+                        }
+                    },
+                ));
             }
             row.into_any_element()
         })
@@ -1086,27 +1110,23 @@ fn advanced_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
 
     SettingPage::new(t("Advanced"))
         .icon(IconName::Wrench)
-        .group(
-            SettingGroup::new()
-                .title(t("CDN"))
-                .items([
-                    configure_button(ui, "cn_cdn_list"),
-                    configure_button(ui, "ov_cdn_list"),
-                    SettingItem::new(
-                        t("CDN provider"),
-                        cfg_dropdown(
-                            ui,
-                            "Advanced",
-                            "prefer_cdn_server_provider_",
-                            vec![
-                                (SharedString::from("auto"), t("Auto")),
-                                (SharedString::from("cn"), t("Mainland China")),
-                                (SharedString::from("ov"), t("Overseas")),
-                            ],
-                        ),
-                    ),
-                ]),
-        )
+        .group(SettingGroup::new().title(t("CDN")).items([
+            configure_button(ui, "cn_cdn_list"),
+            configure_button(ui, "ov_cdn_list"),
+            SettingItem::new(
+                t("CDN provider"),
+                cfg_dropdown(
+                    ui,
+                    "Advanced",
+                    "prefer_cdn_server_provider_",
+                    vec![
+                        (SharedString::from("auto"), t("Auto")),
+                        (SharedString::from("cn"), t("Mainland China")),
+                        (SharedString::from("ov"), t("Overseas")),
+                    ],
+                ),
+            ),
+        ]))
         .group(
             SettingGroup::new()
                 .title(t("FFmpeg"))
@@ -1241,7 +1261,11 @@ fn updates_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
 
 // ---------- page assembly ----------
 
-fn render_pages(ui: &Entity<SettingsUi>, _window: &mut Window, cx: &mut Context<Shell>) -> AnyElement {
+fn render_pages(
+    ui: &Entity<SettingsUi>,
+    _window: &mut Window,
+    cx: &mut Context<Shell>,
+) -> AnyElement {
     let lang = ui.read(cx).lang;
     let media = ui.read(cx).media;
     let _ = media;
@@ -1285,13 +1309,13 @@ fn render_rules_window(
 
     // Rule list: name + type per row; click selects (committing edits).
     let h = ui.clone();
-    let list = div().flex().flex_col().gap_1().children(
-        (0..entries.len()).map(move |display_ix| {
+    let list = div()
+        .flex()
+        .flex_col()
+        .gap_1()
+        .children((0..entries.len()).map(move |display_ix| {
             // Display position → rule index through the active filter.
-            let rule_ix = filter
-                .as_ref()
-                .map(|f| f[display_ix])
-                .unwrap_or(display_ix);
+            let rule_ix = filter.as_ref().map(|f| f[display_ix]).unwrap_or(display_ix);
             let entry = entries[rule_ix].clone();
             let selected = selected == Some(rule_ix);
             let name = {
@@ -1307,7 +1331,13 @@ fn render_rules_window(
             let hh = h.clone();
             ListItem::new(SharedString::from(format!("rule-{display_ix}")))
                 .selected(selected)
-                .child(div().flex().flex_col().child(Label::new(name)).child(Label::new(type_label)))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .child(Label::new(name))
+                        .child(Label::new(type_label)),
+                )
                 .on_click(move |_, _, cx| {
                     hh.update(cx, |ui, _| {
                         if ui.rules.current_index != Some(rule_ix) {
@@ -1318,8 +1348,7 @@ fn render_rules_window(
                     });
                     kick(cx, id);
                 })
-        }),
-    );
+        }));
 
     // Toolbar: CRUD + order + save.
     fn btn(
@@ -1366,8 +1395,7 @@ fn render_rules_window(
         }),
         btn(ui, "rule-restore", t("Restore default"), |ui| {
             if ui.rules.restore_default_rule() {
-                ui.notice =
-                    Some(ui.tr("RuleListDialog", "Restored to the built-in default"));
+                ui.notice = Some(ui.tr("RuleListDialog", "Restored to the built-in default"));
             }
         }),
         btn(ui, "rule-reset", t("Reset to default"), |ui| {
@@ -1490,8 +1518,11 @@ fn render_rule_editor(ui: &Entity<SettingsUi>, cx: &mut Context<Shell>) -> AnyEl
 
     let t = move |s: &str| SharedString::from(lang.tr("EditRuleDialog", s).to_string());
 
-    let type_selector = div().flex().flex_wrap().gap_2().children(
-        ConventionType::ALL.iter().map(|ct| {
+    let type_selector = div()
+        .flex()
+        .flex_wrap()
+        .gap_2()
+        .children(ConventionType::ALL.iter().map(|ct| {
             let cid = ct.id();
             let label = model::type_key(cid)
                 .map(|k| lang.convention_type(k))
@@ -1505,8 +1536,7 @@ fn render_rule_editor(ui: &Entity<SettingsUi>, cx: &mut Context<Shell>) -> AnyEl
                     hh.update(cx, |ui, _| ui.rules.editor.type_ = cid);
                     kick(cx, id);
                 })
-        }),
-    );
+        }));
 
     let default_box = {
         let hh = ui.clone();
@@ -1534,9 +1564,7 @@ fn render_rule_editor(ui: &Entity<SettingsUi>, cx: &mut Context<Shell>) -> AnyEl
                 .flex()
                 .flex_col()
                 .child(Label::new(label.clone()))
-                .child(Label::new(
-                    path.clone().unwrap_or_else(|| "—".to_string()),
-                ))
+                .child(Label::new(path.clone().unwrap_or_else(|| "—".to_string())))
                 .into_any_element()
         })
         .collect();
