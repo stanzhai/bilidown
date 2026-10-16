@@ -275,6 +275,17 @@ translator_map!(
     "ADDED_TO_DOWNLOAD_QUEUE" => "Added to download queue",
 });
 
+translator_map!(
+    /// `Translator.ERROR_MESSAGES` (downloads-UI subset: status-label
+    /// fallbacks the task rows render; log/parse errors belong to their
+    /// own tickets)
+    error_messages, "ERROR_MESSAGES", {
+    "DOWNLOAD_FAILED" => "Download failed",
+    "FFMPEG_PROCESSING_FAILED" => "FFmpeg processing failed",
+    "FILE_NOT_FOUND_TITLE" => "File Not Found",
+    "FILE_NOT_FOUND_DETAIL" => "The file may have been moved or deleted. Please download it again.",
+});
+
 /// `Translator.TERMS_OF_USE()` — HTML text shown in the terms gate.
 pub fn terms_of_use(c: &Catalog) -> String {
     // source string lives in the generated catalog under TERMS_OF_USE
