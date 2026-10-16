@@ -5,7 +5,6 @@
 
 #![cfg(unix)]
 
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -257,10 +256,8 @@ fn stdin_is_closed_so_ffmpeg_cannot_wait_on_keys() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     // `read` succeeds only if stdin is open; with stdin closed it fails
-    // immediately and the fake exits 0 either way — but a would-block
-    // hang would blow the watchdog and turn this into NoResponse.
-    let mut script = std::fs::File::create(dir.join("probe.txt")).unwrap();
-    let _ = script.write_all(b"").unwrap();
+    // immediately. A blocking stdin would hang past the watchdog and
+    // turn this into NoResponse.
     let exe = fake_ffmpeg(&dir, "ffmpeg-stdin", "read line || true");
 
     let mut runner = FFmpegRunner::new(&exe, vec!["ffmpeg".into()]);

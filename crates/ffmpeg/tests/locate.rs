@@ -1,25 +1,44 @@
 //! Locating the executable: resolution order and the surfaced
 //! missing-binary error, exercised with temp install roots and PATH.
+//!
+//! PATH is process-global: tests that mutate it serialize on a static
+//! mutex so a sibling's Drop (restoring the real PATH mid-test) can't
+//! leak the host's ffmpeg into `which_ffmpeg()`.
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use ffmpeg::locate::{
     bundled_ffmpeg_path, ffmpeg_executable, FFmpegSelection, FFmpegSource, MISSING_MESSAGE,
 };
+use parking_lot::Mutex;
 
-struct PathGuard(Vec<PathBuf>);
+static PATH_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+fn path_lock() -> parking_lot::MutexGuard<'static, ()> {
+    PATH_LOCK.lock()
+}
+
+struct PathGuard {
+    _lock: parking_lot::MutexGuard<'static, ()>,
+    old: Vec<PathBuf>,
+}
 
 impl PathGuard {
+    /// Holds the serialization lock for the test's whole body, so the
+    /// guard's Drop restores PATH before the next test starts.
     fn set(paths: Vec<PathBuf>) -> Self {
-        let old: Vec<PathBuf> = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
+        let lock = path_lock();
+        let old: Vec<PathBuf> =
+            std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
         let joined = std::env::join_paths(&paths).unwrap();
         std::env::set_var("PATH", &joined);
-        Self(old)
+        Self { _lock: lock, old }
     }
 }
 
 impl Drop for PathGuard {
     fn drop(&mut self) {
-        let joined = std::env::join_paths(&self.0).unwrap();
+        let joined = std::env::join_paths(&self.old).unwrap();
         std::env::set_var("PATH", joined);
     }
 }
@@ -52,8 +71,13 @@ fn executable_name_matches_platform() {
 
 #[test]
 fn bundled_path_is_install_root_bundle() {
-    let p = bundled_ffmpeg_path(Path::new("/opt/app").as_ref());
-    assert_eq!(p, PathBuf::from("/opt/app").join("bundle").join(ffmpeg_executable()));
+    let p = bundled_ffmpeg_path(Path::new("/opt/app"));
+    assert_eq!(
+        p,
+        PathBuf::from("/opt/app")
+            .join("bundle")
+            .join(ffmpeg_executable())
+    );
 }
 
 #[test]
@@ -170,8 +194,17 @@ fn nothing_found_surfaces_missing_binary_error() {
 
 #[test]
 fn source_values_round_trip_from_config_strings() {
-    assert_eq!(FFmpegSource::from_config("bundled"), Some(FFmpegSource::Bundled));
-    assert_eq!(FFmpegSource::from_config("system"), Some(FFmpegSource::System));
-    assert_eq!(FFmpegSource::from_config("custom"), Some(FFmpegSource::Custom));
+    assert_eq!(
+        FFmpegSource::from_config("bundled"),
+        Some(FFmpegSource::Bundled)
+    );
+    assert_eq!(
+        FFmpegSource::from_config("system"),
+        Some(FFmpegSource::System)
+    );
+    assert_eq!(
+        FFmpegSource::from_config("custom"),
+        Some(FFmpegSource::Custom)
+    );
     assert_eq!(FFmpegSource::from_config("nope"), None);
 }

@@ -7,6 +7,9 @@
 //! handshake is counted in by the stack; weak links need it) and a tight
 //! read/write timeout so stuck responses fail fast.
 
+pub mod cdn;
+pub mod probe;
+
 use std::sync::Arc;
 
 use parking_lot::RwLock;
@@ -174,6 +177,38 @@ impl HttpClient {
         })
     }
 
+    /// Client tuned for CDN host probing: no signer, no cookie replay,
+    /// tight timeouts. Probing must not touch the shared cookie jar
+    /// (CDN auth lives in query params) and must fail a dead node fast.
+    /// `user_agent` and `proxy` come from the same options as
+    /// [`HttpClient::new`].
+    pub fn probe(options: ClientOptions) -> Result<Self, HttpError> {
+        let mut builder = Client::builder()
+            .user_agent(options.user_agent)
+            .default_headers(default_headers())
+            .timeout(crate::probe::PROBE_TIMEOUT)
+            .connect_timeout(crate::probe::PROBE_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .pool_max_idle_per_host(16);
+
+        match options.proxy.mode {
+            ProxyMode::None => {
+                builder = builder.no_proxy();
+            }
+            ProxyMode::System => {}
+            ProxyMode::Manual => {
+                builder = builder.proxy(manual_proxy(&options.proxy)?);
+            }
+        }
+
+        Ok(Self {
+            client: builder.build()?,
+            jar: Arc::new(Jar::default()),
+            cookies: Arc::new(RwLock::new(Vec::new())),
+            signer: None,
+        })
+    }
+
     /// Signed GET returning the response body parsed as JSON.
     pub async fn get_json<T: serde::de::DeserializeOwned>(
         &self,
@@ -196,6 +231,34 @@ impl HttpClient {
         }
         let response = request.send().await?;
         check_status(response, url).await
+    }
+
+    /// Signed GET returning the response body as raw bytes
+    /// (protobuf segment fetch, `ResponseType.BYTES` in Python). Protobuf
+    /// bodies are not UTF-8, so this bypasses the text path entirely.
+    pub async fn get_bytes(
+        &self,
+        url: &str,
+        params: &[(String, String)],
+    ) -> Result<Vec<u8>, HttpError> {
+        let mut all = params.to_vec();
+        if let Some(signer) = &self.signer {
+            all.extend(signer.sign(url, params));
+        }
+        let mut request = self.client.get(url);
+        if !all.is_empty() {
+            request = request.query(&all);
+        }
+        let response = request.send().await?;
+        let status = response.status();
+        let bytes = response.bytes().await?;
+        if !status.is_success() {
+            return Err(HttpError::Status {
+                status,
+                url: url.to_owned(),
+            });
+        }
+        Ok(bytes.to_vec())
     }
 
     /// Signed POST with a JSON body, returning the body parsed as JSON.
