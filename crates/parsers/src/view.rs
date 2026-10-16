@@ -261,6 +261,18 @@ impl ParseListView {
         self.current_episode_bvid.as_deref()
     }
 
+    /// The invisible wrapper root (display rows are its children). Read
+    /// seam for UI layers that flatten the tree into display rows.
+    pub fn root(&self) -> &TreeItem {
+        &self.root
+    }
+
+    /// Mutable root seam: callers must re-run the check-state aggregation
+    /// themselves after leaf edits (`refresh_check_state`).
+    pub fn root_mut(&mut self) -> &mut TreeItem {
+        &mut self.root
+    }
+
     /// Pending locate data (test seam mirroring
     /// `ParseTreeView._pending_episode_data`).
     pub fn pending_episode_data(&self) -> Option<&(String, String)> {
