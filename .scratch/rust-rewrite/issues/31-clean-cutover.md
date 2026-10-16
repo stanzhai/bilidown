@@ -6,11 +6,17 @@ checklist is fully green. Rust tree becomes the product.
 
 **Blocked by:** 30.
 
-**Status:** in-progress
+**Status:** resolved
 
-- [ ] src/ Python app, launcher/, PyStand, Python build scripts and CI jobs deleted
-- [ ] README/docs updated to the Rust build only
-- [ ] Repo still builds and all Rust tests green after deletion
+- [x] src/ Python app, launcher/, PyStand, Python build scripts and CI jobs deleted
+- [x] README/docs updated to the Rust build only
+- [x] Repo still builds and all Rust tests green after deletion
+
+## Answer
+
+Clean cutover done: parity blockers closed in `e305c310`, Python tree
+deleted in `b74b869d`; post-deletion gate green (build, clippy -D
+warnings, 795/0 tests, packaging checks).
 
 ## Comments
 
