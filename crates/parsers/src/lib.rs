@@ -10,6 +10,7 @@ pub mod auto_parse;
 pub mod batch;
 pub mod episode;
 pub mod list;
+pub mod media_parser;
 pub mod tree;
 pub mod view;
 pub mod worker;
