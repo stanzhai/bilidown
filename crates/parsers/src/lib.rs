@@ -8,6 +8,8 @@
 pub mod area;
 pub mod audio;
 pub mod batch;
+pub mod episode;
+pub mod parser_list;
 pub mod tree;
 
 pub use area::{detect_area, AreaError, DetectOptions, AREA_DETECT_TIMEOUT};

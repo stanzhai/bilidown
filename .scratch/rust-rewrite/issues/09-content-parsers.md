@@ -9,7 +9,7 @@ wiremock-pinned API responses.
 
 **Blocked by:** 08, 06.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] av/BV multi-P expansion into Episodes (test_episode_list_parsers, test_list_parser vectors ported)
 - [ ] Collection (合集) grouping matches Python behavior
