@@ -1,25 +1,11 @@
-//! Screens: parse (in `super::parse`), downloads, favorites, settings,
-//! about.
+//! Screens: parse (in `super::parse`), downloads (in `super::downloads`),
+//! favorites, settings, about.
 
 pub mod about {
     use gpui_kit::{div, prelude::*};
 
     pub fn render_about() -> impl IntoElement {
         div().p_6().child(crate::version_line())
-    }
-}
-
-pub mod downloads {
-    use gpui_kit::{div, prelude::*};
-
-    /// Downloads screen stub (ticket 22).
-    #[derive(Default)]
-    pub struct DownloadsScreen;
-
-    impl DownloadsScreen {
-        pub fn render(&mut self) -> impl IntoElement {
-            div().p_6().child("Downloads")
-        }
     }
 }
 
@@ -39,7 +25,6 @@ pub mod favorites {
 
 /// Screen states owned by the shell (rendering mutates them).
 pub struct Screens {
-    pub downloads: downloads::DownloadsScreen,
     pub favorites: favorites::FavoritesScreen,
     pub settings: super::settings::SettingsScreen,
 }

@@ -1,0 +1,38 @@
+[package]
+name = "mcp"
+description = "MCP server: local loopback HTTP JSON-RPC endpoint exposing parse/download/task tools, plus the stdio bridge for Claude Desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mcp-stdio"
+path = "src/bin/mcp_stdio.rs"
+
+[dependencies]
+axum = "=0.8.9"
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time", "sync", "net", "io-util"] }
+anyhow = "1"
+parking_lot = "=0.12.5"
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+subtle = "=2.6.1"
+base64 = "=0.22.1"
+rand = "=0.10.3"
+config = { path = "../config" }
+parsers = { path = "../parsers" }
+tasks = { path = "../tasks" }
+database = { path = "../database" }
+urls = { path = "../urls" }
+network = { path = "../network" }
+auth = { path = "../auth" }
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "http2", "charset"] }
+
+[dev-dependencies]
+wiremock = "=0.6.5"
+tower = { version = "=0.5.3", features = ["util"] }
+tempfile = "=3.27.0"

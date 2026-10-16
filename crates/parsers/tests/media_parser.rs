@@ -268,7 +268,7 @@ async fn bangumi_ep_link_marks_current() {
         .await;
 
     let data = EpisodeData::default();
-    let node = parse_bangumi_url(
+    let (node, _) = parse_bangumi_url(
         &client(),
         &server.uri(),
         "https://www.bilibili.com/bangumi/play/ep501",
@@ -314,7 +314,7 @@ async fn bangumi_md_link_resolves_through_review() {
         .mount(&server)
         .await;
 
-    let node = parse_bangumi_url(
+    let (node, _) = parse_bangumi_url(
         &client(),
         &server.uri(),
         "https://www.bilibili.com/bangumi/media/md2823",
@@ -353,7 +353,7 @@ async fn cheese_ss_link_parses() {
         .mount(&server)
         .await;
 
-    let node = parse_cheese_url(
+    let (node, _) = parse_cheese_url(
         &client(),
         &server.uri(),
         "https://www.bilibili.com/cheese/play/ss888",
@@ -417,7 +417,7 @@ async fn lesson_post_builds_tree_and_play_payload() {
         .await;
 
     let logged_in = auth::AuthState { is_login: true, ..Default::default() };
-    let node = parse_lesson_url(
+    let (node, _) = parse_lesson_url(
         &client(),
         &server.uri(),
         "https://mall.bilibili.com/lesson/play?courseId=100&lessonId=200&itemId=300",

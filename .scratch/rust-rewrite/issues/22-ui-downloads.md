@@ -8,11 +8,15 @@ backend.
 
 **Blocked by:** 16, 20, 19.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] List reflects live task state from the manager (progress/speed/status)
-- [ ] Bulk actions and sort/filter behave as Python's
-- [ ] Duplicate dialog offers ask/skip/continue and feeds the manager
-- [ ] Exit dialog with remember-choice; log viewer with filter
+- [x] List reflects live task state from the manager (progress/speed/status)
+- [x] Bulk actions and sort/filter behave as Python's
+- [x] Duplicate dialog offers ask/skip/continue and feeds the manager
+- [x] Exit dialog with remember-choice; log viewer with filter
+
+## Answer
+
+Implemented in `crates/app/src/ui/downloads/` (model/screen/screen_state/dialogs/log_view) + `ui/fmt.rs`; `Shell` owns the TaskManager and renders `DownloadsScreen`; `Shell::ask_exit` is the ticket-26 close-flow seam. Commit: fe3c14f5 (merged 1a7466b6).
 
 ## Comments
