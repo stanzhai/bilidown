@@ -3983,6 +3983,7 @@ dependencies = [
 name = "network"
 version = "2.21.0"
 dependencies = [
+ "futures",
  "parking_lot",
  "reqwest",
  "serde",
