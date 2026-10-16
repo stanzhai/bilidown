@@ -7,7 +7,7 @@ and-apply update prompt integration.
 
 **Blocked by:** 04, 24.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Client hits the real Verhub endpoints (wiremock-pinned from captured API shapes)
 - [ ] Skip-version suppresses the prompt for that version only; prerelease opt-in gates tags
