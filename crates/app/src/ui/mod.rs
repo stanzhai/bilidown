@@ -1,5 +1,6 @@
 //! App UI modules: navigation shell + screens.
 
+pub mod download_options;
 pub mod parse;
 pub mod screens;
 

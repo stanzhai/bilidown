@@ -18,5 +18,7 @@ config = { path = "../config" }
 urls = { path = "../urls" }
 network = { path = "../network" }
 auth = { path = "../auth" }
+naming = { path = "../naming" }
+services = { path = "../services" }
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread"] }

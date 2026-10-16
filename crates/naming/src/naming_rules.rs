@@ -94,6 +94,7 @@ fn default_entries() -> Vec<RuleEntry> {
 /// The active rule list. Defaults to the built-ins until the config crate
 /// (ticket 02) takes over loading/saving.
 // ponytail: process-global store; swap for injected config once crates/config lands.
+#[derive(Clone)]
 pub struct RuleStore {
     rules: Vec<RuleEntry>,
 }

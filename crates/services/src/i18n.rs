@@ -271,7 +271,8 @@ translator_map!(
     "PARSING_INTERACTIVE_VIDEO_NODE" => "Parsing node: {title}",
     "PARSING_PAGE" => "Parsing page {page}, total {total_page} pages, progress: {progress}%",
     "PARSING_LINK" => "Parsing link {link}, total {total_links} links, progress: {progress}%",
-    "MEDIA_INFO_UPDATED" => "Media info updated",
+    "VIDEO_CODEC_FALLBACK" => "This video has no {requested}",
+    "VIDEO_CODEC_FALLBACK_MESSAGE" => "This video has no {requested}, using {actual}",
     "ADDED_TO_DOWNLOAD_QUEUE" => "Added to download queue",
 });
 
