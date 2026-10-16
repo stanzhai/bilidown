@@ -1581,6 +1581,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffmpeg"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "libc",
+ "parking_lot",
+]
+
+[[package]]
 name = "filedescriptor"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
