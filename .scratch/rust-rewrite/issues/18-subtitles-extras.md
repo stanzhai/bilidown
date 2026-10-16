@@ -19,6 +19,6 @@ crates/extras: subtitles (srt/lrc/txt/ass/json + language filter + MKV
 embed w/ ISO 639-2 + AI track title), ASS renderer (Subtitle Style from
 config), NFO movie/tvshow/episodedetails + JSON sidecar, cover export via
 CoverDatabase original-quality cache, player info fetch, options
-resolve() fallbacks — see commit 33cb6151.
+resolve() fallbacks — see commit 9cd3d9f5.
 
 ## Comments
