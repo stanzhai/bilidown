@@ -188,7 +188,7 @@ fn episode_duration(episode: &Value) -> i64 {
 /// Episode side-data registry shared by the parsers in this process
 /// (Python's process-global `EpisodeData.table`); one instance per app.
 pub struct ListParseContext {
-    pub episode_data: EpisodeData,
+    pub episode_data: std::sync::Arc<EpisodeData>,
     uname_cache: Mutex<HashMap<i64, String>>,
 }
 
@@ -201,7 +201,17 @@ impl Default for ListParseContext {
 impl ListParseContext {
     pub fn new() -> Self {
         Self {
-            episode_data: EpisodeData::new(),
+            episode_data: std::sync::Arc::new(EpisodeData::new()),
+            uname_cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Adopt an existing side-data registry so list parses and the
+    /// download pipeline share one table (`EpisodeData` is a Python
+    /// process global there).
+    pub fn with_episode_data(episode_data: std::sync::Arc<EpisodeData>) -> Self {
+        Self {
+            episode_data,
             uname_cache: Mutex::new(HashMap::new()),
         }
     }
