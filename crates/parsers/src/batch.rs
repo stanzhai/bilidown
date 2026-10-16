@@ -202,7 +202,7 @@ pub fn build_video_items(data: &Value) -> BatchPage {
                 let ep_title = episode["title"].as_str().unwrap_or_default().to_owned();
                 let pages = episode["pages"].as_array().cloned().unwrap_or_default();
 
-                let mut fill = |item: &mut TreeItem, parent_title: Option<&str>| {
+                let fill = |item: &mut TreeItem, parent_title: Option<&str>| {
                     item.aid = ep_aid;
                     item.bvid = ep_bvid.clone();
                     item.set_attribute(Attribute::VIDEO_BIT | Attribute::COLLECTION_BIT);
