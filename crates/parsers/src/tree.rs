@@ -138,7 +138,7 @@ pub enum Number {
 }
 
 impl Number {
-    fn to_json(&self) -> Value {
+    pub fn to_json(&self) -> Value {
         match self {
             Number::Empty => Value::Null,
             Number::Int(n) => json!(n),

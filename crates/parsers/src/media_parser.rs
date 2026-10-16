@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use regex::Regex;
 use serde_json::{json, Value};
 
+use crate::episode;
 use crate::episode::bangumi::parse_bangumi;
 use crate::episode::media::{parse_cheese, parse_lesson};
 use crate::episode::video::parse_video;
@@ -19,6 +20,17 @@ use crate::tree::{Attribute, EpisodeData, Number, TreeItem};
 
 use crate::batch::aid_to_bvid;
 use crate::list::{check_response, swap_host};
+
+/// `get_ep_id`/`get_section_id` result → `(field, value)` locator;
+/// empty values locate nothing (Python `if not value: return None`).
+fn value_to_locator(field: &str, value: &Value) -> Option<(String, String)> {
+    let value = match value {
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => s.clone(),
+        _ => return None,
+    };
+    (!value.is_empty()).then(|| (field.to_owned(), value))
+}
 
 pub const VIDEO_VIEW_API: &str = "https://api.bilibili.com/x/web-interface/wbi/view";
 pub const STEIN_EDGEINFO_API: &str = "https://api.bilibili.com/x/stein/edgeinfo_v2";
@@ -391,7 +403,7 @@ pub async fn parse_bangumi_url(
     base: &str,
     url: &str,
     episode_data: &EpisodeData,
-) -> Result<TreeItem, MediaError> {
+) -> Result<(TreeItem, Option<(String, String)>), MediaError> {
     let (param, ep_id) = bangumi_param(client, base, url).await?;
 
     let response: Value = client
@@ -405,7 +417,10 @@ pub async fn parse_bangumi_url(
     }
 
     let episode_id = episode_data.add_episode();
-    Ok(parse_bangumi(episode_data, &episode_id, &result))
+    let node = parse_bangumi(episode_data, &episode_id, &result);
+    // `BangumiEpisodeParser.parse` locator: ("ep_id", get_ep_id()).
+    let current = value_to_locator("ep_id", &episode::bangumi::get_ep_id(&result));
+    Ok((node, current))
 }
 
 /// `get_ep_id`/`get_season_id`/`get_media_id`: which season param the
@@ -460,7 +475,7 @@ pub async fn parse_cheese_url(
     base: &str,
     url: &str,
     episode_data: &EpisodeData,
-) -> Result<TreeItem, MediaError> {
+) -> Result<(TreeItem, Option<(String, String)>), MediaError> {
     let ((key, value), ep_id) = match find_str(r"ep|ss", url).as_deref() {
         Some("ep") => (
             ("ep_id".to_owned(), capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?.to_string()),
@@ -484,7 +499,10 @@ pub async fn parse_cheese_url(
     }
 
     let episode_id = episode_data.add_episode();
-    Ok(parse_cheese(episode_data, &episode_id, &data))
+    let node = parse_cheese(episode_data, &episode_id, &data);
+    // `CheeseEpisodeParser.parse` locator: ("ep_id", get_ep_id()).
+    let current = value_to_locator("ep_id", &episode::media::cheese_get_ep_id(&data));
+    Ok((node, current))
 }
 
 // ---------------------------------------------------------------------------
@@ -500,7 +518,7 @@ pub async fn parse_lesson_url(
     url: &str,
     auth: &auth::AuthState,
     episode_data: &EpisodeData,
-) -> Result<TreeItem, MediaError> {
+) -> Result<(TreeItem, Option<(String, String)>), MediaError> {
     if !auth.is_login {
         return Err(MediaError::LoginRequired);
     }
@@ -533,11 +551,11 @@ pub async fn parse_lesson_url(
     data.insert("itemId".into(), json!(item_id));
 
     let episode_id = episode_data.add_episode();
-    Ok(parse_lesson(
-        episode_data,
-        &episode_id,
-        &Value::Object(data),
-    ))
+    let info = Value::Object(data);
+    let node = parse_lesson(episode_data, &episode_id, &info);
+    // `LessonEpisodeParser.parse` locator: ("section_id", get_section_id()).
+    let current = value_to_locator("section_id", &episode::media::lesson_get_section_id(&info));
+    Ok((node, current))
 }
 
 /// `get_id_from_url`: strictly-numeric query params.
