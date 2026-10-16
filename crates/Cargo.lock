@@ -6784,6 +6784,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "tasks"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "config",
+ "database",
+ "downloader",
+ "ffmpeg",
+ "md-5 0.10.6",
+ "mux",
+ "network",
+ "parking_lot",
+ "parsers",
+ "regex",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
+ "wiremock",
+]
+
+[[package]]
 name = "tauri-winrt-notification"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
