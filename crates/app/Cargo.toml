@@ -20,12 +20,19 @@ urls = { path = "../urls" }
 network = { path = "../network" }
 naming = { path = "../naming" }
 services = { path = "../services" }
+tasks = { path = "../tasks" }
+database = { path = "../database" }
 parking_lot.workspace = true
 qrcode = "=0.14.1"
 image = "=0.25.10"
 open = "=5.4.4"
+serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "net", "io-util", "time", "macros"] }
+chrono = { version = "=0.4.45" }
+dirs = "=6.0.0"
+naming = { path = "../naming" }
+uuid = { version = "=1.28.0", features = ["v4"] }
 
 [dev-dependencies]
 wiremock = "=0.6.5"

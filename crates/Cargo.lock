@@ -193,7 +193,10 @@ version = "2.21.0"
 dependencies = [
  "anyhow",
  "auth",
+ "chrono",
  "config",
+ "database",
+ "dirs 6.0.0",
  "gpui-kit",
  "image",
  "naming",
@@ -202,11 +205,14 @@ dependencies = [
  "parking_lot",
  "parsers",
  "qrcode",
+ "serde",
  "serde_json",
  "services",
+ "tasks",
  "tempfile",
  "tokio",
  "urls",
+ "uuid",
  "wiremock",
 ]
 
@@ -6433,11 +6439,19 @@ dependencies = [
  "anyhow",
  "config",
  "database",
+ "libc",
+ "network",
  "regex",
+ "reqwest",
+ "serde",
  "serde_json",
  "sys-locale",
  "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
  "urls",
+ "windows-sys 0.52.0",
+ "wiremock",
 ]
 
 [[package]]

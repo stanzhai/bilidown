@@ -1,15 +1,20 @@
 //! App UI modules: navigation shell + screens.
 
 pub mod download_options;
+pub mod dialogs;
+pub mod downloads;
+pub mod fmt;
 pub mod login;
 pub mod parse;
 pub mod screens;
+pub mod settings;
 
-use std::sync::Arc;
 use gpui_kit::base::Disableable;
 use gpui_kit::component::sidebar::{Sidebar, SidebarMenuItem};
-use gpui_kit::{Context, Global, Render, Window, div, prelude::*};
+use gpui_kit::{div, prelude::*, Context, Global, Render, Window};
+use std::sync::Arc;
 
+use downloads::screen::DownloadsScreen;
 use login::LoginState;
 use parse::ParseScreen;
 
@@ -36,6 +41,7 @@ impl Global for ShellI18n {}
 pub struct Shell {
     pub screen: Screen,
     pub parse: ParseScreen,
+    pub downloads: DownloadsScreen,
     pub screens: screens::Screens,
     /// Login state (auth stack, ticket 23): dialog handles + models.
     pub login: LoginState,
@@ -52,7 +58,9 @@ pub struct Shell {
 impl Shell {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         // i18n global: `General.language` (auto → system)
-        let cfg = config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let cfg = Arc::new(
+            config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", "")),
+        );
         let lang = services::i18n::Language::from_config(
             cfg.get("General", "language")
                 .and_then(|v| v.as_str())
@@ -63,7 +71,7 @@ impl Shell {
         let user_agent = cfg
             .get("Advanced", "user_agent")
             .and_then(|v| v.as_str())
-            .unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0")
+            .unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
             .to_string();
         let client = Arc::new(
             network::HttpClient::new(network::ClientOptions {
@@ -77,15 +85,34 @@ impl Shell {
         let wbi = Arc::new(auth::WbiKeyStore::new());
 
         // config.json Cookie section (auth stack's persistence point)
-        let dir = cfg.path().parent().map(|p| p.to_path_buf()).unwrap_or_default();
+        let dir = cfg
+            .path()
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default();
         let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&dir))
             .unwrap_or_default();
         let is_login = auth_state.is_login;
 
+        // TaskManager 不可用（无 DB / 只读目录）时下载页降级为空表；
+        // 其余屏幕不受影响。
+        let config = cfg.clone();
+        let manager = task_db_path()
+            .and_then(|p| tasks::TaskManager::open(p, config.clone()).ok())
+            .map(Arc::new);
+        dialogs::update::run_startup_check(window, cx);
+        let settings = settings::SettingsScreen::new(window, cx);
+        // Settings writes notify their entity; observe it so the shell
+        // redraws (the subscription lives as long as the shell).
+        cx.observe(&settings.ui, |_, _, cx| cx.notify()).detach();
         Self {
             screen: Screen::Parse,
             parse: ParseScreen::new(window, cx),
-            screens: screens::Screens::default(),
+            downloads: DownloadsScreen::new(config, manager, window, cx),
+            screens: screens::Screens {
+                favorites: Default::default(),
+                settings,
+            },
             login: LoginState::new(window, cx, is_login),
             auth_state,
             auth_client: client,
@@ -117,10 +144,26 @@ impl Shell {
         self.login.is_login = state.is_login;
         cx.notify();
     }
+
+    /// Window-close seam (ticket 26 owns the wiring in main.rs): show the
+    /// exit dialog and hand `(exit, remember)` back.
+    pub fn ask_exit(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        on_choice: impl FnOnce(bool, bool) + 'static,
+    ) {
+        downloads::dialogs::open_exit_dialog(window, cx, on_choice);
+    }
+}
+
+/// 任务数据库路径：User Data/Bili23 Downloader/task.db（Python appdata 推导）。
+fn task_db_path() -> Option<std::path::PathBuf> {
+    dirs::data_dir().map(|d| d.join(config::APP_NAME).join("task.db"))
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use gpui_kit::assets::IconName;
 
         let screen = self.screen;
@@ -132,7 +175,7 @@ impl Render for Shell {
                 Sidebar::new("nav").children(
                     [
                         (Screen::Parse, "Parse", IconName::Search),
-                        (Screen::Downloads, "Downloads", IconName::Download),
+                        (Screen::Downloads, "Downloads", IconName::CloudDownload),
                         (Screen::Favorites, "Favorites", IconName::Star),
                         (Screen::About, "About", IconName::Info),
                         (Screen::Settings, "Settings", IconName::Settings),
@@ -143,6 +186,9 @@ impl Render for Shell {
                             .active(screen == s)
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.screen = s;
+                                if s == Screen::Downloads {
+                                    this.downloads.refresh(cx);
+                                }
                                 cx.notify();
                             }))
                     }),
@@ -150,10 +196,10 @@ impl Render for Shell {
             )
             .child(match screen {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
-                Screen::Downloads => self.screens.downloads.render().into_any_element(),
+                Screen::Downloads => self.downloads.render(cx).into_any_element(),
                 Screen::Favorites => self.screens.favorites.render().into_any_element(),
-                Screen::About => screens::about::render_about().into_any_element(),
-                Screen::Settings => self.screens.settings.render().into_any_element(),
+                Screen::About => screens::about::render_about(cx).into_any_element(),
+                Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
             .child(
                 // login entry (Python: the avatar button on the main page)
@@ -188,5 +234,16 @@ mod tests {
         assert_eq!(state.sms, login::model::SmsPhase::Idle);
         assert_eq!(state.qr, login::model::QrPhase::Loading);
         assert!(state.qr_key.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod task_path_tests {
+    /// `task_db_path` stays inside the user-data dir (never the repo).
+    #[test]
+    fn task_db_path_lives_in_appdata() {
+        let p = super::task_db_path().expect("data_dir available on macOS");
+        assert!(p.ends_with("task.db"));
+        assert!(p.to_string_lossy().contains(config::APP_NAME));
     }
 }

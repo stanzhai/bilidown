@@ -17,6 +17,7 @@
     <img src="https://img.shields.io/github/stars/ScottSloan/Bili23-Downloader?style=flat-square" alt="Stars"/>
     <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/publish.yml?style=flat-square" alt="Build"/>
 </p>
+<!-- NOTE: full Rust + gpui-kit rewrite in progress; see docs/adr/0001-rust-gpui-kit-rewrite.md and .scratch/rust-rewrite/spec.md -->
 
 <div align="center">
     <h3>

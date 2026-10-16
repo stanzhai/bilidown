@@ -30,6 +30,8 @@ pub struct ParseScreen {
     pub status: String,
     /// Dialog seam the next ticket implements (`(name, payload)`).
     pub pending_dialog: Option<&'static str>,
+    /// Walked stein tree awaiting the interactive dialog's decision.
+    pub pending_interactive_node: Option<parsers::tree::TreeItem>,
     /// Monotonic token: results from an older parse are dropped.
     generation: u64,
 }
@@ -46,6 +48,7 @@ impl ParseScreen {
             tree,
             status: String::new(),
             pending_dialog: None,
+            pending_interactive_node: None,
             generation: 0,
         }
     }
@@ -70,6 +73,24 @@ impl ParseScreen {
                                 shell.parse.start_parse(cx);
                             },
                         )),
+                    )
+                    .child(
+                        Button::new("batch-parse-button")
+                            .label("Batch Parse")
+                            .on_click(cx.listener(
+                                |shell, _, window, cx| {
+                                    shell.parse.open_batch_parse_dialog(window, cx);
+                                },
+                            )),
+                    )
+                    .child(
+                        Button::new("batch-select-button")
+                            .label("Batch Select")
+                            .on_click(cx.listener(
+                                |shell, _, window, cx| {
+                                    shell.parse.open_batch_select_dialog(window, cx);
+                                },
+                            )),
                     ),
             )
             .child(div().id("parse-status").child(self.status.clone()))
@@ -228,6 +249,14 @@ impl ParseScreen {
                 .map(super::model::PaginationState::from_extra);
         }
         self.model.server_search = output.extra.server_search;
+        if output.category == "INTERACTIVE_VIDEO" {
+            // The walked stein tree is parked; the interactive dialog
+            // decides on accept whether to present it.
+            self.pending_interactive_node = Some(output.node.clone());
+            self.status = String::new();
+            cx.notify();
+            return;
+        }
         let _ = self
             .model
             .list
@@ -272,16 +301,95 @@ impl ParseScreen {
 
     // ---- Dialog seams (tickets 21–26 implement these) ----
 
-    pub fn open_batch_parse_dialog(&mut self, _: &mut Context<Shell>) {
-        self.pending_dialog = Some("batch_parse");
+    pub fn open_batch_parse_dialog(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Shell>,
+    ) {
+        let cfg = config::ConfigStore::open()
+            .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let shell = cx.entity();
+        crate::ui::dialogs::batch_parse::open_batch_parse(
+            cfg,
+            move |urls, _auto_add, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.parse.start_batch_parse(urls, cx);
+                });
+            },
+            window,
+            cx,
+        );
+    }
+
+    /// Batch-parse dialog accept: fold every pasted link into one tree via
+    /// `parsers::batch::parse_batch` and present it as a video parse.
+    pub fn start_batch_parse(&mut self, urls: Vec<String>, cx: &mut Context<Shell>) {
+        self.generation += 1;
+        let generation = self.generation;
+        self.model.reset();
+        self.status = "Parsing…".to_string();
+        self.refresh_tree(cx);
+        cx.spawn(async move |shell, cx| {
+            let cfg = config::ConfigStore::open()
+                .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+            let service = super::dispatch::ParseService::new(&cfg);
+            let base = super::dispatch::BASE_URL.to_string();
+            let interval = std::time::Duration::from_secs_f32(parsers::batch::LINK_INTERVAL);
+            let result = parsers::batch::parse_batch(
+                &service.client,
+                &base,
+                &urls,
+                |_, _| {},
+                interval,
+            )
+            .await;
+            shell.update(cx, |shell, cx| {
+                if shell.parse.generation != generation {
+                    return; // superseded by a newer parse
+                }
+                match result {
+                    Ok(node) => {
+                        let output = parsers::list::ParseOutput {
+                            category: "video",
+                            node,
+                            extra: parsers::list::ExtraData::default(),
+                            current_episode: None,
+                        };
+                        shell.parse.apply_parse_result(&output, cx);
+                    }
+                    Err(e) => {
+                        shell.parse.status = format!("Batch parse failed: {e}");
+                        cx.notify();
+                    }
+                }
+            })
+        })
+        .detach();
     }
 
     pub fn open_search_dialog(&mut self, _: &mut Context<Shell>) {
         self.pending_dialog = Some("search");
     }
 
-    pub fn open_batch_select_dialog(&mut self, _: &mut Context<Shell>) {
-        self.pending_dialog = Some("batch_select");
+    pub fn open_batch_select_dialog(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Shell>,
+    ) {
+        let cfg = config::ConfigStore::open()
+            .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let shell = cx.entity();
+        crate::ui::dialogs::batch_select::open_batch_select(
+            cfg,
+            move |numbers, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.parse.model.list.check_numbers(&numbers);
+                    shell.parse.refresh_tree(cx);
+                });
+            },
+            window,
+            cx,
+        );
     }
 
     pub fn open_history_dialog(&mut self, _: &mut Context<Shell>) {
@@ -292,8 +400,52 @@ impl ParseScreen {
         self.pending_dialog = Some("auto_parse");
     }
 
-    pub fn open_interactive_video_dialog(&mut self, _: &mut Context<Shell>) {
-        self.pending_dialog = Some("interactive_video");
+    /// Open the interactive-video dialog when a walked stein tree is
+    /// parked; otherwise record the intent.
+    pub fn open_interactive_video_dialog(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Shell>,
+    ) {
+        let Some(node) = self.pending_interactive_node.take() else {
+            self.pending_dialog = Some("interactive_video");
+            return;
+        };
+        let cfg = config::ConfigStore::open()
+            .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let shell = cx.entity();
+        crate::ui::dialogs::interactive::open_interactive_video(
+            serde_json::Value::Null,
+            cfg,
+            move |payload, cx| {
+                shell.update(cx, |shell, cx| {
+                    // The parked tree already holds the stein graph;
+                    // `data` (entry-node view) is only diagnostic.
+                    let _ = &payload.data;
+                    if !payload.auto_parse {
+                        return; // only "parse all nodes" exists upstream
+                    }
+                    let output = parsers::list::ParseOutput {
+                        category: "INTERACTIVE_VIDEO",
+                        node,
+                        extra: parsers::list::ExtraData::default(),
+                        current_episode: None,
+                    };
+                    shell.parse.model.category_key = output.category.to_string();
+                    shell.parse.model.category_name = output.category.to_string();
+                    shell.parse.model.pagination = None;
+                    shell.parse.model.server_search = false;
+                    let _ = shell.parse.model.list.update_tree(
+                        output.node.clone(),
+                        output.current_episode.clone(),
+                    );
+                    shell.parse.refresh_tree(cx);
+                    shell.parse.status = String::new();
+                });
+            },
+            window,
+            cx,
+        );
     }
 
     pub fn open_download_options_dialog(&mut self, window: &mut Window, cx: &mut Context<Shell>) {

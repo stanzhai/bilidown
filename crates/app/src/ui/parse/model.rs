@@ -62,7 +62,6 @@ pub fn row_label(item: &EpisodeItem) -> String {
 /// (inclusive ranges, comma-separated). `None` on any malformed token
 /// (Python's dialog validates before accept; here the caller checks
 /// [`parse_ranges`] first and toasts).
-#[allow(dead_code)] // BatchSelectDialog (ticket 25) calls this
 pub fn parse_ranges(input: &str) -> Option<Vec<i64>> {
     let mut out = Vec::new();
     for part in input.split(',').map(str::trim).filter(|s| !s.is_empty()) {
@@ -81,12 +80,6 @@ pub fn parse_ranges(input: &str) -> Option<Vec<i64>> {
         return None;
     }
     Some(out)
-}
-
-/// True when the whole input parses to at least one number.
-#[allow(dead_code)] // BatchSelectDialog (ticket 25) calls this
-pub fn parse_ranges_ok(input: &str) -> bool {
-    parse_ranges(input).is_some()
 }
 
 /// The view model over the parse list. Wraps `ParseListView` (the port of
@@ -522,7 +515,7 @@ mod tests {
         assert_eq!(parse_ranges("x"), None);
         assert_eq!(parse_ranges("5-2"), None, "反向区间必须整体拒绝");
         assert_eq!(parse_ranges("1,x,3"), None, "一个坏 token 毁掉整个输入");
-        assert!(!parse_ranges_ok("3-"));
+        assert!(!parse_ranges("3-").is_some());
     }
 
     #[test]

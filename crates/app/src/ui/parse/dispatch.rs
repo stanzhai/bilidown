@@ -69,8 +69,9 @@ pub async fn parse(
                             ctx.episode_data.set_episode_data(&node.episode_id, value);
                             return Ok(one_shot("USER_UPLOADS", node, None));
                         }
-                        // Ticket 25 owns the interactive dialog; until
-                        // then the walked tree returns as-is.
+                        // Ticket 25: the stein walk already ran inside
+                        // `parse_video_url`; the dialog only gates
+                        // presentation of the completed tree.
                         ParseOutcome::Interactive(node) => {
                             return Ok(one_shot("INTERACTIVE_VIDEO", node, None));
                         }
