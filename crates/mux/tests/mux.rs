@@ -50,6 +50,12 @@ struct Fixture {
 }
 
 impl Fixture {
+    // ponytail: fixed temp path (not an anonymous tempdir) — safe within one
+    // test binary (tags are unique per test) but two overlapping `cargo test`
+    // processes race on remove/create and artifact writes; that race is the
+    // suspected cause of the rare `kept_originals_are_renamed_and_delivered`
+    // flake under full-suite parallelism. Swap for tempfile::tempdir() if it
+    // recurs.
     fn new(tag: &str) -> Self {
         let dir = std::env::temp_dir().join(format!("bilidown-t15-{tag}"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -254,8 +260,7 @@ fn m4a_to_mp3_converts_renames_and_flips_ext() {
     task.File.video_file_ext = String::new();
     task.Download.type_ = download_type::AUDIO;
     fx.touch("audio_abc123.m4a");
-    let mut globals = GlobalOptions::default();
-    globals.m4a_to_mp3 = true;
+    let globals = GlobalOptions { m4a_to_mp3: true, ..GlobalOptions::default() };
 
     let outcome = Merger::new(&mut task, &globals, &fx.ffmpeg).run();
 
@@ -294,9 +299,11 @@ fn cover_embedded_and_deleted_after_successful_merge() {
     fx.touch("video_abc123.mp4");
     fx.touch("audio_abc123.m4a");
     fx.touch("My Video.jpg");
-    let mut globals = GlobalOptions::default();
-    globals.attach_cover = true;
-    globals.delete_cover_after_attach = true;
+    let globals = GlobalOptions {
+        attach_cover: true,
+        delete_cover_after_attach: true,
+        ..GlobalOptions::default()
+    };
 
     let outcome = Merger::new(&mut task, &globals, &fx.ffmpeg).run();
 
@@ -312,8 +319,7 @@ fn cover_attached_pic_argv_present_on_merge() {
     fx.touch("video_abc123.mp4");
     fx.touch("audio_abc123.m4a");
     fx.touch("My Video.jpg");
-    let mut globals = GlobalOptions::default();
-    globals.attach_cover = true;
+    let globals = GlobalOptions { attach_cover: true, ..GlobalOptions::default() };
 
     // Recording fake exits 0 without producing output: the merge's
     // rename then fails, which is fine — argv is what this pins.

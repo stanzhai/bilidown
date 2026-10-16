@@ -73,7 +73,6 @@ fn old_python_config_upgrades_in_place_v2160() {
 
     let store = ConfigStore::with_paths(tmp.path(), FIXTURE_DOWNLOAD_PATH);
 
-    let bytes = fs::read(tmp.path().join("config.json")).unwrap();
     assert!(store.naming_rules_reset());
     // 2160 ≥ 2140：不补 122；代理三态已在盘上，不被 2.13.0 迁移改写
     assert_eq!(store.get("Advanced", "proxy_mode"), Some(&serde_json::json!("disabled")));

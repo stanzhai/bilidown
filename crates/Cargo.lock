@@ -1748,6 +1748,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "extras"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "config",
+ "database",
+ "md-5 0.10.6",
+ "network",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4099,6 +4117,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "naming"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "database",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "ndk-sys"
 version = "0.6.0+11769913"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6276,6 +6305,20 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "services"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "config",
+ "database",
+ "regex",
+ "serde_json",
+ "sys-locale",
+ "tempfile",
+ "urls",
 ]
 
 [[package]]

@@ -1,0 +1,19 @@
+[package]
+name = "services"
+description = "Bili23 Downloader app services: i18n, theme, logs, clipboard, notifications, window state, teaching tips, terms gate, history"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+config = { path = "../config" }
+database = { path = "../database" }
+urls = { path = "../urls" }
+anyhow.workspace = true
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+regex = "=1.13.1"
+sys-locale = "=0.3.2"
+
+[dev-dependencies]
+tempfile = "=3.27.0"

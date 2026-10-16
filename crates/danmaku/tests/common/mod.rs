@@ -9,9 +9,6 @@ pub fn hex_seg2() -> Vec<u8> {
     hex_decode("0a2108d10f1080b51818052880fe033a0ce9a1b6e983a8e5bcb9e5b9956204323030310a1e08d20f10d0bb1b180128fe95a1033a087363726f6c6c2062620432303032")
 }
 
-/// Number of stime/text-valid elements in segment 1 (segment generator:
-/// 4 elems, one with stime=0 and empty text → filtered).
-pub const SEG1_ELEMS: usize = 3;
 
 fn hex_decode(s: &str) -> Vec<u8> {
     (0..s.len())
