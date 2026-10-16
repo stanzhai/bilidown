@@ -1,0 +1,21 @@
+[package]
+name = "downloader"
+description = "Chunked ranged download engine: offset tables, retries, token bucket, preallocation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+network = { path = "../network" }
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time", "sync", "fs", "io-util"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "http2", "charset", "system-proxy", "stream"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+thiserror = "=2.0.17"
+parking_lot = "=0.12.5"
+futures-util = "=0.3.34"
+
+[dev-dependencies]
+wiremock = "=0.6.5"
+tempfile = "=3.27.0"

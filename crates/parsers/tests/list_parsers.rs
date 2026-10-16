@@ -559,7 +559,7 @@ fn watch_later_response(count: i64) -> Value {
 }
 
 fn logged_in_auth() -> auth::AuthState {
-    auth::AuthState { is_login: true, ..auth::AuthState::default() }
+    auth::AuthState { is_login: true, ..Default::default() }
 }
 
 #[tokio::test]

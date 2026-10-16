@@ -233,6 +233,34 @@ impl HttpClient {
         check_status(response, url).await
     }
 
+    /// Signed GET returning the response body as raw bytes
+    /// (protobuf segment fetch, `ResponseType.BYTES` in Python). Protobuf
+    /// bodies are not UTF-8, so this bypasses the text path entirely.
+    pub async fn get_bytes(
+        &self,
+        url: &str,
+        params: &[(String, String)],
+    ) -> Result<Vec<u8>, HttpError> {
+        let mut all = params.to_vec();
+        if let Some(signer) = &self.signer {
+            all.extend(signer.sign(url, params));
+        }
+        let mut request = self.client.get(url);
+        if !all.is_empty() {
+            request = request.query(&all);
+        }
+        let response = request.send().await?;
+        let status = response.status();
+        let bytes = response.bytes().await?;
+        if !status.is_success() {
+            return Err(HttpError::Status {
+                status,
+                url: url.to_owned(),
+            });
+        }
+        Ok(bytes.to_vec())
+    }
+
     /// Signed POST with a JSON body, returning the body parsed as JSON.
     pub async fn post_json<T: serde::de::DeserializeOwned>(
         &self,
