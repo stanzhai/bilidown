@@ -1,6 +1,6 @@
 [package]
 name = "parsers"
-description = "Bilibili parse layer: episode tree model plus list-family parsers (space, favorites, collection, watch-later, history, weekly), auto-parse walking and the parse list view model"
+description = "Bilibili parse layer: episode tree model, list-family parsers (space, favorites, collection, watch-later, history, weekly), audio/batch/area parsers, auto-parse walking and the parse list view model"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

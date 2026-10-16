@@ -7,6 +7,9 @@
 //! handshake is counted in by the stack; weak links need it) and a tight
 //! read/write timeout so stuck responses fail fast.
 
+pub mod cdn;
+pub mod probe;
+
 use std::sync::Arc;
 
 use parking_lot::RwLock;
@@ -171,6 +174,38 @@ impl HttpClient {
             jar,
             cookies,
             signer: options.signer,
+        })
+    }
+
+    /// Client tuned for CDN host probing: no signer, no cookie replay,
+    /// tight timeouts. Probing must not touch the shared cookie jar
+    /// (CDN auth lives in query params) and must fail a dead node fast.
+    /// `user_agent` and `proxy` come from the same options as
+    /// [`HttpClient::new`].
+    pub fn probe(options: ClientOptions) -> Result<Self, HttpError> {
+        let mut builder = Client::builder()
+            .user_agent(options.user_agent)
+            .default_headers(default_headers())
+            .timeout(crate::probe::PROBE_TIMEOUT)
+            .connect_timeout(crate::probe::PROBE_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .pool_max_idle_per_host(16);
+
+        match options.proxy.mode {
+            ProxyMode::None => {
+                builder = builder.no_proxy();
+            }
+            ProxyMode::System => {}
+            ProxyMode::Manual => {
+                builder = builder.proxy(manual_proxy(&options.proxy)?);
+            }
+        }
+
+        Ok(Self {
+            client: builder.build()?,
+            jar: Arc::new(Jar::default()),
+            cookies: Arc::new(RwLock::new(Vec::new())),
+            signer: None,
         })
     }
 
