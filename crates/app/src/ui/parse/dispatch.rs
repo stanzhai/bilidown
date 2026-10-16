@@ -67,32 +67,32 @@ pub async fn parse(
                         ParseOutcome::Redirect(next) => current = next,
                         ParseOutcome::Episode(node, (_key, value)) => {
                             ctx.episode_data.set_episode_data(&node.episode_id, value);
-                            return Ok(one_shot("USER_UPLOADS", node));
+                            return Ok(one_shot("USER_UPLOADS", node, None));
                         }
                         // Ticket 25: the stein walk already ran inside
                         // `parse_video_url`; the dialog only gates
                         // presentation of the completed tree.
                         ParseOutcome::Interactive(node) => {
-                            return Ok(one_shot("INTERACTIVE_VIDEO", node));
+                            return Ok(one_shot("INTERACTIVE_VIDEO", node, None));
                         }
                     }
                 }
                 return Err(ParseError::RedirectLoop(current));
             }
             P::Bangumi => {
-                let node =
+                let (node, current) =
                     media_parser::parse_bangumi_url(client, BASE_URL, &url, &ctx.episode_data)
                         .await?;
-                return Ok(one_shot("ANIME", node));
+                return Ok(one_shot("ANIME", node, current));
             }
             P::Cheese => {
-                let node =
+                let (node, current) =
                     media_parser::parse_cheese_url(client, BASE_URL, &url, &ctx.episode_data)
                         .await?;
-                return Ok(one_shot("COURSE", node));
+                return Ok(one_shot("COURSE", node, current));
             }
             P::Lesson => {
-                let node = media_parser::parse_lesson_url(
+                let (node, current) = media_parser::parse_lesson_url(
                     client,
                     BASE_URL,
                     &url,
@@ -100,12 +100,12 @@ pub async fn parse(
                     &ctx.episode_data,
                 )
                 .await?;
-                return Ok(one_shot("MALL_COURSE", node));
+                return Ok(one_shot("MALL_COURSE", node, current));
             }
             P::Audio => {
                 let info = parsers::audio::parse_audio(client, BASE_URL, &url).await?;
                 let node = parsers::audio::build_audio_tree(&info.data);
-                return Ok(one_shot("AUDIO", node));
+                return Ok(one_shot("AUDIO", node, None));
             }
             P::List => {
                 return Ok(list::parse_list(client, BASE_URL, ctx, &url, req.pn).await?)
@@ -129,12 +129,16 @@ pub async fn parse(
     }
 }
 
-fn one_shot(category: &'static str, node: TreeItem) -> ParseOutput {
+fn one_shot(
+    category: &'static str,
+    node: TreeItem,
+    current_episode: Option<(String, String)>,
+) -> ParseOutput {
     ParseOutput {
         category,
         node,
         extra: list::ExtraData::default(),
-        current_episode: None,
+        current_episode,
     }
 }
 
