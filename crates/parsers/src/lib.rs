@@ -1,14 +1,17 @@
 //! Bilibili parse layer: the shared episode tree model plus the parsers
 //! each ticket landed against it — list-family parsers (space, favorites,
 //! collection/series, watch-later, history, weekly popular), pagination
-//! auto-parse walking, the parse-list view model (ticket 10), and the
-//! audio (au/am), batch-parse and area-detection parsers (ticket 11).
+//! auto-parse walking, the parse-list view model (ticket 10), the
+//! audio (au/am), batch-parse and area-detection parsers (ticket 11), and
+//! the playurl fetch + preview selection layer (ticket 12).
 
 pub mod area;
 pub mod audio;
 pub mod auto_parse;
 pub mod batch;
 pub mod list;
+pub mod playurl;
+pub mod preview;
 pub mod tree;
 pub mod view;
 pub mod worker;
