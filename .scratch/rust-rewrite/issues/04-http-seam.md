@@ -16,6 +16,6 @@ later Bilibili-facing tickets build on this.
 
 ## Answer
 
-Implemented `crates/network` (crate `network`): shared reqwest/rustls client with cookie jar + persistence snapshot, ProxyMode None/System/Manual, configurable User-Agent, Referer default header, Python-mirroring timeouts, and a `RequestSigner` hook seam for wbi (ticket 08). 9 wiremock external-behavior tests (7 wire + 2 proxy_env). Commit: see branch ticket-04.
+Implemented `crates/network` (crate `network`): shared reqwest/rustls client with cookie jar + persistence snapshot, ProxyMode None/System/Manual, configurable User-Agent, Referer default header, Python-mirroring timeouts, and a `RequestSigner` hook seam for wbi (ticket 08). 9 wiremock external-behavior tests (7 wire + 2 proxy_env). Commit: 45ca1054
 
 ## Comments
