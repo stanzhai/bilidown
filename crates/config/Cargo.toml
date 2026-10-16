@@ -1,0 +1,15 @@
+[package]
+name = "config"
+description = "Bili23 Downloader config store: config.json I/O + config_version migrations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+anyhow.workspace = true
+dirs = "=6.0.0"
+
+[dev-dependencies]
+tempfile = "=3.27.0"

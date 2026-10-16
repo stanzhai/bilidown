@@ -1001,6 +1001,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "config"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "dirs 6.0.0",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "console_error_panic_hook"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1489,6 +1499,22 @@ name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
+
+[[package]]
+name = "downloader"
+version = "2.21.0"
+dependencies = [
+ "futures-util",
+ "network",
+ "parking_lot",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "wiremock",
+]
 
 [[package]]
 name = "dunce"
@@ -4722,6 +4748,8 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.17",
  "tokio",
+ "url",
+ "urls",
  "uuid",
  "wiremock",
 ]

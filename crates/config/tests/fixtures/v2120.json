@@ -1,0 +1,84 @@
+{
+    "QFluentWidgets": {
+        "ThemeMode": "Auto",
+        "ThemeColor": "#ff009faa",
+        "FontFamilies": [
+            "Segoe UI",
+            "Microsoft YaHei",
+            "PingFang SC"
+        ]
+    },
+    "Application": {
+        "app_name": "Bili23 Downloader",
+        "app_version": "2.12.0",
+        "app_comparable_version": "2.12.0",
+        "config_version": 2120,
+        "accepted_terms": true,
+        "skip_version": "2.13.0"
+    },
+    "Interface": {
+        "language": "zh_CN",
+        "display_scaling": "1.5",
+        "mica_effect": false
+    },
+    "Behavior": {
+        "window_state": {
+            "x": 12,
+            "y": 34,
+            "width": 1024,
+            "height": 768,
+            "maximized": false
+        },
+        "when_close": 2,
+        "sort_key": "created_time",
+        "auto_select_conditions": {
+            "user_uploads": 1,
+            "bangumi": 2,
+            "other": 0
+        }
+    },
+    "Download": {
+        "download_path": "/tmp/old-downloads",
+        "download_thread": 8,
+        "video_quality_priority": [
+            127,
+            126,
+            125,
+            120,
+            116,
+            80
+        ],
+        "ov_cdn_server_list": [
+            {
+                "host": "upos-hz-mirrorakam.akamaized.net",
+                "provider": "AKAMAI"
+            },
+            {
+                "host": "upos-sz-dummy.bilivideo.com",
+                "provider": "CUSTOM"
+            }
+        ]
+    },
+    "File Naming": {
+        "naming_rule_list": [
+            {
+                "id": "5f0f1c2e-0000-4000-8000-000000000001",
+                "name": "自建规则",
+                "type": 11,
+                "rule": "{leaf_title}-{uploader}",
+                "default": false
+            }
+        ],
+        "numbering_type": 0
+    },
+    "Advanced": {
+        "proxy_enabled": true,
+        "proxy_mode": "system"
+    },
+    "Misc": {
+        "auto_parse_interval": 2.0
+    },
+    "LegacyGroup": {
+        "gone_item": 1
+    }
+}

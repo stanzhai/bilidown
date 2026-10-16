@@ -1,0 +1,375 @@
+{
+    "Cookie": {
+        "DedeUserID": "",
+        "DedeUserID__ckMd5": "",
+        "SESSDATA": "",
+        "b_lsid": "",
+        "b_nut": "",
+        "bili_jct": "",
+        "bili_ticket": "",
+        "bili_ticket_expires": 0,
+        "buvid3": "",
+        "buvid4": "",
+        "buvid_expires": 0,
+        "buvid_fp": "",
+        "img_key": "",
+        "is_login": false,
+        "sub_key": "",
+        "uuid": ""
+    },
+    "Application": {
+        "accepted_terms": true,
+        "config_version": 2200,
+        "skip_version": "2.13.0"
+    },
+    "Advanced": {
+        "area": "cn",
+        "cn_cdn_server_list": [
+            {
+                "host": "upos-sz-mirror08c.bilivideo.com",
+                "provider": "HUAWEI"
+            },
+            {
+                "host": "upos-sz-mirrorhw.bilivideo.com",
+                "provider": "HUAWEI"
+            },
+            {
+                "host": "upos-sz-mirrorhwb.bilivideo.com",
+                "provider": "HUAWEI"
+            },
+            {
+                "host": "upos-sz-mirrorcos.bilivideo.com",
+                "provider": "TENCENT"
+            },
+            {
+                "host": "upos-sz-mirrorcosb.bilivideo.com",
+                "provider": "TENCENT"
+            },
+            {
+                "host": "upos-sz-mirrorcoso1.bilivideo.com",
+                "provider": "TENCENT"
+            },
+            {
+                "host": "upos-sz-mirrorali.bilivideo.com",
+                "provider": "ALIYUN"
+            },
+            {
+                "host": "upos-sz-mirroralib.bilivideo.com",
+                "provider": "ALIYUN"
+            }
+        ],
+        "custom_ffmpeg_path": "",
+        "ffmpeg_source": "bundled",
+        "ov_cdn_server_list": [
+            {
+                "host": "upos-sz-mirroraliov.bilivideo.com",
+                "provider": "ALIYUN"
+            },
+            {
+                "host": "upos-sz-mirrorcosov.bilivideo.com",
+                "provider": "TENCENT"
+            }
+        ],
+        "prefer_cdn_server_provider_": true,
+        "proxy_mode": "manual",
+        "proxy_password": "",
+        "proxy_port": 80,
+        "proxy_server": "",
+        "proxy_type": "http",
+        "proxy_uname": "",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0"
+    },
+    "Additional": {
+        "attach_cover": false,
+        "cover_type": "jpg",
+        "danmaku_style": {
+            "font": {
+                "name": "黑体",
+                "size": 36,
+                "bold": false,
+                "italic": false,
+                "underline": false,
+                "strike": false
+            },
+            "border": {
+                "border": 1.0,
+                "shadow": 0
+            },
+            "advanced": {
+                "display_area": 60,
+                "opacity": 80,
+                "scroll_duration": 10,
+                "static_duration": 5,
+                "minimum_gap": 100
+            },
+            "resolution": {
+                "width": 1280,
+                "height": 720
+            }
+        },
+        "danmaku_type": "ass",
+        "delete_cover_after_attach": false,
+        "delete_danmaku_after_embed": false,
+        "delete_subtitle_after_embed": false,
+        "download_cover": false,
+        "download_danmaku": false,
+        "download_metadata": false,
+        "download_subtitle": false,
+        "embed_chapter": false,
+        "embed_danmaku": false,
+        "embed_subtitle": false,
+        "metadata_type": "nfo",
+        "subtitle_language": {
+            "download_specified": false,
+            "specified_language": []
+        },
+        "subtitle_style": {
+            "font": {
+                "name": "黑体",
+                "size": 36,
+                "bold": false,
+                "italic": false,
+                "underline": false,
+                "strike": false
+            },
+            "border": {
+                "border": 1.0,
+                "shadow": 0.0
+            },
+            "color": {
+                "primary": "&H00FFFFFF",
+                "secondary": "&H000000FF",
+                "border": "H00000000",
+                "shadow": "H00000000"
+            },
+            "margin": {
+                "left": 10,
+                "right": 10,
+                "vertical": 20
+            },
+            "resolution": {
+                "width": 1280,
+                "height": 720
+            },
+            "alignment": 2
+        },
+        "subtitle_type": "ass"
+    },
+    "Download": {
+        "audio_quality_priority": [
+            30251,
+            30250,
+            30280,
+            30232,
+            30216
+        ],
+        "auto_retry_enabled": true,
+        "auto_retry_max_count": 5,
+        "download_audio_stream": true,
+        "download_parallel": 1,
+        "download_path": "/tmp/old-downloads",
+        "download_thread": 8,
+        "download_video_stream": true,
+        "keep_original_files": false,
+        "keep_original_files_type": 0,
+        "m4a_to_mp3": false,
+        "merge_video_audio": true,
+        "speed_limit_enabled": false,
+        "speed_limit_rate": 10.0,
+        "video_codec_priority": [
+            7,
+            12,
+            13
+        ],
+        "video_container": "mp4",
+        "video_quality_priority": [
+            127,
+            126,
+            125,
+            122,
+            120,
+            116,
+            80
+        ]
+    },
+    "Misc": {
+        "auto_add_to_download_list": false,
+        "auto_parse_interval": 2.0,
+        "auto_parse_teaching_tip_shown_": false,
+        "select_area_dialog_shown": false,
+        "show_auto_parse_dialog": false,
+        "tutorial_dialog_shown": false
+    },
+    "Behavior": {
+        "auto_select_conditions": {
+            "user_uploads": 1,
+            "bangumi": 2,
+            "other": 0
+        },
+        "auto_select_mode_": 2,
+        "completed_list_sort_ascending": true,
+        "completed_list_sort_by": "completed_time",
+        "downloading_list_sort_ascending": true,
+        "downloading_list_sort_by": "created_time",
+        "duplicate_download_resolution": 2,
+        "file_conflict_resolution": 1,
+        "monitor_clipboard": false,
+        "parse_history": true,
+        "parse_list_alternate_row_color": true,
+        "parse_list_column": [
+            {
+                "attr_key": "number",
+                "width": 160,
+                "show": true
+            },
+            {
+                "attr_key": "title",
+                "width": 350,
+                "show": true
+            },
+            {
+                "attr_key": "badge",
+                "width": 90,
+                "show": true
+            },
+            {
+                "attr_key": "duration",
+                "width": 90,
+                "show": true
+            },
+            {
+                "attr_key": "dyn_time",
+                "width": 130,
+                "show": true
+            }
+        ],
+        "parse_list_show_floating_command_bar": true,
+        "preallocate_file_space": true,
+        "remember_window_state": false,
+        "show_download_as_single_video_dialog": true,
+        "show_download_confirmation_dialog": false,
+        "show_download_options_dialog": true,
+        "show_notification": false,
+        "silent_start": false,
+        "stay_on_top": false,
+        "when_close_window": 3,
+        "window_state": {
+            "x": 12,
+            "y": 34,
+            "width": 1024,
+            "height": 768,
+            "maximized": false
+        }
+    },
+    "Interface": {
+        "display_scaling": "1.5",
+        "language": "zh_CN",
+        "mica_effect": false
+    },
+    "QFluentWidgets": {
+        "FontFamilies": [
+            "Segoe UI",
+            "Microsoft YaHei",
+            "PingFang SC"
+        ],
+        "ThemeColor": "#ff009faa",
+        "ThemeMode": "Auto"
+    },
+    "Update": {
+        "include_prerelease": false
+    },
+    "MCP": {
+        "mcp_enabled": false,
+        "mcp_port": 23330,
+        "mcp_token": ""
+    },
+    "File Naming": {
+        "naming_rule_list": [
+            {
+                "id": "a024c20c-5826-4e65-a1f5-802e3e2dbe4f",
+                "name": "DEFAULT_FOR_NORMAL",
+                "type": 11,
+                "rule": "{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "2d98a265-e8e1-4b2a-8133-76bbc65c90fe",
+                "name": "DEFAULT_FOR_PART",
+                "type": 12,
+                "rule": "{parent_title}/P{p}-{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "307906bd-86a2-4b6b-bd75-152a8c3e280b",
+                "name": "DEFAULT_FOR_COLLECTION",
+                "type": 13,
+                "rule": "{collection_title}/{section_title}/{parent_title}/{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "1fe25f91-caf0-437e-b132-c9367261ff8b",
+                "name": "DEFAULT_FOR_INTERACTIVE_VIDEO",
+                "type": 14,
+                "rule": "{parent_title}/{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "b1d4e8e3-ca17-4b41-87cf-cda45254701e",
+                "name": "DEFAULT_FOR_BANGUMI",
+                "type": 20,
+                "rule": "{season_title}/{episode_title}",
+                "default": true
+            },
+            {
+                "id": "d582ec37-d8c2-44cf-bbd7-b709ea5c2042",
+                "name": "DEFAULT_FOR_CHEESE",
+                "type": 30,
+                "rule": "{series_title}/{episode_title}",
+                "default": true
+            },
+            {
+                "id": "5913e25f-0bf3-4d3c-a608-8416af778a8a",
+                "name": "DEFAULT_FOR_FAVORITE",
+                "type": 40,
+                "rule": "{favorites_owner_id}_{favorites_owner}/{favorites_name}/{parent_title}/<P{p:02d}->{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "8c48ac82-14c5-4d48-9de7-225d9b53513f",
+                "name": "DEFAULT_FOR_SPACE",
+                "type": 50,
+                "rule": "{space_owner_id}_{space_owner}/{parent_title}/<P{p:02d}->{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "307ccc8e-ad2f-4195-94f0-162ee9ff1ac0",
+                "name": "DEFAULT_FOR_HISTORY",
+                "type": 60,
+                "rule": "{source_title}/{parent_title}/<P{p:02d}->{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "0a72a82b-5684-448e-9db1-a342de933d3e",
+                "name": "DEFAULT_FOR_WATCH_LATER",
+                "type": 70,
+                "rule": "{source_title}/{parent_title}/<P{p:02d}->{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "4d28285d-65ca-4c5c-bbb3-b3b5b570c52a",
+                "name": "DEFAULT_FOR_WEEKLY",
+                "type": 80,
+                "rule": "{source_title}/{leaf_title}",
+                "default": true
+            },
+            {
+                "id": "dc77bd15-be21-4847-856e-68bb3035042f",
+                "name": "DEFAULT_FOR_AUDIO",
+                "type": 90,
+                "rule": "{source_title}/{uploader} - {leaf_title}",
+                "default": true
+            }
+        ],
+        "numbering_type": 0
+    }
+}
