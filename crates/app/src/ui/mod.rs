@@ -227,7 +227,7 @@ mod tests {
 }
 
 #[cfg(test)]
-mod tests {
+mod task_path_tests {
     /// `task_db_path` stays inside the user-data dir (never the repo).
     #[test]
     fn task_db_path_lives_in_appdata() {
