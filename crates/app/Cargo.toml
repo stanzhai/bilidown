@@ -13,3 +13,10 @@ path = "src/main.rs"
 [dependencies]
 gpui-kit.workspace = true
 anyhow.workspace = true
+parsers = { path = "../parsers" }
+config = { path = "../config" }
+urls = { path = "../urls" }
+network = { path = "../network" }
+auth = { path = "../auth" }
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread"] }

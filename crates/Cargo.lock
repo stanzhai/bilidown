@@ -192,7 +192,14 @@ name = "app"
 version = "2.21.0"
 dependencies = [
  "anyhow",
+ "auth",
+ "config",
  "gpui-kit",
+ "network",
+ "parsers",
+ "serde_json",
+ "tokio",
+ "urls",
 ]
 
 [[package]]

@@ -1,13 +1,8 @@
 use gpui_kit::*;
 
-/// App shell skeleton: renders one empty window. (ticket 01)
-struct Shell;
+mod ui;
 
-impl Render for Shell {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full()
-    }
-}
+pub use ui::{Shell, Screen};
 
 /// Product identity line used by the About surface and smoke checks.
 pub fn version_line() -> String {
@@ -16,12 +11,16 @@ pub fn version_line() -> String {
 
 /// Opens one native window; returns when the app event loop exits cleanly.
 pub fn run() -> anyhow::Result<()> {
-    gpui_kit::application().run(move |cx| {
-        // Must be called before using any GPUI Component features.
-        gpui_kit::init(cx);
-        gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| cx.new(|_| Shell))
+    gpui_kit::application()
+        .with_assets(gpui_kit::assets::AllAssets)
+        .run(move |cx| {
+            // Must be called before using any GPUI Component features.
+            gpui_kit::init(cx);
+            gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| {
+                cx.new(|cx| Shell::new(window, cx))
+            })
             .expect("Failed to open window");
-    });
+        });
     Ok(())
 }
 
