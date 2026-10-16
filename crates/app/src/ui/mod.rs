@@ -1,5 +1,6 @@
 //! App UI modules: navigation shell + screens.
 
+pub mod dialogs;
 pub mod parse;
 pub mod screens;
 
@@ -28,6 +29,7 @@ pub struct Shell {
 
 impl Shell {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        dialogs::update::run_startup_check(window, cx);
         Self {
             screen: Screen::Parse,
             parse: ParseScreen::new(window, cx),
@@ -37,7 +39,7 @@ impl Shell {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use gpui_kit::assets::IconName;
 
         let screen = self.screen;
@@ -68,8 +70,10 @@ impl Render for Shell {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
                 Screen::Downloads => self.screens.downloads.render().into_any_element(),
                 Screen::Favorites => self.screens.favorites.render().into_any_element(),
-                Screen::About => screens::about::render_about().into_any_element(),
-                Screen::Settings => self.screens.settings.render().into_any_element(),
+                Screen::About => screens::about::render_about(cx).into_any_element(),
+                Screen::Settings => {
+                    self.screens.settings.render(window, cx).into_any_element()
+                }
             })
     }
 }

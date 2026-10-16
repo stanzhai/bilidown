@@ -7,7 +7,7 @@ points, update prompt with skip-version).
 
 **Blocked by:** 20.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Batch parse dialog accepts multi-line ids and enqueues
 - [ ] Interactive node selection dialog walks the stein graph choices

@@ -197,9 +197,12 @@ dependencies = [
  "gpui-kit",
  "network",
  "parsers",
+ "serde",
  "serde_json",
+ "services",
  "tokio",
  "urls",
+ "wiremock",
 ]
 
 [[package]]
