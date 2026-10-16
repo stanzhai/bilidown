@@ -6432,11 +6432,19 @@ dependencies = [
  "anyhow",
  "config",
  "database",
+ "libc",
+ "network",
  "regex",
+ "reqwest",
+ "serde",
  "serde_json",
  "sys-locale",
  "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
  "urls",
+ "windows-sys 0.52.0",
+ "wiremock",
 ]
 
 [[package]]
