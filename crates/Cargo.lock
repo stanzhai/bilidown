@@ -193,7 +193,10 @@ version = "2.21.0"
 dependencies = [
  "anyhow",
  "auth",
+ "chrono",
  "config",
+ "database",
+ "dirs 6.0.0",
  "gpui-kit",
  "image",
  "network",
@@ -203,6 +206,7 @@ dependencies = [
  "qrcode",
  "serde_json",
  "services",
+ "tasks",
  "tempfile",
  "tokio",
  "urls",
