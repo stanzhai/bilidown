@@ -32,10 +32,19 @@ fn config(servers: Vec<CdnServer>) -> CdnConfig {
     }
 }
 
+/// Same contract as the unit-suite helper: hold the serial lock for the
+/// whole test so a sibling's clear cannot wipe our cooldown mid-body.
+fn clean() -> std::sync::MutexGuard<'static, ()> {
+    static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let guard = SERIAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    clear_host_health_for_test();
+    guard
+}
 
 #[tokio::test]
 async fn probed_host_selection_ranks_by_candidate_order() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     let first = MockServer::start().await;
     let second = MockServer::start().await;
     let third = MockServer::start().await;
@@ -83,12 +92,13 @@ async fn probed_host_selection_ranks_by_candidate_order() {
     first.verify().await;
     second.verify().await;
     third.verify().await;
-    clear_host_health_for_test();
+
 }
 
 #[tokio::test]
 async fn first_mirror_down_second_answers() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     let bad = MockServer::start().await;
     let good = MockServer::start().await;
 
@@ -127,12 +137,13 @@ async fn first_mirror_down_second_answers() {
     assert!(!host_is_cooling(&format!("127.0.0.1:{}", bad.address().port())));
     bad.verify().await;
     good.verify().await;
-    clear_host_health_for_test();
+
 }
 
 #[tokio::test]
 async fn host_failures_accumulate_to_cooldown() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     // Two consecutive failures on one host cross HOST_FAILURE_THRESHOLD
     // and demote it for the cooldown window.
     let host = "flaky.example.com";
@@ -146,7 +157,8 @@ async fn host_failures_accumulate_to_cooldown() {
 
 #[tokio::test]
 async fn same_host_candidates_skipped_after_host_failure() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     let bad = MockServer::start().await;
 
     // The mirror host fails conclusively; the original link shares no
@@ -190,12 +202,13 @@ async fn same_host_candidates_skipped_after_host_failure() {
     assert_eq!(error.hosts, 3);
     assert!(error.to_string().contains("无法获取有效的下载链接"));
     bad.verify().await;
-    clear_host_health_for_test();
+
 }
 
 #[tokio::test]
 async fn head_405_falls_back_to_range_get() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     let server = MockServer::start().await;
 
     // HEAD is refused (405); the Range GET returns the true total via
@@ -234,12 +247,13 @@ async fn head_405_falls_back_to_range_get() {
     assert_eq!(resolved.file_size, 3145728);
     assert!(resolved.url.starts_with(server.uri().as_str()));
     server.verify().await;
-    clear_host_health_for_test();
+
 }
 
 #[tokio::test]
 async fn text_error_page_is_failure() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     let server = MockServer::start().await;
 
     // 200 with text/html body: an error page in disguise. Content-Length
@@ -275,12 +289,13 @@ async fn text_error_page_is_failure() {
     assert_eq!(error.total, 2);
     assert_eq!(error.hosts, 2);
     server.verify().await;
-    clear_host_health_for_test();
+
 }
 
 #[tokio::test]
 async fn small_file_moves_on_to_next_candidate() {
-    clear_host_health_for_test();
+    let _guard = clean();
+
     let tiny = MockServer::start().await;
     let real = MockServer::start().await;
 
@@ -324,11 +339,12 @@ async fn small_file_moves_on_to_next_candidate() {
     assert_eq!(resolved.file_size, 8388608);
     tiny.verify().await;
     real.verify().await;
-    clear_host_health_for_test();
+
 }
 
 #[tokio::test]
 async fn probe_timeout_is_bounded() {
+    let _guard = clean();
     // The probe client must carry the documented per-probe timeout; a
     // dead node must not stall a resolve indefinitely.
     assert_eq!(network::probe::PROBE_TIMEOUT, Duration::from_secs(5));
