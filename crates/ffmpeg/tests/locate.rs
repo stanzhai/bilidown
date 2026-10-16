@@ -14,7 +14,7 @@ use ffmpeg::locate::{
 static PATH_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 fn path_lock() -> std::sync::MutexGuard<'static, ()> {
-    PATH_LOCK.lock()
+    PATH_LOCK.lock().expect("PATH lock poisoned")
 }
 
 struct PathGuard {
