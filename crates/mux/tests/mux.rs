@@ -50,6 +50,12 @@ struct Fixture {
 }
 
 impl Fixture {
+    // ponytail: fixed temp path (not an anonymous tempdir) — safe within one
+    // test binary (tags are unique per test) but two overlapping `cargo test`
+    // processes race on remove/create and artifact writes; that race is the
+    // suspected cause of the rare `kept_originals_are_renamed_and_delivered`
+    // flake under full-suite parallelism. Swap for tempfile::tempdir() if it
+    // recurs.
     fn new(tag: &str) -> Self {
         let dir = std::env::temp_dir().join(format!("bilidown-t15-{tag}"));
         let _ = std::fs::remove_dir_all(&dir);
