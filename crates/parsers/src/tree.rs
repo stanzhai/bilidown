@@ -401,3 +401,122 @@ impl Drop for ActiveParsers<'_> {
             .fetch_sub(1, Ordering::SeqCst);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Check-state propagation and parsing-gate extensions (ticket 09).
+//
+// The Python tree carries a parent pointer, so `set_checked_state` on a
+// child aggregates the ancestors directly. This value tree has none, so
+// child→parent aggregation is an explicit root-side operation
+// ([`TreeItem::set_child_checked_state`]); downward propagation is
+// unchanged.
+// ---------------------------------------------------------------------------
+
+impl TreeItem {
+    /// Set this node's check state, propagating down the whole subtree
+    /// (`set_checked_state`).
+    pub fn set_checked_state(&mut self, state: CheckState) {
+        if self.checked == state {
+            return;
+        }
+        self.checked = state;
+        if matches!(state, CheckState::Checked | CheckState::Unchecked) {
+            self.propagate_down(state);
+        }
+    }
+
+    fn propagate_down(&mut self, state: CheckState) {
+        self.checked = state;
+        for child in &mut self.children {
+            child.propagate_down(state);
+        }
+    }
+
+    /// Bottom-up check-state recompute of this subtree
+    /// (`refresh_check_state`); leaf states are taken as given.
+    pub fn refresh_check_state(&mut self) -> CheckState {
+        if self.children.is_empty() {
+            return self.checked;
+        }
+        let states: Vec<CheckState> = self
+            .children
+            .iter_mut()
+            .map(TreeItem::refresh_check_state)
+            .collect();
+        self.checked = if states.iter().all(|s| *s == CheckState::Checked) {
+            CheckState::Checked
+        } else if states.iter().all(|s| *s == CheckState::Unchecked) {
+            CheckState::Unchecked
+        } else {
+            CheckState::PartiallyChecked
+        };
+        self.checked
+    }
+
+    /// Checked downloadable leaves, excluding structural tree nodes
+    /// (`get_all_checked_children`).
+    pub fn get_all_checked_children(&self) -> Vec<&TreeItem> {
+        self.children
+            .iter()
+            .flat_map(|c| {
+                if c.children.is_empty() {
+                    if c.checked == CheckState::Checked
+                        && !c.has_attribute(Attribute::TREE_NODE_BIT)
+                    {
+                        vec![c]
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    c.get_all_checked_children()
+                }
+            })
+            .collect()
+    }
+
+    /// Change a child's check state and refresh this node's aggregated
+    /// state — the value-tree equivalent of the Python child→parent
+    /// propagation.
+    pub fn set_child_checked_state(&mut self, row: usize, state: CheckState) {
+        if let Some(child) = self.children.get_mut(row) {
+            child.set_checked_state(state);
+        }
+        self.refresh_check_state();
+    }
+}
+
+impl EpisodeData {
+    /// RAII guard registering this parse as active (`parsing`). When
+    /// `clear_cache` is set and no other parse is active, the table is
+    /// cleared in the same critical section as the registration, so a
+    /// parse squeezed in between clear and register cannot be mistaken
+    /// for clearable.
+    pub fn parsing_with_clear(&self, clear_cache: bool) -> ActiveParsers<'_> {
+        let mut table = self.table.write();
+        if clear_cache && self.active_parsers.load(Ordering::SeqCst) == 0 {
+            table.clear();
+        }
+        self.active_parsers.fetch_add(1, Ordering::SeqCst);
+        drop(table);
+        ActiveParsers { inner: self }
+    }
+
+    /// Keys present in the table (test observability).
+    pub fn episode_ids(&self) -> Vec<String> {
+        self.table.read().keys().cloned().collect()
+    }
+
+    /// Number of currently active parsers (Python's `_active_parsers`).
+    pub fn active_parsers(&self) -> u32 {
+        self.active_parsers.load(Ordering::SeqCst)
+    }
+
+    /// Reset the table and the active-parser counter (test seam for the
+    /// Python fixture's `EpisodeData.table.clear()` +
+    /// `_active_parsers = 0`).
+    pub fn reset(&self) {
+        let mut table = self.table.write();
+        self.active_parsers.store(0, Ordering::SeqCst);
+        table.clear();
+    }
+}

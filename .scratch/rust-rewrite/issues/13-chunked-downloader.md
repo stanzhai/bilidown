@@ -8,13 +8,21 @@ pause/resume/cancel. Fully driven at the wiremock HTTP seam.
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Multi-chunk ranged download reassembles byte-identical file from wiremock CDN fixtures
-- [ ] Resume from persisted offset table downloads only remaining ranges (retry semantics of test_auto_retry ported)
-- [ ] Non-206 full response triggers the guard (no silent corruption)
-- [ ] Chunk retry/backoff and task auto-retry behave per config
-- [ ] Token-bucket limiter caps observed throughput; preallocation on by config
-- [ ] Pause/resume/cancel observable through task state
+- [x] Multi-chunk ranged download reassembles byte-identical file from wiremock CDN fixtures
+- [x] Resume from persisted offset table downloads only remaining ranges (retry semantics of test_auto_retry ported)
+- [x] Non-206 full response triggers the guard (no silent corruption)
+- [x] Chunk retry/backoff and task auto-retry behave per config
+- [x] Token-bucket limiter caps observed throughput; preallocation on by config
+- [x] Pause/resume/cancel observable through task state
+
+## Answer
+
+`crates/downloader`: engine with 4 MiB chunks, persisted per-chunk offset
+tables (`OffsetTableStore`), chunk retry with capped exponential backoff,
+task auto-retry per config, token-bucket speed limit, optional
+preallocation, 206 guard, pause/resume/cancel via generation counting —
+13/13 wire tests in `tests/wire.rs`. Commit 7895fdb5.
 
 ## Comments

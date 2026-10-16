@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["app", "auth", "config", "database", "ffmpeg", "network", "parsers", "urls"]
+members = ["app", "auth", "config", "danmaku", "database", "downloader", "extras", "ffmpeg", "mux", "naming", "network", "parsers", "services", "urls"]
 
 [workspace.package]
 edition = "2021"
