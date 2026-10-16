@@ -8,7 +8,7 @@ old Python config in place.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Reads real Python config.json (golden sample fixtures from test_config_defaults/test_config_migration expectations)
 - [ ] Every Python migration step ported; old versions migrate to current
