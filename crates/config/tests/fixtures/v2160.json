@@ -1,0 +1,45 @@
+{
+    "QFluentWidgets": {
+        "ThemeMode": "Dark",
+        "ThemeColor": "#ff009faa"
+    },
+    "Application": {
+        "config_version": 2160,
+        "accepted_terms": true
+    },
+    "Interface": {
+        "language": "en_US"
+    },
+    "Behavior": {
+        "when_close": 1
+    },
+    "Download": {
+        "video_quality_priority": [
+            127,
+            126,
+            80
+        ],
+        "ov_cdn_server_list": [
+            {
+                "host": "upos-hz-mirrorakam.akamaized.net",
+                "provider": "AKAMAI"
+            },
+            {
+                "host": "upos-sz-mirroraliov.bilivideo.com",
+                "provider": "ALIYUN"
+            },
+            {},
+            {
+                "provider": "TENCENT"
+            }
+        ]
+    },
+    "Advanced": {
+        "proxy_enabled": false,
+        "proxy_mode": "disabled",
+        "area": "ov"
+    },
+    "Misc": {
+        "auto_parse_interval": 2.5
+    }
+}

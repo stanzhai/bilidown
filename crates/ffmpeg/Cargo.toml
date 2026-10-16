@@ -1,0 +1,15 @@
+[package]
+name = "ffmpeg"
+description = "FFmpeg subprocess wrapper: resolution, command builder, progress parsing, watchdog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+[dependencies]
+anyhow.workspace = true
+parking_lot.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[dev-dependencies]

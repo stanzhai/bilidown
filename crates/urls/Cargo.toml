@@ -1,0 +1,16 @@
+[package]
+name = "urls"
+description = "Bilibili URL classification, search-keyword handling, and b23.tv expansion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+regex = "=1.13.1"
+url = "=2.5.8"
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+tokio = { version = "=1.53.3", features = ["rt", "macros"] }
+wiremock = "=0.6.5"
