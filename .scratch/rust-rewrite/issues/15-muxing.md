@@ -7,7 +7,7 @@ delete-after; chapter info embedded via ffmetadata.
 
 **Blocked by:** 07, 13.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] DASH merge command correct for both containers (fixtures assert args, fake ffmpeg)
 - [ ] FLV concat path for multi-part legacy tasks
