@@ -7,7 +7,7 @@ area choices.
 
 **Blocked by:** 08, 06.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] au/am parse to audio Episode lists; menu expansion correct
 - [ ] Batch parse: multi-line id list → combined Episode list
