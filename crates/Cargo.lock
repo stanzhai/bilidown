@@ -4710,6 +4710,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsers"
+version = "2.21.0"
+dependencies = [
+ "auth",
+ "network",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "url",
+ "urls",
+ "uuid",
+ "wiremock",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,23 @@
+[package]
+name = "parsers"
+description = "Bilibili parse layer: episode tree model plus list-family parsers (space, favorites, collection, watch-later, history, weekly), auto-parse walking and the parse list view model"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+network = { path = "../network" }
+auth = { path = "../auth" }
+urls = { path = "../urls" }
+url = "=2.5.8"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+thiserror = "=2.0.17"
+regex = "=1.13.1"
+tokio = { version = "=1.53.3", features = ["rt", "time"] }
+parking_lot = "=0.12.5"
+uuid = { version = "=1.28.0", features = ["v4"] }
+[dev-dependencies]
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros"] }
+wiremock = "=0.6.5"

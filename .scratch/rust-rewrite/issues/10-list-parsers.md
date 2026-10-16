@@ -7,12 +7,12 @@ search inside those lists.
 
 **Blocked by:** 08, 06.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
-- [ ] Each list family parses and paginates via wiremock fixtures
-- [ ] Space parser ports test_space_parser vectors
-- [ ] Auto Parse walks all pages with progress callbacks (test_parse_worker, test_reparse_worker semantics)
-- [ ] Server-side keyword search issues the API's search params and filters results
-- [ ] List view model supports in-page search + match jumping (test_parse_list_view semantics)
+- [x] Each list family parses and paginates via wiremock fixtures
+- [x] Space parser ports test_space_parser vectors
+- [x] Auto Parse walks all pages with progress callbacks (test_parse_worker, test_reparse_worker semantics)
+- [x] Server-side keyword search issues the API's search params and filters results
+- [x] List view model supports in-page search + match jumping (test_parse_list_view semantics)
 
 ## Comments
