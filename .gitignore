@@ -49,3 +49,6 @@ sync.ps1
 /.playwright-mcp
 # rust workspace build output
 /crates/target
+dist/
+runtime-*
+appimagetool-*.AppImage

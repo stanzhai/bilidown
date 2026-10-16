@@ -6,7 +6,7 @@ resolution per platform. Small self-contained executables.
 
 **Blocked by:** 26, 22, 23, 24, 25, 27.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Three platform artifacts build in CI (release workflow)
 - [ ] Bundled ffmpeg found at `bundle/ffmpeg(.exe)` at runtime
