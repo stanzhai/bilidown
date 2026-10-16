@@ -47,3 +47,5 @@ sync.ps1
 
 # playwright
 /.playwright-mcp
+# rust workspace build output
+/crates/target

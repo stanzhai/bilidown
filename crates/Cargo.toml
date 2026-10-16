@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["app"]
+
+[workspace.package]
+edition = "2021"
+version = "2.21.0"
+license = "GPL-3.0"
+
+[workspace.dependencies]
+# gpui-kit pins an exact GPUI snapshot (`gpui-pre`); any snapshot may change
+# GPUI's API, so both are pinned exactly (`=`, never `^`). Bump deliberately
+# in a dedicated task. (spec: Maturity acknowledgment)
+gpui-kit = "=0.7.3"
+anyhow = "1"
