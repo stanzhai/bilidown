@@ -1,27 +1,297 @@
-use gpui_kit::*;
+#![recursion_limit = "256"]
 
+use std::sync::mpsc::channel;
+use std::time::Duration;
+
+use anyhow::Context as _;
+use gpui_kit::gpui::*;
+
+mod single_instance;
+mod tray;
 mod ui;
 
-pub use ui::{Shell, Screen};
+use config::ConfigStore;
+use single_instance::{AppInstance, ENSURE_RUNNING_FLAG, InstanceOutcome, WakeEvent};
+pub use ui::{Screen, Shell};
+
+const APP_DISPLAY_NAME: &str = "Bili23 Downloader";
 
 /// Product identity line used by the About surface and smoke checks.
 pub fn version_line() -> String {
     format!("Bili23 Downloader v{}", env!("CARGO_PKG_VERSION"))
 }
 
+/// `WhenClose` enum from `src/gui/dialog/main_window/exit.py`.
+pub mod when_close {
+    pub const EXIT: i64 = 1;
+    pub const MINIMIZE: i64 = 2;
+    pub const ALWAYS_ASK: i64 = 3;
+}
+
+/// Read the remembered close behavior; anything invalid falls back to asking.
+fn when_close_value(cfg: &ConfigStore) -> i64 {
+    cfg.get("Behavior", "when_close_window")
+        .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        .filter(|v| (1..=3).contains(v))
+        .unwrap_or(when_close::ALWAYS_ASK)
+}
+
+/// What the close handler decided (headless decision core).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CloseDecision {
+    /// Close for real (also the tray-exit forced path).
+    Exit,
+    /// Keep running in the tray.
+    MinimizeToTray,
+    /// Show the exit dialog and let it decide.
+    Ask,
+}
+
+fn close_decision(when_close: i64, force: bool) -> CloseDecision {
+    if force {
+        return CloseDecision::Exit;
+    }
+    match when_close {
+        when_close::MINIMIZE => CloseDecision::MinimizeToTray,
+        when_close::EXIT => CloseDecision::Exit,
+        _ => CloseDecision::Ask,
+    }
+}
+
+/// Screens as `services::window_state::ScreenRect`, from live displays.
+fn screen_rects(cx: &App) -> Vec<services::window_state::ScreenRect> {
+    cx.displays()
+        .iter()
+        .map(|d| {
+            let b = d.bounds();
+            services::window_state::ScreenRect {
+                x: b.origin.x.as_f32() as i64,
+                y: b.origin.y.as_f32() as i64,
+                width: b.size.width.as_f32() as i64,
+                height: b.size.height.as_f32() as i64,
+            }
+        })
+        .collect()
+}
+
+/// Loaded config store shared across the app.
+struct ConfigGlobal(parking_lot::Mutex<ConfigStore>);
+
+impl Global for ConfigGlobal {}
+
+/// Save the window geometry (Python `save_window_state`), then flush config.
+fn persist_window_state(window: &mut Window, cx: &mut App) {
+    let Some(global) = cx.try_global::<ConfigGlobal>() else {
+        return;
+    };
+    let mut store = global.0.lock();
+    let b = window.bounds();
+    let state = services::window_state::WindowState {
+        x: b.origin.x.as_f32() as i64,
+        y: b.origin.y.as_f32() as i64,
+        width: b.size.width.as_f32() as i64,
+        height: b.size.height.as_f32() as i64,
+        maximized: window.is_maximized(),
+    };
+    services::window_state::save_state(&mut store, true, state, None);
+    let _ = store.save();
+}
+
+fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
+    let lang = cx
+        .try_global::<ConfigGlobal>()
+        .map(|g| {
+            services::i18n::Language::from_config(
+                g.0.lock().get("Interface", "language").and_then(|v| v.as_str()).unwrap_or_default(),
+            )
+            .resolve()
+        })
+        .unwrap_or_else(|| services::i18n::Language::from_config("").resolve());
+    services::i18n::catalog(lang)
+}
+
 /// Opens one native window; returns when the app event loop exits cleanly.
 pub fn run() -> anyhow::Result<()> {
+    let ensure_running = std::env::args().any(|a| a == ENSURE_RUNNING_FLAG);
+
+    // --- single instance gate, before any UI -----------------------------
+    let (wake_tx, wake_rx) = channel::<WakeEvent>();
+    let (tray_tx, tray_rx) = channel::<tray::TrayAction>();
+    let outcome = AppInstance::acquire(ensure_running, wake_tx)
+        .context("single-instance gate failed")?;
+    if outcome != InstanceOutcome::Primary {
+        // Secondary launch: the primary was woken (or is dead but unwakeable,
+        // same as Python logging and exiting 0).
+        return Ok(());
+    }
+
     gpui_kit::application()
         .with_assets(gpui_kit::assets::AllAssets)
         .run(move |cx| {
             // Must be called before using any GPUI Component features.
             gpui_kit::init(cx);
-            gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| {
+
+            let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths(
+                std::env::temp_dir().join("bili23-downloader"),
+                std::env::temp_dir(),
+            ));
+            ConfigGlobal::set_global(cx, ConfigGlobal(parking_lot::Mutex::new(cfg)));
+            let cat = active_catalog(cx);
+
+            // --- tray ------------------------------------------------------
+            let show_label = cat.tr("SystemTrayIcon", "Show main window").to_string();
+            let exit_label = cat.tr("SystemTrayIcon", "Exit").to_string();
+            let mut _tray =
+                tray::spawn_tray(&show_label, &exit_label, APP_DISPLAY_NAME, tray_tx);
+
+            // --- window ----------------------------------------------------
+            let mut options = WindowOptions {
+                titlebar: Some(TitlebarOptions {
+                    title: Some(APP_DISPLAY_NAME.into()),
+                    ..Default::default()
+                }),
+                window_min_size: Some(gpui::Size {
+                    width: px(950.),
+                    height: px(600.),
+                }),
+                app_id: Some("bili23-downloader".to_string()),
+                ..Default::default()
+            };
+            let saved = cx
+                .try_global::<ConfigGlobal>()
+                .and_then(|g| services::window_state::saved_state(&g.0.lock(), &screen_rects(cx)));
+            if let Some(saved) = saved {
+                options.window_bounds = Some(WindowBounds::Windowed(Bounds {
+                    origin: point(px(saved.x as f32), px(saved.y as f32)),
+                    size: size(px(saved.width as f32), px(saved.height as f32)),
+                }));
+            }
+
+            let window = gpui_kit::open_window(options, cx, |window, cx| {
                 cx.new(|cx| Shell::new(window, cx))
             })
-            .expect("Failed to open window");
+            .expect("Failed to open window")
+            .0; // AnyWindowHandle — works for every later .update
+
+            // --- close → exit dialog / minimize-to-tray ---------------------
+            window
+                .update(cx, |_, window, cx| {
+                    window.on_window_should_close(cx, |window, cx| {
+                        let when = cx
+                            .try_global::<ConfigGlobal>()
+                            .map(|g| when_close_value(&g.0.lock()))
+                            .unwrap_or(when_close::ALWAYS_ASK);
+                        match close_decision(when, false) {
+                            CloseDecision::Exit => {
+                                persist_window_state(window, cx);
+                                true
+                            }
+                            CloseDecision::MinimizeToTray => {
+                                persist_window_state(window, cx);
+                                minimize_to_tray(window);
+                                false
+                            }
+                            CloseDecision::Ask => {
+                                ask_then_close(window, cx);
+                                false // veto; the dialog closes later if needed
+                            }
+                        }
+                    });
+                })
+                .expect("window gone");
+
+            // --- tray + wake pump ------------------------------------------
+            // tray-icon/muda deliver on background threads; drain both
+            // channels from a foreground task so all UI work stays on the
+            // main loop.
+            cx.spawn(async move |cx| {
+                loop {
+                    while let Ok(ev) = tray_rx.try_recv() {
+                        handle_tray_action(ev, window, &cx).await;
+                    }
+                    while let Ok(ev) = wake_rx.try_recv() {
+                        handle_wake_event(ev, window, &cx).await;
+                    }
+                    cx.background_executor()
+                        .timer(Duration::from_millis(50))
+                        .await;
+                }
+            })
+            .detach();
         });
     Ok(())
+}
+
+/// Bring the window back from tray/minimize (Python `_activate_window`).
+fn activate_main_window(window: AnyWindowHandle, cx: &mut App) {
+    cx.activate(true);
+    let _ = window.update(cx, |_, window, _| window.activate_window());
+}
+
+fn minimize_to_tray(window: &mut Window) {
+    // No per-window hide in gpui; minimizing matches "window not visible,
+    // process alive". Python keeps the process alive with the tray too.
+    window.minimize_window();
+}
+
+async fn handle_tray_action(action: tray::TrayAction, window: AnyWindowHandle, cx: &AsyncApp) {
+    let _ = cx.update(|cx| match action {
+        tray::TrayAction::Show => activate_main_window(window, cx),
+        tray::TrayAction::Exit => {
+            // Forced path: no exit dialog (Python `request_exit(fast=True)`).
+            let _ = window.update(cx, |_, window, cx| persist_window_state(window, cx));
+            cx.quit();
+        }
+    });
+}
+
+async fn handle_wake_event(ev: WakeEvent, window: AnyWindowHandle, cx: &AsyncApp) {
+    match ev {
+        WakeEvent::Activate => {
+            let _ = cx.update(|cx| activate_main_window(window, cx));
+        }
+        // Python: probe only, never steals focus.
+        WakeEvent::EnsureRunning => {}
+    }
+}
+
+/// Exit dialog (port of `ExitDialog`): two answers; the remember-choice is
+/// the persisted `Behavior/when_close_window` value, editable in Settings.
+fn ask_then_close(window: &mut Window, cx: &mut App) {
+    let cat = active_catalog(cx);
+    let title = cat.tr("ExitDialog", "Choose an action").to_string();
+    let exit_label = cat.tr("ExitDialog", "Exit the program").to_string();
+    let minimize_label = cat.tr("ExitDialog", "Minimize to system tray").to_string();
+    let detail = cat.tr("ExitDialog", "Close the main window").to_string();
+
+    let rx = window.prompt(
+        PromptLevel::Info,
+        &title,
+        Some(&detail),
+        &[exit_label.as_str(), minimize_label.as_str()],
+        cx,
+    );
+    cx.spawn(async move |cx| {
+        let Ok(answer) = rx.await else { return };
+        let _ = cx.update(|cx| {
+            let Some(handle) = cx.windows().first().copied() else { return };
+            match answer {
+                0 => {
+                    // Exit: persist and close for real.
+                    let _ = handle.update(cx, |_, window, cx| {
+                        persist_window_state(window, cx);
+                        window.remove_window();
+                    });
+                    cx.quit();
+                }
+                _ => {
+                    // Minimize to tray: keep running.
+                    let _ = handle.update(cx, |_, window, _| minimize_to_tray(window));
+                }
+            }
+        });
+    })
+    .detach();
 }
 
 fn main() {
@@ -30,6 +300,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn version_line_reports_app_identity() {
         // Product identity unchanged (spec): same name, continues the
@@ -37,6 +309,52 @@ mod tests {
         assert_eq!(
             crate::version_line(),
             format!("Bili23 Downloader v{}", env!("CARGO_PKG_VERSION"))
+        );
+    }
+
+    #[test]
+    fn close_decision_matrix() {
+        use CloseDecision::*;
+        assert_eq!(close_decision(when_close::MINIMIZE, false), MinimizeToTray);
+        assert_eq!(close_decision(when_close::EXIT, false), Exit);
+        assert_eq!(close_decision(when_close::ALWAYS_ASK, false), Ask);
+        assert_eq!(close_decision(0, false), Ask, "invalid falls back to ask");
+        assert_eq!(close_decision(when_close::MINIMIZE, true), Exit, "force wins");
+    }
+
+    #[test]
+    fn when_close_reads_config_with_default() {
+        let mut cfg = ConfigStore::with_paths(std::env::temp_dir(), std::env::temp_dir());
+        assert_eq!(when_close_value(&cfg), when_close::ALWAYS_ASK);
+        cfg.set("Behavior", "when_close_window", serde_json::json!(2));
+        assert_eq!(when_close_value(&cfg), when_close::MINIMIZE);
+        cfg.set("Behavior", "when_close_window", serde_json::json!("1"));
+        assert_eq!(when_close_value(&cfg), when_close::EXIT);
+        cfg.set("Behavior", "when_close_window", serde_json::json!(9));
+        assert_eq!(when_close_value(&cfg), when_close::ALWAYS_ASK);
+    }
+
+    #[test]
+    fn lock_file_lives_under_app_data() {
+        let p = single_instance::lock_path().expect("data dir on all supported platforms");
+        assert!(p.ends_with(single_instance::INSTANCE_LOCK_NAME));
+        assert!(p.components().any(|c| c.as_os_str() == "Bili23 Downloader"));
+    }
+
+    #[test]
+    fn secondary_launch_wakes_primary_over_socket() {
+        use single_instance::*;
+        let (tx, rx) = channel();
+        start_wake_server(tx).expect("wake server binds");
+        assert!(wake_existing_instance(COMMAND_ACTIVATE));
+        let ev = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("primary received wake");
+        assert_eq!(ev, WakeEvent::Activate);
+        assert!(wake_existing_instance(COMMAND_ENSURE_RUNNING));
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            WakeEvent::EnsureRunning
         );
     }
 }

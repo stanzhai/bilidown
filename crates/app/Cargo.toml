@@ -21,10 +21,17 @@ network = { path = "../network" }
 services = { path = "../services" }
 parking_lot.workspace = true
 qrcode = "=0.14.1"
-image = "=0.25.10"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
 open = "=5.4.4"
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "net", "io-util", "time", "macros"] }
+tray-icon.workspace = true
+muda.workspace = true
+interprocess.workspace = true
+dirs = "=5.0.1"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
 wiremock = "=0.6.5"

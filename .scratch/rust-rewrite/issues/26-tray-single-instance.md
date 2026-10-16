@@ -8,7 +8,7 @@ included; exit dialog integration with minimize-to-tray.
 
 **Blocked by:** 20.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Second launch (Rust or Python) focuses the existing window, no second instance
 - [ ] Named mutex GUID identical to Python's on Windows; lock-file staleness logic ports Python's
