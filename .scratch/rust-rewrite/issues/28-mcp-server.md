@@ -6,7 +6,7 @@ the stdio bridge mode for Claude Desktop.
 
 **Blocked by:** 09, 16.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] axum server on loopback with Bearer auth; wrong token rejected
 - [ ] parse/download/task tools drive the real parser and task manager (wiremock-backed tests)
