@@ -1,0 +1,18 @@
+[package]
+name = "network"
+description = "Shared async HTTP layer (reqwest/rustls) with cookie store, proxy and signing hooks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "cookies", "http2", "charset", "system-proxy", "stream", "json", "query"] }
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+thiserror = "=2.0.17"
+parking_lot = "=0.12.5"
+
+[dev-dependencies]
+wiremock = "=0.6.5"
