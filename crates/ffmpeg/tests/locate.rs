@@ -5,20 +5,21 @@
 //! mutex so a sibling's Drop (restoring the real PATH mid-test) can't
 //! leak the host's ffmpeg into `which_ffmpeg()`.
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use ffmpeg::locate::{
     bundled_ffmpeg_path, ffmpeg_executable, FFmpegSelection, FFmpegSource, MISSING_MESSAGE,
 };
+use parking_lot::Mutex;
 
 static PATH_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-fn path_lock() -> std::sync::MutexGuard<'static, ()> {
-    PATH_LOCK.lock().expect("PATH lock poisoned")
+fn path_lock() -> parking_lot::MutexGuard<'static, ()> {
+    PATH_LOCK.lock()
 }
 
 struct PathGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
+    _lock: parking_lot::MutexGuard<'static, ()>,
     old: Vec<PathBuf>,
 }
 
@@ -27,7 +28,8 @@ impl PathGuard {
     /// guard's Drop restores PATH before the next test starts.
     fn set(paths: Vec<PathBuf>) -> Self {
         let lock = path_lock();
-        let old: Vec<PathBuf> = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
+        let old: Vec<PathBuf> =
+            std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
         let joined = std::env::join_paths(&paths).unwrap();
         std::env::set_var("PATH", &joined);
         Self { _lock: lock, old }
@@ -69,8 +71,13 @@ fn executable_name_matches_platform() {
 
 #[test]
 fn bundled_path_is_install_root_bundle() {
-    let p = bundled_ffmpeg_path(Path::new("/opt/app").as_ref());
-    assert_eq!(p, PathBuf::from("/opt/app").join("bundle").join(ffmpeg_executable()));
+    let p = bundled_ffmpeg_path(Path::new("/opt/app"));
+    assert_eq!(
+        p,
+        PathBuf::from("/opt/app")
+            .join("bundle")
+            .join(ffmpeg_executable())
+    );
 }
 
 #[test]
@@ -187,8 +194,17 @@ fn nothing_found_surfaces_missing_binary_error() {
 
 #[test]
 fn source_values_round_trip_from_config_strings() {
-    assert_eq!(FFmpegSource::from_config("bundled"), Some(FFmpegSource::Bundled));
-    assert_eq!(FFmpegSource::from_config("system"), Some(FFmpegSource::System));
-    assert_eq!(FFmpegSource::from_config("custom"), Some(FFmpegSource::Custom));
+    assert_eq!(
+        FFmpegSource::from_config("bundled"),
+        Some(FFmpegSource::Bundled)
+    );
+    assert_eq!(
+        FFmpegSource::from_config("system"),
+        Some(FFmpegSource::System)
+    );
+    assert_eq!(
+        FFmpegSource::from_config("custom"),
+        Some(FFmpegSource::Custom)
+    );
     assert_eq!(FFmpegSource::from_config("nope"), None);
 }
