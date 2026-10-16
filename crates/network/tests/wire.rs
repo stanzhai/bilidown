@@ -4,14 +4,19 @@
 //! proxy routing, cookie persistence across client rebuilds, signing hook.
 
 use network::{ClientOptions, HttpClient, ProxyConfig};
-use wiremock::matchers::{header, method, path, query_param, header_regex};
+use wiremock::matchers::{header, header_regex, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// `wiremock::matchers::header` splits values on commas (RFC list
 /// semantics), so real User-Agent strings ("KHTML, like Gecko") never
 /// exact-match; anchor a regex instead.
 fn regex_escape(literal: &str) -> String {
-    literal.replace('\\', "\\\\").replace('.', "\\.").replace('(', "\\(").replace(')', "\\)").replace('+', "\\+")
+    literal
+        .replace('\\', "\\\\")
+        .replace('.', "\\.")
+        .replace('(', "\\(")
+        .replace(')', "\\)")
+        .replace('+', "\\+")
 }
 
 const TEST_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0";
@@ -30,7 +35,10 @@ async fn sends_default_headers_and_configured_user_agent() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/x/web-interface/nav"))
-        .and(header_regex("User-Agent", &format!("^{}$", regex_escape(TEST_UA))))
+        .and(header_regex(
+            "User-Agent",
+            &format!("^{}$", regex_escape(TEST_UA)),
+        ))
         .and(header("Referer", "https://www.bilibili.com/"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "code": 0, "message": "0", "data": {"isLogin": false}
@@ -253,5 +261,8 @@ async fn http_error_status_surfaces_as_status_error() {
         .get_json::<serde_json::Value>(&format!("{}/boom", server.uri()), &[])
         .await
         .unwrap_err();
-    assert!(err.is_status(), "412 must surface as a status error, got {err}");
+    assert!(
+        err.is_status(),
+        "412 must surface as a status error, got {err}"
+    );
 }

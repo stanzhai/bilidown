@@ -19,11 +19,26 @@ pub const SPONSOR_URL: &str = "https://bili23.scott-sloan.cn/doc/about.html";
 /// the doc-site fallbacks).
 pub fn links() -> [AboutLink; 5] {
     [
-        AboutLink { source: "Terms of Use", url: DOC_URL },
-        AboutLink { source: "Privacy Policy", url: DOC_URL },
-        AboutLink { source: "Documentation", url: DOC_URL },
-        AboutLink { source: "Github", url: GITHUB_URL },
-        AboutLink { source: "Sponsor", url: SPONSOR_URL },
+        AboutLink {
+            source: "Terms of Use",
+            url: DOC_URL,
+        },
+        AboutLink {
+            source: "Privacy Policy",
+            url: DOC_URL,
+        },
+        AboutLink {
+            source: "Documentation",
+            url: DOC_URL,
+        },
+        AboutLink {
+            source: "Github",
+            url: GITHUB_URL,
+        },
+        AboutLink {
+            source: "Sponsor",
+            url: SPONSOR_URL,
+        },
     ]
 }
 

@@ -62,7 +62,11 @@ impl ConfigStore {
             values: defaults_map(),
             naming_rules_reset: false,
         };
-        store.set_item("Download", "download_path", Value::String(download_dir.into().to_string_lossy().into_owned()));
+        store.set_item(
+            "Download",
+            "download_path",
+            Value::String(download_dir.into().to_string_lossy().into_owned()),
+        );
         store.load_and_migrate();
         store
     }
@@ -96,7 +100,9 @@ impl ConfigStore {
             let Some(dst) = self.values.get_mut(group).and_then(Value::as_object_mut) else {
                 continue; // 未知分组
             };
-            let Some(items) = items.as_object() else { continue };
+            let Some(items) = items.as_object() else {
+                continue;
+            };
             for (item, value) in items {
                 if let Some(slot) = dst.get_mut(item) {
                     match correct(group, item, slot, value) {
@@ -139,11 +145,15 @@ impl ConfigStore {
 
         if version < 2200 {
             // 命名规则整表换新默认（用户改过/自建的一并舍弃，置标志提示）
-            self.set_item("File Naming", "naming_rule_list", defaults_map()
-                .get("File Naming")
-                .and_then(|g| g.get("naming_rule_list"))
-                .cloned()
-                .unwrap_or(Value::Array(vec![])));
+            self.set_item(
+                "File Naming",
+                "naming_rule_list",
+                defaults_map()
+                    .get("File Naming")
+                    .and_then(|g| g.get("naming_rule_list"))
+                    .cloned()
+                    .unwrap_or(Value::Array(vec![])),
+            );
             self.naming_rules_reset = true;
 
             // 海外 CDN 列表剔除 Akamai：只按 host 精确匹配，畸形项原样保留，
@@ -164,7 +174,11 @@ impl ConfigStore {
             }
         }
 
-        self.set_item("Application", "config_version", Value::from(APP_CONFIG_VERSION));
+        self.set_item(
+            "Application",
+            "config_version",
+            Value::from(APP_CONFIG_VERSION),
+        );
     }
 
     fn get_item(&self, group: &str, item: &str) -> Option<&Value> {
@@ -186,8 +200,7 @@ impl ConfigStore {
         let tmp = self.file.with_extension("json.tmp");
         let mut bytes = Vec::with_capacity(16 * 1024);
         write_pretty(&Value::Object(self.values.clone()), &mut bytes);
-        fs::write(&tmp, &bytes)
-            .with_context(|| format!("写入临时文件失败: {}", tmp.display()))?;
+        fs::write(&tmp, &bytes).with_context(|| format!("写入临时文件失败: {}", tmp.display()))?;
         match fs::rename(&tmp, &self.file) {
             Ok(()) => Ok(()),
             Err(e) => {
@@ -245,9 +258,7 @@ fn python_truthy(v: &Value) -> bool {
 fn correct(group: &str, item: &str, slot: &Value, incoming: &Value) -> Option<Value> {
     let key = (group, item);
     match key {
-        ("Interface", "language") => {
-            options_str(incoming, &["zh_CN", "zh_TW", "en_US", "Auto"])
-        }
+        ("Interface", "language") => options_str(incoming, &["zh_CN", "zh_TW", "en_US", "Auto"]),
         ("Interface", "display_scaling") => {
             options_str(incoming, &["1", "1.25", "1.5", "1.75", "2", "Auto"])
         }
@@ -257,7 +268,9 @@ fn correct(group: &str, item: &str, slot: &Value, incoming: &Value) -> Option<Va
         ("Advanced", "ffmpeg_source") => options_str(incoming, &["bundled", "system", "custom"]),
         ("Download", "video_container") => options_str(incoming, &["mp4", "mkv"]),
         ("Additional", "danmaku_type") => options_str(incoming, &["xml", "ass", "json"]),
-        ("Additional", "subtitle_type") => options_str(incoming, &["srt", "lrc", "txt", "ass", "json"]),
+        ("Additional", "subtitle_type") => {
+            options_str(incoming, &["srt", "lrc", "txt", "ass", "json"])
+        }
         ("Additional", "cover_type") => options_str(incoming, &["jpg", "png", "avif", "webp"]),
         ("Additional", "metadata_type") => options_str(incoming, &["nfo", "json"]),
         ("Behavior", "when_close_window") => options_int(incoming, &[1, 2, 3]),
@@ -294,7 +307,11 @@ fn options_str(v: &Value, allowed: &[&str]) -> Option<Value> {
 /// OptionsValidator：命中（含 1.0==1 这类数值相等）原样保留，否则取首项。
 fn options_int(v: &Value, allowed: &[i64]) -> Option<Value> {
     let hit = v.as_f64().is_some_and(|n| allowed.contains(&(n as i64)));
-    Some(if hit { v.clone() } else { Value::from(allowed[0]) })
+    Some(if hit {
+        v.clone()
+    } else {
+        Value::from(allowed[0])
+    })
 }
 
 /// RangeValidator：夹取到区间；非数值在 Python 里比较即抛异常 → 中止 load。
@@ -315,7 +332,15 @@ fn color(v: &Value) -> Value {
     let Some(s) = v.as_str() else { return fallback };
     let hex = s.strip_prefix('#').unwrap_or("");
     let expanded = match hex.len() {
-        3 => format!("ff{}{}{}{}{}{}", &hex[0..1], &hex[0..1], &hex[1..2], &hex[1..2], &hex[2..3], &hex[2..3]),
+        3 => format!(
+            "ff{}{}{}{}{}{}",
+            &hex[0..1],
+            &hex[0..1],
+            &hex[1..2],
+            &hex[1..2],
+            &hex[2..3],
+            &hex[2..3]
+        ),
         6 => format!("ff{hex}"),
         8 => hex.to_string(),
         _ => return fallback,

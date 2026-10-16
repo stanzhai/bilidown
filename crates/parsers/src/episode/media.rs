@@ -50,9 +50,15 @@ pub fn parse_cheese(episode_data: &EpisodeData, episode_id: &str, info: &Value) 
             item.badge = cheese_badge(&episode);
             item.url = format!("https://www.bilibili.com/cheese/play/{}", item.ep_id);
             item.episode_id = episode_id.to_owned();
-            item.episode_plot = format!("{} · {}", text(&episode, "play_way_subtitle"), text(&episode, "subtitle"));
-            item.related_titles.insert("series_title".into(), Value::String(cheese_title.clone()));
-            item.related_titles.insert("section_title".into(), Value::String(section_title.clone()));
+            item.episode_plot = format!(
+                "{} · {}",
+                text(&episode, "play_way_subtitle"),
+                text(&episode, "subtitle")
+            );
+            item.related_titles
+                .insert("series_title".into(), Value::String(cheese_title.clone()));
+            item.related_titles
+                .insert("section_title".into(), Value::String(section_title.clone()));
             item.set_attribute(Attribute::CHEESE_BIT);
             section_node.add_child(item);
         }
@@ -87,9 +93,18 @@ fn cheese_episode_data(episode_data: &EpisodeData, episode_id: &str, info: &Valu
     );
     map.insert("premiered".into(), Value::from(cheese_premiered(info)));
     map.insert("season_id".into(), Value::from(int(info, "season_id")));
-    map.insert("uploader".into(), Value::String(text(&info["up_info"], "uname")));
-    map.insert("uploader_uid".into(), Value::from(int(&info["up_info"], "mid")));
-    map.insert("uploader_face".into(), Value::String(text(&info["up_info"], "avatar")));
+    map.insert(
+        "uploader".into(),
+        Value::String(text(&info["up_info"], "uname")),
+    );
+    map.insert(
+        "uploader_uid".into(),
+        Value::from(int(&info["up_info"], "mid")),
+    );
+    map.insert(
+        "uploader_face".into(),
+        Value::String(text(&info["up_info"], "avatar")),
+    );
     episode_data.set_episode_data(episode_id, Value::Object(map));
 }
 
@@ -138,7 +153,10 @@ pub fn parse_lesson(episode_data: &EpisodeData, episode_id: &str, info: &Value) 
     root.set_attribute(Attribute::TREE_NODE_BIT);
 
     for chapter in info["chapterList"].as_array().cloned().unwrap_or_default() {
-        let sections = chapter["sectionList"].as_array().cloned().unwrap_or_default();
+        let sections = chapter["sectionList"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
         if sections.is_empty() {
             continue;
         }
@@ -151,7 +169,9 @@ pub fn parse_lesson(episode_data: &EpisodeData, episode_id: &str, info: &Value) 
         chapter_node.set_attribute(Attribute::TREE_NODE_BIT);
 
         for section in sections {
-            let Some(item) = lesson_section(info, &section, &course_title, &chapter_title, episode_id) else {
+            let Some(item) =
+                lesson_section(info, &section, &course_title, &chapter_title, episode_id)
+            else {
                 continue;
             };
             if chapter_wrapped {
@@ -184,16 +204,28 @@ fn lesson_section(
     episode_id: &str,
 ) -> Option<TreeItem> {
     let section_id = section.get("sectionId").and_then(Value::as_i64)?;
-    if section.get("videoTime").and_then(Value::as_i64).unwrap_or(0) == 0 {
+    if section
+        .get("videoTime")
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        == 0
+    {
         // Unpublished section: the play API would fail for it anyway.
         return None;
     }
 
-    let number = section.get("sectionIndex").and_then(Value::as_i64).unwrap_or(0);
+    let number = section
+        .get("sectionIndex")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let mut item = TreeItem::empty();
     item.badge = lesson_badge(section);
     item.duration = int(section, "videoTime") / 1000;
-    item.number = if number > 0 { Number::Int(number) } else { Number::Empty };
+    item.number = if number > 0 {
+        Number::Int(number)
+    } else {
+        Number::Empty
+    };
     item.episode_number = number;
     item.title = text(section, "sectionName");
     item.episode_plot = chapter_title.to_owned();
@@ -210,8 +242,14 @@ fn lesson_section(
         int(info, "lessonId"),
         int(info, "itemId")
     );
-    item.related_titles.insert("series_title".into(), Value::String(course_title.to_owned()));
-    item.related_titles.insert("season_title".into(), Value::String(course_title.to_owned()));
+    item.related_titles.insert(
+        "series_title".into(),
+        Value::String(course_title.to_owned()),
+    );
+    item.related_titles.insert(
+        "season_title".into(),
+        Value::String(course_title.to_owned()),
+    );
     item.related_titles.insert(
         "section_title".into(),
         Value::String(if chapter_title.is_empty() {
@@ -241,8 +279,17 @@ pub fn lesson_get_section_id(info: &Value) -> Value {
         return Value::from(id);
     }
     for chapter in info["chapterList"].as_array().cloned().unwrap_or_default() {
-        for section in chapter["sectionList"].as_array().cloned().unwrap_or_default() {
-            if section.get("videoTime").and_then(Value::as_i64).unwrap_or(0) > 0 {
+        for section in chapter["sectionList"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+        {
+            if section
+                .get("videoTime")
+                .and_then(Value::as_i64)
+                .unwrap_or(0)
+                > 0
+            {
                 return section
                     .get("sectionId")
                     .cloned()
@@ -252,4 +299,3 @@ pub fn lesson_get_section_id(info: &Value) -> Value {
     }
     Value::String(String::new())
 }
-

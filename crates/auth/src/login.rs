@@ -66,7 +66,9 @@ pub struct CaptchaInfo {
 
 /// `init_geetest` — fetch token + geetest challenge/gt.
 pub async fn fetch_captcha(client: &HttpClient) -> Result<CaptchaInfo, AuthError> {
-    let response: serde_json::Value = client.get_json::<serde_json::Value>(CAPTCHA_API, &[]).await?;
+    let response: serde_json::Value = client
+        .get_json::<serde_json::Value>(CAPTCHA_API, &[])
+        .await?;
     check_response(&response)?;
     let data = &response["data"];
     Ok(CaptchaInfo {
@@ -75,7 +77,10 @@ pub async fn fetch_captcha(client: &HttpClient) -> Result<CaptchaInfo, AuthError
             .as_str()
             .unwrap_or_default()
             .to_owned(),
-        gt: data["geetest"]["gt"].as_str().unwrap_or_default().to_owned(),
+        gt: data["geetest"]["gt"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned(),
         seccode: String::new(),
         validate: String::new(),
         captcha_key: String::new(),
@@ -90,7 +95,9 @@ pub async fn qr_generate(client: &HttpClient) -> Result<(String, String), AuthEr
         ("go_url".to_owned(), "https://www.bilibili.com/".to_owned()),
         ("web_location".to_owned(), "333.1007".to_owned()),
     ];
-    let response: serde_json::Value = client.get_json::<serde_json::Value>(QR_GENERATE_API, &params).await?;
+    let response: serde_json::Value = client
+        .get_json::<serde_json::Value>(QR_GENERATE_API, &params)
+        .await?;
     check_response(&response)?;
     let data = &response["data"];
     Ok((
@@ -108,7 +115,9 @@ pub async fn qr_poll(
     session: &mut Session<'_>,
 ) -> Result<QRCodeScanStatus, AuthError> {
     let params = vec![("qrcode_key".to_owned(), qrcode_key.to_owned())];
-    let response: serde_json::Value = client.get_json::<serde_json::Value>(QR_POLL_API, &params).await?;
+    let response: serde_json::Value = client
+        .get_json::<serde_json::Value>(QR_POLL_API, &params)
+        .await?;
     check_response(&response)?;
     let code = response["data"]["code"].as_i64().unwrap_or(86038);
     let status = QRCodeScanStatus::from_code(code);
@@ -142,8 +151,9 @@ pub async fn sms_send(
         ("validate".to_owned(), captcha.validate.clone()),
         ("seccode".to_owned(), captcha.seccode.clone()),
     ];
-    let response: serde_json::Value =
-        client.post_json(SMS_SEND_API, &params, &serde_json::Value::Null).await?;
+    let response: serde_json::Value = client
+        .post_json(SMS_SEND_API, &params, &serde_json::Value::Null)
+        .await?;
     check_response(&response)?;
     Ok(response["data"]["captcha_key"]
         .as_str()
@@ -167,8 +177,9 @@ pub async fn sms_login(
         ("captcha_key".to_owned(), captcha_key.to_owned()),
         ("go_url".to_owned(), "https://www.bilibili.com/".to_owned()),
     ];
-    let response: serde_json::Value =
-        client.post_json(SMS_LOGIN_API, &params, &serde_json::Value::Null).await?;
+    let response: serde_json::Value = client
+        .post_json(SMS_LOGIN_API, &params, &serde_json::Value::Null)
+        .await?;
     check_response(&response)?;
     session.capture_login_cookies();
     Ok(())
@@ -255,10 +266,17 @@ pub async fn cookie_login(
         .get_json::<serde_json::Value>(crate::wbi::NAV_API, &[])
         .await
         .map_err(CookieLoginError::Http)?;
-    let data = response.get("data").cloned().unwrap_or(serde_json::Value::Null);
+    let data = response
+        .get("data")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     wbi.store_from_nav(&data);
 
-    if data.get("isLogin").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if data
+        .get("isLogin")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         session.capture_login_cookies();
         Ok(CookieLoginOutcome::Success)
     } else {
@@ -287,16 +305,11 @@ pub enum CookieLoginError {
 }
 
 /// `UserManager.logout` — POST exit, then clear login state on success.
-pub async fn logout(
-    client: &HttpClient,
-    session: &mut Session<'_>,
-) -> Result<(), AuthError> {
-    let params = vec![(
-        "biliCSRF".to_owned(),
-        session.state.bili_jct.clone(),
-    )];
-    let response: serde_json::Value =
-        client.post_json(LOGOUT_API, &params, &serde_json::Value::Null).await?;
+pub async fn logout(client: &HttpClient, session: &mut Session<'_>) -> Result<(), AuthError> {
+    let params = vec![("biliCSRF".to_owned(), session.state.bili_jct.clone())];
+    let response: serde_json::Value = client
+        .post_json(LOGOUT_API, &params, &serde_json::Value::Null)
+        .await?;
     check_response(&response)?;
     session.clear_login();
     Ok(())

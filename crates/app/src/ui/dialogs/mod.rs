@@ -10,11 +10,26 @@
 //! through `WindowExt::open_dialog`.
 
 pub mod about;
+pub mod auto_parse;
+pub mod auto_select;
 pub mod batch_parse;
 pub mod batch_select;
+pub mod download_as_single_video;
+pub mod edit_host;
 pub mod interactive;
+pub mod jump_to_page;
+pub mod monitor_clipboard;
+pub mod multi_part_lists;
+pub mod parse_history;
+pub mod parse_list;
+pub mod priority;
+pub mod search;
+pub mod select_area;
 pub mod styles;
+pub mod subtitles_language;
+pub mod terms;
 pub mod update;
+pub mod view_cover;
 
 use services::i18n::{self, Catalog};
 

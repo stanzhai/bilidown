@@ -97,7 +97,11 @@ impl Default for ClipboardMonitor {
 
 impl ClipboardMonitor {
     pub fn new() -> Self {
-        Self { last_url: None, last_parse_at: None, options_dialog_open: false }
+        Self {
+            last_url: None,
+            last_parse_at: None,
+            options_dialog_open: false,
+        }
     }
 
     /// `on_clipboard_changed` / `check_clipboard_on_startup` — the shared
@@ -112,8 +116,12 @@ impl ClipboardMonitor {
         if !monitor_enabled(cfg) || self.options_dialog_open {
             return ClipboardDecision::Skip;
         }
-        let Some(text) = source.text() else { return ClipboardDecision::Skip };
-        let Some(url) = extract_parseable_url(&text) else { return ClipboardDecision::Skip };
+        let Some(text) = source.text() else {
+            return ClipboardDecision::Skip;
+        };
+        let Some(url) = extract_parseable_url(&text) else {
+            return ClipboardDecision::Skip;
+        };
 
         if self.last_url.as_deref() == Some(url.as_str()) {
             let last = self.last_parse_at.unwrap_or(f64::MIN);
@@ -129,7 +137,9 @@ impl ClipboardMonitor {
 
 /// `Behavior.monitor_clipboard` (default false).
 pub fn monitor_enabled(cfg: &ConfigStore) -> bool {
-    cfg.get("Behavior", "monitor_clipboard").and_then(|v| v.as_bool()).unwrap_or(false)
+    cfg.get("Behavior", "monitor_clipboard")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 /// The URL to parse from clipboard text, if any: Python takes the whole

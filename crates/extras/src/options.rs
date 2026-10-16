@@ -11,22 +11,36 @@ use database::TaskInfo;
 /// value exactly like Python's `ValueError` branch.
 pub fn resolve(task: &TaskInfo, store: &ConfigStore, key: &str) -> serde_json::Value {
     let pinned = match key {
-        "subtitle_type" => task.Options.subtitle_type.clone().map(serde_json::Value::String),
+        "subtitle_type" => task
+            .Options
+            .subtitle_type
+            .clone()
+            .map(serde_json::Value::String),
         "embed_subtitle" => task.Options.embed_subtitle.map(serde_json::Value::Bool),
-        "delete_subtitle_after_embed" => {
-            task.Options.delete_subtitle_after_embed.map(serde_json::Value::Bool)
-        }
+        "delete_subtitle_after_embed" => task
+            .Options
+            .delete_subtitle_after_embed
+            .map(serde_json::Value::Bool),
         "subtitle_language" => task
             .Options
             .subtitle_language
             .clone()
             .map(serde_json::Value::Object),
-        "cover_type" => task.Options.cover_type.clone().map(serde_json::Value::String),
+        "cover_type" => task
+            .Options
+            .cover_type
+            .clone()
+            .map(serde_json::Value::String),
         "attach_cover" => task.Options.attach_cover.map(serde_json::Value::Bool),
-        "delete_cover_after_attach" => {
-            task.Options.delete_cover_after_attach.map(serde_json::Value::Bool)
-        }
-        "metadata_type" => task.Options.metadata_type.clone().map(serde_json::Value::String),
+        "delete_cover_after_attach" => task
+            .Options
+            .delete_cover_after_attach
+            .map(serde_json::Value::Bool),
+        "metadata_type" => task
+            .Options
+            .metadata_type
+            .clone()
+            .map(serde_json::Value::String),
         _ => None,
     };
 
@@ -35,11 +49,16 @@ pub fn resolve(task: &TaskInfo, store: &ConfigStore, key: &str) -> serde_json::V
     };
 
     // Enum-typed keys: an unknown string must not fail the download.
-    if matches!(key, "subtitle_type" | "cover_type" | "metadata_type" | "danmaku_type") {
+    if matches!(
+        key,
+        "subtitle_type" | "cover_type" | "metadata_type" | "danmaku_type"
+    ) {
         let known = matches!(
             (key, value.as_str()),
-            ("subtitle_type", Some("srt" | "lrc" | "txt" | "ass" | "json"))
-                | ("cover_type", Some("jpg" | "png" | "avif" | "webp"))
+            (
+                "subtitle_type",
+                Some("srt" | "lrc" | "txt" | "ass" | "json")
+            ) | ("cover_type", Some("jpg" | "png" | "avif" | "webp"))
                 | ("metadata_type", Some("nfo" | "json"))
                 | ("danmaku_type", Some("xml" | "ass" | "json"))
         );

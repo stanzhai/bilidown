@@ -66,10 +66,20 @@ fn tvshow_and_episode_nfo() {
     let task = bangumi_task();
     let docs = extras::nfo::generate(&task, "Metadata");
     assert_eq!(docs.len(), 2);
-    assert_eq!((docs[0].name.as_str(), docs[0].qualifier.as_slice()), ("tvshow", &[][..]));
-    assert_eq!((docs[1].name.as_str(), docs[1].qualifier.as_slice()), ("N", &[][..]));
+    assert_eq!(
+        (docs[0].name.as_str(), docs[0].qualifier.as_slice()),
+        ("tvshow", &[][..])
+    );
+    assert_eq!(
+        (docs[1].name.as_str(), docs[1].qualifier.as_slice()),
+        ("N", &[][..])
+    );
 
-    let year = local_date(1_764_000_000).split('-').next().unwrap().to_owned();
+    let year = local_date(1_764_000_000)
+        .split('-')
+        .next()
+        .unwrap()
+        .to_owned();
     let date = local_date(1_764_000_000);
     let tvshow = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -135,8 +145,12 @@ fn empty_slots_leave_blank_lines_for_write_strip() {
     let raw = &docs[0].contents;
     // rating 为空时 ratings 块不存在，但模板槽位仍保留占位
     let between = raw
-        .split("<director>UP</director>").nth(1).unwrap()
-        .split("<status>").next().unwrap();
+        .split("<director>UP</director>")
+        .nth(1)
+        .unwrap()
+        .split("<status>")
+        .next()
+        .unwrap();
     assert_eq!(between, "\n    \n    \n    \n    ");
     assert!(raw.contains("<status>Ended</status>"));
     assert!(!raw.contains("<ratings>"));
@@ -205,9 +219,15 @@ async fn parse_nfo_fetches_tags_and_writes_files() {
     task.Episode.cover = "C".to_owned();
     task.Episode.poster = format!("{}/poster.jpg", server.uri());
 
-    extras::nfo::parse(&mock_client(), &server.uri(), &mut task, &empty_store(), &labels())
-        .await
-        .unwrap();
+    extras::nfo::parse(
+        &mock_client(),
+        &server.uri(),
+        &mut task,
+        &empty_store(),
+        &labels(),
+    )
+    .await
+    .unwrap();
 
     let nfo = std::fs::read_to_string(tmp.path().join("f/N.Metadata.nfo")).unwrap();
     assert!(nfo.contains("<tag>纪录片</tag>"));
@@ -218,7 +238,10 @@ async fn parse_nfo_fetches_tags_and_writes_files() {
         std::fs::read(tmp.path().join("f/poster.jpg")).unwrap(),
         vec![1, 2, 3, 4]
     );
-    assert_eq!(task.Episode.tags, vec!["纪录片".to_owned(), "人文".to_owned()]);
+    assert_eq!(
+        task.Episode.tags,
+        vec!["纪录片".to_owned(), "人文".to_owned()]
+    );
 }
 
 #[tokio::test]

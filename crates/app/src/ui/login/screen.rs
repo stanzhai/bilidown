@@ -14,12 +14,12 @@
 use std::sync::Arc;
 
 use auth::login::QRCodeScanStatus;
-use gpui_kit::gpui::{img, Image, ImageFormat, ImageSource};
-use gpui_kit::base::{Dialog, DialogHandle};
 use gpui_kit::base::Disableable;
+use gpui_kit::base::{Dialog, DialogHandle};
 use gpui_kit::component::button::Button;
 use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::{AppContext, Context, Entity, IntoElement, Window, div, prelude::*, px};
+use gpui_kit::gpui::{img, Image, ImageFormat, ImageSource};
+use gpui_kit::{div, prelude::*, px, AppContext, Context, Entity, IntoElement, Window};
 use services::i18n::catalog;
 
 use super::cid;
@@ -63,9 +63,10 @@ impl LoginState {
             qr_png: None,
             tel: cx.new(|cx| InputState::new(window, cx).placeholder("Enter phone number")),
             code: cx.new(|cx| InputState::new(window, cx).placeholder("Enter verification code")),
-            cookie_text: cx.new(|cx| InputState::new(window, cx).placeholder(
-                "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx",
-            )),
+            cookie_text: cx.new(|cx| {
+                InputState::new(window, cx)
+                    .placeholder("SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx")
+            }),
             server: None,
             captcha_key: String::new(),
             generation: 0,
@@ -108,8 +109,7 @@ impl LoginState {
                 if login.generation != generation {
                     return;
                 }
-                login.qr_png =
-                    Some(Arc::new(Image::from_bytes(ImageFormat::Png, png)));
+                login.qr_png = Some(Arc::new(Image::from_bytes(ImageFormat::Png, png)));
                 login.model.qr_generated(&key);
                 login.poll_qr(cx);
                 cx.notify();
@@ -193,8 +193,8 @@ impl LoginState {
             return;
         }
         let client = shell_client(cx);
-        cx.spawn(async move |shell, cx| {
-            match controller::captcha_start(&client).await {
+        cx.spawn(
+            async move |shell, cx| match controller::captcha_start(&client).await {
                 Ok(server) => {
                     let _ = shell.update(cx, |shell, cx| {
                         if let Some(old) = shell.login.server.replace(server) {
@@ -210,8 +210,8 @@ impl LoginState {
                         cx.notify();
                     });
                 }
-            }
-        })
+            },
+        )
         .detach();
     }
 
@@ -226,10 +226,7 @@ impl LoginState {
         let captcha_key = self.captcha_key.clone();
         cx.spawn(async move |shell, cx| {
             let Ok((client, has_server)) = shell.read_with(cx, |shell, _| {
-                (
-                    shell.auth_client.clone(),
-                    shell.login.server.is_some(),
-                )
+                (shell.auth_client.clone(), shell.login.server.is_some())
             }) else {
                 return;
             };
@@ -266,24 +263,22 @@ impl LoginState {
     /// 1s countdown timer driving `model.tick_countdown`.
     fn start_countdown(&mut self, cx: &mut Context<crate::ui::Shell>) {
         let generation = self.generation;
-        cx.spawn(async move |shell, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(std::time::Duration::from_secs(1))
-                    .await;
-                let keep = shell.update(cx, |shell, cx| {
-                    let login = &mut shell.login;
-                    if login.generation != generation {
-                        return false;
-                    }
-                    let more = login.model.tick_countdown();
-                    cx.notify();
-                    more
-                });
-                match keep {
-                    Ok(true) => continue,
-                    _ => break,
+        cx.spawn(async move |shell, cx| loop {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(1))
+                .await;
+            let keep = shell.update(cx, |shell, cx| {
+                let login = &mut shell.login;
+                if login.generation != generation {
+                    return false;
                 }
+                let more = login.model.tick_countdown();
+                cx.notify();
+                more
+            });
+            match keep {
+                Ok(true) => continue,
+                _ => break,
             }
         })
         .detach();
@@ -365,9 +360,15 @@ impl LoginState {
             }) else {
                 return;
             };
-            let result =
-                controller::cookie_verify(client.as_ref(), &endpoints, &text, &wbi, &mut state, &user_agent)
-                    .await;
+            let result = controller::cookie_verify(
+                client.as_ref(),
+                &endpoints,
+                &text,
+                &wbi,
+                &mut state,
+                &user_agent,
+            )
+            .await;
             let _ = shell.update(cx, |shell, cx| {
                 use auth::login::{CookieLoginError, CookieLoginOutcome};
                 match result {
@@ -391,8 +392,11 @@ impl LoginState {
                         shell.login.toast = Some(msg);
                     }
                     Err(CookieLoginError::MissingSessdata) => {
-                        let msg =
-                            Self::tr(cx, CTX_ERR, "SESSDATA field not found in the pasted Cookies");
+                        let msg = Self::tr(
+                            cx,
+                            CTX_ERR,
+                            "SESSDATA field not found in the pasted Cookies",
+                        );
                         shell.login.cookie.fail(msg.clone());
                         shell.login.toast = Some(msg);
                     }
@@ -500,7 +504,11 @@ impl LoginState {
                             .flex()
                             .w_full()
                             .gap_2()
-                            .child(div().flex_1().child(Input::new(&self.code).id("login-code")))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .child(Input::new(&self.code).id("login-code")),
+                            )
                             .child(
                                 div().min_w(px(100.)).child(
                                     Button::new("login-send-code")
@@ -522,11 +530,11 @@ impl LoginState {
                         ),
                     )
                     .child(
-                        Button::new("login-cookies").label(tr_cookie("Log in with Cookies")).on_click(
-                            cx.listener(|shell, _, window, cx| {
+                        Button::new("login-cookies")
+                            .label(tr_cookie("Log in with Cookies"))
+                            .on_click(cx.listener(|shell, _, window, cx| {
                                 shell.login.cookie_handle.open(window, cx);
-                            }),
-                        ),
+                            })),
                     )
                     .children(toast.map(|t| div().id("login-toast").text_sm().child(t))),
             )
@@ -586,7 +594,8 @@ fn _cid_table_is_used() -> &'static [(&'static str, &'static str)] {
 
 /// The shell's shared auth client (cookie jar survives across dialogs).
 fn shell_client(cx: &Context<crate::ui::Shell>) -> Arc<network::HttpClient> {
-    cx.entity().read_with(cx, |shell: &crate::ui::Shell, _| shell.auth_client.clone())
+    cx.entity()
+        .read_with(cx, |shell: &crate::ui::Shell, _| shell.auth_client.clone())
 }
 
 #[cfg(test)]

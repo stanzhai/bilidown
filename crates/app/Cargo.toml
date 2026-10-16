@@ -22,6 +22,12 @@ naming = { path = "../naming" }
 services = { path = "../services" }
 tasks = { path = "../tasks" }
 database = { path = "../database" }
+downloader = { path = "../downloader" }
+extras = { path = "../extras" }
+danmaku = { path = "../danmaku" }
+mux = { path = "../mux" }
+ffmpeg = { path = "../ffmpeg" }
+mcp = { path = "../mcp" }
 parking_lot.workspace = true
 qrcode = "=0.14.1"
 image = "=0.25.10"

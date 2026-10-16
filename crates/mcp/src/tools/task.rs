@@ -21,7 +21,9 @@ fn clamp_limit(value: Option<&Value>) -> usize {
     // `isinstance(value, bool)` guard.
     match value {
         Some(Value::Number(n)) if n.is_i64() => {
-            n.as_i64().unwrap_or(DEFAULT_TASK_LIMIT as i64).clamp(1, MAX_TASK_LIMIT as i64) as usize
+            n.as_i64()
+                .unwrap_or(DEFAULT_TASK_LIMIT as i64)
+                .clamp(1, MAX_TASK_LIMIT as i64) as usize
         }
         _ => DEFAULT_TASK_LIMIT,
     }
@@ -49,9 +51,13 @@ fn output_file_name(task: &database::TaskInfo) -> String {
     if task.File.name.is_empty() {
         return String::new();
     }
-    let ext = [&task.File.merge_file_ext, &task.File.video_file_ext, &task.File.audio_file_ext]
-        .into_iter()
-        .find(|ext| !ext.is_empty());
+    let ext = [
+        &task.File.merge_file_ext,
+        &task.File.video_file_ext,
+        &task.File.audio_file_ext,
+    ]
+    .into_iter()
+    .find(|ext| !ext.is_empty());
     match ext {
         Some(ext) => format!("{}.{}", task.File.name, ext),
         None => task.File.name.clone(),
@@ -83,10 +89,14 @@ fn normalized_output_path(task: &database::TaskInfo) -> String {
     if name.is_empty() {
         return String::new();
     }
-    let parts: Vec<&str> = [task.File.download_path.as_str(), task.File.folder.as_str(), name.as_str()]
-        .into_iter()
-        .filter(|part| !part.is_empty() && *part != ".")
-        .collect();
+    let parts: Vec<&str> = [
+        task.File.download_path.as_str(),
+        task.File.folder.as_str(),
+        name.as_str(),
+    ]
+    .into_iter()
+    .filter(|part| !part.is_empty() && *part != ".")
+    .collect();
     parts.join("/")
 }
 
@@ -126,7 +136,10 @@ fn task_to_dict(task: &database::TaskInfo, verbose: bool) -> Value {
 }
 
 fn tool_list_tasks(state: &McpState, arguments: &Map<String, Value>) -> ToolOutput {
-    let state_arg = arguments.get("state").and_then(Value::as_str).unwrap_or("downloading");
+    let state_arg = arguments
+        .get("state")
+        .and_then(Value::as_str)
+        .unwrap_or("downloading");
     if !matches!(state_arg, "downloading" | "completed" | "all") {
         return ToolOutput::error(
             "The 'state' argument must be one of: downloading, completed, all.",
@@ -169,7 +182,9 @@ fn tool_list_tasks(state: &McpState, arguments: &Map<String, Value>) -> ToolOutp
 }
 
 fn tool_get_task_status(state: &McpState, arguments: &Map<String, Value>) -> ToolOutput {
-    let task_id = tools::str_arg(arguments, "task_id").unwrap_or_default().trim();
+    let task_id = tools::str_arg(arguments, "task_id")
+        .unwrap_or_default()
+        .trim();
     if task_id.is_empty() {
         return ToolOutput::error("The 'task_id' argument is required.");
     }
@@ -236,7 +251,8 @@ pub fn task_schemas() -> Vec<ToolSchema> {
         ToolSchema {
             name: "get_task_status",
             title: "Get Download Task Status",
-            description: "Get detailed status for a single download task, including its output file path.",
+            description:
+                "Get detailed status for a single download task, including its output file path.",
             input_schema: json!({
                 "type": "object",
                 "properties": {

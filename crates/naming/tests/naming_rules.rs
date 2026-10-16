@@ -1,8 +1,8 @@
 //! test_naming_rules.py — the rule store must hand out copies the caller can
 //! mutate freely (the download-options dialog renames entries to show
 //! translations); ported verbatim.
-use naming::formatter;
 use naming::conventions::ConventionType;
+use naming::formatter;
 use naming::naming_rules::{display_name, RuleEntry, RuleStore};
 
 // class TestCopyIsolation:
@@ -129,5 +129,8 @@ fn save_then_load_reflects_new_rules() {
 
     let loaded = store.load_rules();
     assert!(loaded.iter().any(|e| e.id == "custom-1"));
-    assert_eq!(store.get_rule_by_id("custom-1").as_deref(), Some("{uploader} - {leaf_title}"));
+    assert_eq!(
+        store.get_rule_by_id("custom-1").as_deref(),
+        Some("{uploader} - {leaf_title}")
+    );
 }

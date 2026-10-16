@@ -46,7 +46,11 @@ pub enum FFmpegOutcome {
     Success { code: i32, stderr_tail: String },
     /// Non-zero exit; message uses the ported FFMPEG_FAILED_WITH_CODE
     /// wording.
-    Failed { code: i32, message: String, stderr_tail: String },
+    Failed {
+        code: i32,
+        message: String,
+        stderr_tail: String,
+    },
     /// Killed by the watchdog for producing no output; message uses the
     /// ported FFMPEG_NO_RESPONSE wording.
     NoResponse { stderr_tail: String },
@@ -179,7 +183,12 @@ impl FFmpegRunner {
         // thread while the calling thread reads stdout — with `-nostats`
         // stderr is quiet, so it must never block the stdout path.
         let stderr_reader = read_stderr(child.stderr.take(), &last_output, &duration);
-        read_stdout(child.stdout.take(), &last_output, &duration, &mut on_progress);
+        read_stdout(
+            child.stdout.take(),
+            &last_output,
+            &duration,
+            &mut on_progress,
+        );
         let stderr_tail = stderr_reader.join().unwrap_or_default();
 
         stop.store(true, Ordering::Release);

@@ -348,7 +348,10 @@ mod tests {
         )
         .unwrap();
 
-        assert!(checked(&view).is_empty(), "第一页里没有目标，不该勾选任何条目");
+        assert!(
+            checked(&view).is_empty(),
+            "第一页里没有目标，不该勾选任何条目"
+        );
         assert_eq!(
             view.pending_episode_data(),
             Some(&("bvid".to_owned(), "BV_target".to_owned())),
@@ -363,7 +366,10 @@ mod tests {
             Some("BV_target"),
             "媒体信息预览要指向这一项"
         );
-        assert!(view.pending_episode_data().is_none(), "定位到了就不该再留着");
+        assert!(
+            view.pending_episode_data().is_none(),
+            "定位到了就不该再留着"
+        );
     }
 
     #[test]

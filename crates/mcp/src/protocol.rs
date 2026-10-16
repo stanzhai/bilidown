@@ -59,15 +59,27 @@ pub struct ToolOutput {
 
 impl ToolOutput {
     pub fn text(text: impl Into<String>) -> Self {
-        Self { text: text.into(), structured: None, is_error: false }
+        Self {
+            text: text.into(),
+            structured: None,
+            is_error: false,
+        }
     }
 
     pub fn error(text: impl Into<String>) -> Self {
-        Self { text: text.into(), structured: None, is_error: true }
+        Self {
+            text: text.into(),
+            structured: None,
+            is_error: true,
+        }
     }
 
     pub fn with_structured(text: impl Into<String>, structured: Value) -> Self {
-        Self { text: text.into(), structured: Some(structured), is_error: false }
+        Self {
+            text: text.into(),
+            structured: Some(structured),
+            is_error: false,
+        }
     }
 }
 
@@ -177,7 +189,10 @@ pub struct Handled {
 
 impl Handled {
     fn ok(response: Value) -> Self {
-        Self { status: 200, response: Some(response) }
+        Self {
+            status: 200,
+            response: Some(response),
+        }
     }
 }
 
@@ -200,7 +215,11 @@ impl Dispatcher {
         if message.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
             return Handled {
                 status: 400,
-                response: Some(make_error(None, INVALID_REQUEST, "Invalid JSON-RPC 2.0 message")),
+                response: Some(make_error(
+                    None,
+                    INVALID_REQUEST,
+                    "Invalid JSON-RPC 2.0 message",
+                )),
             };
         }
         let Some(method) = message.get("method").and_then(Value::as_str) else {
@@ -221,7 +240,10 @@ impl Dispatcher {
         if let Some(version) = &version {
             if !supported_versions().contains(&version.as_str()) {
                 if is_notification {
-                    return Handled { status: 400, response: None };
+                    return Handled {
+                        status: 400,
+                        response: None,
+                    };
                 }
                 return Handled {
                     status: 400,
@@ -232,7 +254,10 @@ impl Dispatcher {
         let modern = is_modern_request(message);
 
         if is_notification {
-            return Handled { status: 202, response: None };
+            return Handled {
+                status: 202,
+                response: None,
+            };
         }
 
         let params = message.get("params").and_then(Value::as_object);
@@ -357,9 +382,7 @@ mod tests {
                 description: "echo",
                 input_schema: json!({"type": "object"}),
             },
-            handler: Box::new(|args| {
-                ToolOutput::with_structured("echoed", json!(args.clone()))
-            }),
+            handler: Box::new(|args| ToolOutput::with_structured("echoed", json!(args.clone()))),
         }
     }
 
@@ -378,7 +401,10 @@ mod tests {
         assert_eq!(h.status, 200);
         let result = h.response.unwrap()["result"].clone();
         assert_eq!(result["protocolVersion"], json!("2025-06-18"));
-        assert_eq!(result["capabilities"], json!({"tools": {"listChanged": false}}));
+        assert_eq!(
+            result["capabilities"],
+            json!({"tools": {"listChanged": false}})
+        );
         assert_eq!(result["serverInfo"]["name"], json!("Bili23 Downloader"));
         assert_eq!(result["instructions"], json!(SERVER_INSTRUCTIONS));
     }
@@ -391,7 +417,10 @@ mod tests {
             "params": {}
         }));
         let h = d.handle(&m);
-        assert_eq!(h.response.unwrap()["result"]["protocolVersion"], json!("2025-11-25"));
+        assert_eq!(
+            h.response.unwrap()["result"]["protocolVersion"],
+            json!("2025-11-25")
+        );
     }
 
     #[test]
@@ -417,7 +446,9 @@ mod tests {
         assert_eq!(result["tools"][0]["name"], json!("echo"));
         assert_eq!(result["tools"][0]["inputSchema"], json!({"type": "object"}));
 
-        let legacy = d.handle(&message(json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})));
+        let legacy = d.handle(&message(
+            json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}),
+        ));
         let result = legacy.response.unwrap()["result"].clone();
         assert!(result.get("resultType").is_none());
         assert!(result.get("ttlMs").is_none());
@@ -451,7 +482,10 @@ mod tests {
         let missing = d.handle(&message(json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {}
         })));
-        assert_eq!(missing.response.unwrap()["error"]["message"], json!("Missing tool name"));
+        assert_eq!(
+            missing.response.unwrap()["error"]["message"],
+            json!("Missing tool name")
+        );
 
         let unknown = d.handle(&message(json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
@@ -485,7 +519,9 @@ mod tests {
     #[test]
     fn unknown_method_is_404_with_method_not_found() {
         let d = Dispatcher::new(vec![echo_tool()]);
-        let h = d.handle(&message(json!({"jsonrpc": "2.0", "id": 3, "method": "bogus/x"})));
+        let h = d.handle(&message(
+            json!({"jsonrpc": "2.0", "id": 3, "method": "bogus/x"}),
+        ));
         assert_eq!(h.status, 404);
         assert_eq!(
             h.response.unwrap()["error"]["message"],
@@ -496,7 +532,9 @@ mod tests {
     #[test]
     fn non_2_0_message_is_400() {
         let d = Dispatcher::new(vec![echo_tool()]);
-        let h = d.handle(&message(json!({"jsonrpc": "1.0", "id": 1, "method": "ping"})));
+        let h = d.handle(&message(
+            json!({"jsonrpc": "1.0", "id": 1, "method": "ping"}),
+        ));
         assert_eq!(h.status, 400);
         assert_eq!(
             h.response.unwrap()["error"]["message"],
@@ -504,7 +542,10 @@ mod tests {
         );
         let h = d.handle(&message(json!({"id": 1})));
         assert_eq!(h.status, 400);
-        assert_eq!(h.response.unwrap()["error"]["message"], json!("Invalid JSON-RPC 2.0 message"));
+        assert_eq!(
+            h.response.unwrap()["error"]["message"],
+            json!("Invalid JSON-RPC 2.0 message")
+        );
     }
 
     #[test]
@@ -538,7 +579,9 @@ mod tests {
     #[test]
     fn discover_shape() {
         let d = Dispatcher::new(vec![echo_tool()]);
-        let h = d.handle(&message(json!({"jsonrpc": "2.0", "id": 1, "method": "server/discover"})));
+        let h = d.handle(&message(
+            json!({"jsonrpc": "2.0", "id": 1, "method": "server/discover"}),
+        ));
         let result = h.response.unwrap()["result"].clone();
         assert_eq!(result["resultType"], json!("complete"));
         assert_eq!(result["ttlMs"], json!(DISCOVER_CACHE_TTL_MS));
@@ -594,11 +637,18 @@ pub fn check_headers(message: &Map<String, Value>, headers: &HeaderCheck) -> Opt
     if !headers.protocol_version.is_empty()
         && !supported_versions().contains(&headers.protocol_version)
     {
-        return Some(unsupported_version_error(request_id, headers.protocol_version));
+        return Some(unsupported_version_error(
+            request_id,
+            headers.protocol_version,
+        ));
     }
     let body_method = message.get("method").and_then(Value::as_str).unwrap_or("");
     if modern && headers.method.is_empty() {
-        return Some(make_error(request_id, HEADER_MISMATCH, "Missing Mcp-Method header"));
+        return Some(make_error(
+            request_id,
+            HEADER_MISMATCH,
+            "Missing Mcp-Method header",
+        ));
     }
     if !headers.method.is_empty() && headers.method != body_method {
         return Some(make_error(
@@ -618,7 +668,11 @@ pub fn check_headers(message: &Map<String, Value>, headers: &HeaderCheck) -> Opt
             .and_then(Value::as_str)
             .unwrap_or("");
         if modern && headers.name.is_empty() {
-            return Some(make_error(request_id, HEADER_MISMATCH, "Missing Mcp-Name header"));
+            return Some(make_error(
+                request_id,
+                HEADER_MISMATCH,
+                "Missing Mcp-Name header",
+            ));
         }
         if !headers.name.is_empty() && decode_header_value(headers.name) != body_name {
             return Some(make_error(
@@ -672,9 +726,16 @@ mod header_tests {
         };
         assert!(check_headers(&m, &ok).is_none());
 
-        let no_version = HeaderCheck { protocol_version: "", method: "tools/call", name: "echo" };
+        let no_version = HeaderCheck {
+            protocol_version: "",
+            method: "tools/call",
+            name: "echo",
+        };
         let err = check_headers(&m, &no_version).unwrap();
-        assert_eq!(err["error"]["message"], json!("Missing MCP-Protocol-Version header"));
+        assert_eq!(
+            err["error"]["message"],
+            json!("Missing MCP-Protocol-Version header")
+        );
 
         let mismatch = HeaderCheck {
             protocol_version: "2025-03-26",
@@ -696,7 +757,11 @@ mod header_tests {
             .as_object()
             .unwrap()
             .clone();
-        let bad = HeaderCheck { protocol_version: "1999-01-01", method: "ping", name: "" };
+        let bad = HeaderCheck {
+            protocol_version: "1999-01-01",
+            method: "ping",
+            name: "",
+        };
         let err = check_headers(&m, &bad).unwrap();
         assert_eq!(err["error"]["code"], json!(UNSUPPORTED_PROTOCOL_VERSION));
     }
@@ -711,10 +776,18 @@ mod header_tests {
             "params": {"name": "中文工具"}
         });
         let m = body.as_object().unwrap().clone();
-        let ok = HeaderCheck { protocol_version: "", method: "tools/call", name: &sentinel };
+        let ok = HeaderCheck {
+            protocol_version: "",
+            method: "tools/call",
+            name: &sentinel,
+        };
         assert!(check_headers(&m, &ok).is_none());
 
-        let wrong = HeaderCheck { protocol_version: "", method: "tools/call", name: "=?base64?bm90?=" };
+        let wrong = HeaderCheck {
+            protocol_version: "",
+            method: "tools/call",
+            name: "=?base64?bm90?=",
+        };
         assert!(check_headers(&m, &wrong).is_some());
     }
 
@@ -724,10 +797,18 @@ mod header_tests {
             .as_object()
             .unwrap()
             .clone();
-        let none = HeaderCheck { protocol_version: "", method: "", name: "" };
+        let none = HeaderCheck {
+            protocol_version: "",
+            method: "",
+            name: "",
+        };
         assert!(check_headers(&m, &none).is_none());
 
-        let wrong_method = HeaderCheck { protocol_version: "", method: "tools/call", name: "" };
+        let wrong_method = HeaderCheck {
+            protocol_version: "",
+            method: "tools/call",
+            name: "",
+        };
         let err = check_headers(&m, &wrong_method).unwrap();
         assert!(err["error"]["message"]
             .as_str()

@@ -9,8 +9,8 @@
 use std::path::{Path, PathBuf};
 
 use database::TaskInfo;
-use mux::{download_status, download_type, error_messages, GlobalOptions, Merger};
 use ffmpeg::runner::WatchdogConfig;
+use mux::{download_status, download_type, error_messages, GlobalOptions, Merger};
 
 fn fake_ffmpeg(dir: &Path, name: &str, body: &str) -> PathBuf {
     let path = dir.join(name);
@@ -222,8 +222,12 @@ fn flv_concat_writes_lists_file_and_merges_parts() {
 #[test]
 fn flv_concat_argv_carries_concat_demuxer_and_lists_file() {
     let fx = Fixture::new("flv-argv");
-    let record = fake_ffmpeg(&fx.dir, "ffmpeg-record", r#"printf '%s\n' "$@" >&2
-exit 0"#);
+    let record = fake_ffmpeg(
+        &fx.dir,
+        "ffmpeg-record",
+        r#"printf '%s\n' "$@" >&2
+exit 0"#,
+    );
 
     let mut task = dash_task(&fx.dir, "flv");
     task.Download.merge_video_audio = false;
@@ -260,7 +264,10 @@ fn m4a_to_mp3_converts_renames_and_flips_ext() {
     task.File.video_file_ext = String::new();
     task.Download.type_ = download_type::AUDIO;
     fx.touch("audio_abc123.m4a");
-    let globals = GlobalOptions { m4a_to_mp3: true, ..GlobalOptions::default() };
+    let globals = GlobalOptions {
+        m4a_to_mp3: true,
+        ..GlobalOptions::default()
+    };
 
     let outcome = Merger::new(&mut task, &globals, &fx.ffmpeg).run();
 
@@ -319,7 +326,10 @@ fn cover_attached_pic_argv_present_on_merge() {
     fx.touch("video_abc123.mp4");
     fx.touch("audio_abc123.m4a");
     fx.touch("My Video.jpg");
-    let globals = GlobalOptions { attach_cover: true, ..GlobalOptions::default() };
+    let globals = GlobalOptions {
+        attach_cover: true,
+        ..GlobalOptions::default()
+    };
 
     // Recording fake exits 0 without producing output: the merge's
     // rename then fails, which is fine — argv is what this pins.

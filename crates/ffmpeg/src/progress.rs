@@ -129,7 +129,10 @@ mod tests {
 
     #[test]
     fn durations_with_multi_digit_hours() {
-        assert_eq!(parse_durations("Duration: 12:34:56.789, x"), vec![45296.789]);
+        assert_eq!(
+            parse_durations("Duration: 12:34:56.789, x"),
+            vec![45296.789]
+        );
     }
 
     #[test]

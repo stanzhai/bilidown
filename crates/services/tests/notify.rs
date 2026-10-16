@@ -1,7 +1,8 @@
 //! Notification tests: category→icon map (sys_tray.py), gate, payload.
 
 use services::notify::{
-    download_completed, enabled, should_notify, MessageIcon, Notification, ToastNotificationCategory,
+    download_completed, enabled, should_notify, MessageIcon, Notification,
+    ToastNotificationCategory,
 };
 
 #[test]
@@ -34,7 +35,11 @@ fn gate_defaults_off_and_fires_only_at_zero() {
     assert!(!should_notify(&cfg, 0));
 
     let mut cfg = cfg;
-    cfg.set("Behavior", "show_notification", serde_json::Value::Bool(true));
+    cfg.set(
+        "Behavior",
+        "show_notification",
+        serde_json::Value::Bool(true),
+    );
     assert!(should_notify(&cfg, 0));
     assert!(!should_notify(&cfg, 1)); // still-downloading: no notification
     assert!(!should_notify(&cfg, 3));

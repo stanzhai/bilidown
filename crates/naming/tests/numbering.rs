@@ -4,11 +4,16 @@
 //! ported from the Python manager vectors.
 
 use naming::format::Value;
-use naming::numbering::{NumberingState, NumberingToken, CONTINUOUS, FROM_SPECIFIED, USE_PARSE_LIST};
+use naming::numbering::{
+    NumberingState, NumberingToken, CONTINUOUS, FROM_SPECIFIED, USE_PARSE_LIST,
+};
 
 #[test]
 fn continuous_uses_global_number() {
-    let mut state = NumberingState { global: 7, current: None };
+    let mut state = NumberingState {
+        global: 7,
+        current: None,
+    };
 
     let (n, _) = state.next_number(CONTINUOUS, None);
     assert_eq!(n, Value::Int(7));
@@ -20,7 +25,10 @@ fn continuous_uses_global_number() {
 
 #[test]
 fn from_specified_uses_then_increments_current() {
-    let mut state = NumberingState { global: 1, current: Some(10) };
+    let mut state = NumberingState {
+        global: 1,
+        current: Some(10),
+    };
 
     let (n, _) = state.next_number(FROM_SPECIFIED, None);
     assert_eq!(n, Value::Int(10));
@@ -44,7 +52,10 @@ fn use_parse_list_reads_episode_number() {
 
 #[test]
 fn rollback_restores_when_state_untouched() {
-    let mut state = NumberingState { global: 5, current: Some(5) };
+    let mut state = NumberingState {
+        global: 5,
+        current: Some(5),
+    };
 
     let before = (5, Some(5));
     let (n, token) = state.next_number(FROM_SPECIFIED, None);
@@ -59,7 +70,10 @@ fn rollback_restores_when_state_untouched() {
 
 #[test]
 fn rollback_noop_when_someone_else_took_a_number() {
-    let mut state = NumberingState { global: 5, current: Some(5) };
+    let mut state = NumberingState {
+        global: 5,
+        current: Some(5),
+    };
 
     let (_, token) = state.next_number(FROM_SPECIFIED, None);
 

@@ -27,7 +27,13 @@ fn record_gated_on_behavior_flag() {
     // gate off → nothing more recorded
     let mut cfg = cfg;
     cfg.set("Behavior", "parse_history", serde_json::Value::Bool(false));
-    record(&db, &cfg, "Another", "https://www.bilibili.com/bangumi/play/ep123", "bangumi")
-        .unwrap();
+    record(
+        &db,
+        &cfg,
+        "Another",
+        "https://www.bilibili.com/bangumi/play/ep123",
+        "bangumi",
+    )
+    .unwrap();
     assert_eq!(db.count().unwrap(), 1);
 }

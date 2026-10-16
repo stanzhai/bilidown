@@ -39,7 +39,8 @@ pub const MEDIA_REVIEW_API: &str = "https://api.bilibili.com/pgc/review/user";
 pub const BANGUMI_SEASON_API: &str = "https://api.bilibili.com/pgc/view/web/season";
 pub const CHEESE_SEASON_API: &str = "https://api.bilibili.com/pugv/view/web/season/v2";
 pub const LESSON_API_BASE: &str = "https://mall.bilibili.com/mall-search-items";
-pub const LESSON_PLAY_DETAIL_URL: &str = "https://mall.bilibili.com/mall-search-items/items/course/section/play/detail";
+pub const LESSON_PLAY_DETAIL_URL: &str =
+    "https://mall.bilibili.com/mall-search-items/items/course/section/play/detail";
 pub const LESSON_VIDEO_QUALITY_ID: i64 = 80;
 
 /// Errors of the media parsers, mirroring `check_response` plus the
@@ -149,7 +150,11 @@ pub async fn get_video_info(
         if let Some(page_number) = get_page_number(url) {
             if let Some(page) = data["pages"]
                 .as_array()
-                .and_then(|pages| pages.iter().find(|p| p["page"].as_i64() == Some(page_number)))
+                .and_then(|pages| {
+                    pages
+                        .iter()
+                        .find(|p| p["page"].as_i64() == Some(page_number))
+                })
                 .cloned()
             {
                 data.as_object_mut().map(|d| d.remove("pages"));
@@ -341,7 +346,11 @@ impl<'a> InteractiveContext<'a> {
                 }
                 options.push(StoryOption {
                     edge_id: choice["id"].as_i64().unwrap_or(0),
-                    name: choice.get("option").and_then(Value::as_str).unwrap_or("").to_owned(),
+                    name: choice
+                        .get("option")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned(),
                     target_node_cid: choice.get("cid").and_then(Value::as_i64),
                 });
             }
@@ -356,7 +365,12 @@ impl<'a> InteractiveContext<'a> {
             ("graph_version".to_owned(), self.graph_version.to_string()),
             ("edge_id".to_owned(), edge_id.to_string()),
         ];
-        let response: Value = client_get(self.client, &swap_host(STEIN_EDGEINFO_API, &self.base), &params).await?;
+        let response: Value = client_get(
+            self.client,
+            &swap_host(STEIN_EDGEINFO_API, &self.base),
+            &params,
+        )
+        .await?;
         check_response(&response).map_err(|e| MediaError::Api(e.to_string()))?;
 
         let data = &response["data"];
@@ -478,11 +492,21 @@ pub async fn parse_cheese_url(
 ) -> Result<(TreeItem, Option<(String, String)>), MediaError> {
     let ((key, value), ep_id) = match find_str(r"ep|ss", url).as_deref() {
         Some("ep") => (
-            ("ep_id".to_owned(), capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?.to_string()),
+            (
+                "ep_id".to_owned(),
+                capture_id(r"ep([0-9]+)", url)
+                    .ok_or(MediaError::InvalidLink)?
+                    .to_string(),
+            ),
             Some(capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?),
         ),
         Some("ss") => (
-            ("season_id".to_owned(), capture_id(r"ss([0-9]+)", url).ok_or(MediaError::InvalidLink)?.to_string()),
+            (
+                "season_id".to_owned(),
+                capture_id(r"ss([0-9]+)", url)
+                    .ok_or(MediaError::InvalidLink)?
+                    .to_string(),
+            ),
             None,
         ),
         _ => return Err(MediaError::InvalidLink),
@@ -618,4 +642,3 @@ pub fn build_lesson_media_info(data: &Value) -> Result<Value, MediaError> {
         }],
     }))
 }
-

@@ -56,23 +56,15 @@ fn merged(base: serde_json::Value, extra: serde_json::Value) -> serde_json::Valu
 fn blank_lines_are_dropped_and_the_rest_trimmed() {
     // Python's check is a case-sensitive substring: lowercase "bv" alone
     // fails the gate exactly like a plain URL does.
-    let urls = validate_batch_input(
-        "  https://www.bilibili.com/video/BV1aa  \n\n\nav123\n   \n",
-    )
-    .unwrap();
+    let urls =
+        validate_batch_input("  https://www.bilibili.com/video/BV1aa  \n\n\nav123\n   \n").unwrap();
 
-    assert_eq!(
-        urls,
-        vec!["https://www.bilibili.com/video/BV1aa", "av123"]
-    );
+    assert_eq!(urls, vec!["https://www.bilibili.com/video/BV1aa", "av123"]);
 }
 
 #[test]
 fn empty_input_is_no_links() {
-    assert!(matches!(
-        validate_batch_input(""),
-        Err(BatchError::NoLinks)
-    ));
+    assert!(matches!(validate_batch_input(""), Err(BatchError::NoLinks)));
     assert!(matches!(
         validate_batch_input("  \n \n "),
         Err(BatchError::NoLinks)
@@ -232,9 +224,7 @@ async fn multi_p_link_contributes_all_its_pages() {
     .unwrap();
 
     assert_eq!(root.count(), 3);
-    let parts: Vec<&str> = (0..3)
-        .map(|i| root.child(i).title.as_str())
-        .collect();
+    let parts: Vec<&str> = (0..3).map(|i| root.child(i).title.as_str()).collect();
     assert_eq!(parts, vec!["P1", "P2", "P3"]);
     let numbers: Vec<i64> = (0..3)
         .map(|i| match &root.child(i).number {

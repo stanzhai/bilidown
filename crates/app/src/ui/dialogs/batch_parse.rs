@@ -12,7 +12,7 @@ use gpui_kit::component::input::{Textarea, TextareaState};
 use gpui_kit::component::label::Label;
 use gpui_kit::component::notification::Notification;
 use gpui_kit::component::WindowExt;
-use gpui_kit::{AppContext, ParentElement, Window, div, px, prelude::*};
+use gpui_kit::{div, prelude::*, px, AppContext, ParentElement, Window};
 use parsers::batch::{validate_batch_input, BatchError};
 use services::i18n::Catalog;
 
@@ -81,10 +81,7 @@ impl BatchParseState {
 
 /// Localize an `accept` error pair into the dialog's language.
 pub fn localize_error(c: &Catalog, e: &(String, String)) -> (String, String) {
-    (
-        c.tr(CTX, &e.0).to_owned(),
-        c.tr(CTX, &e.1).to_owned(),
-    )
+    (c.tr(CTX, &e.0).to_owned(), c.tr(CTX, &e.1).to_owned())
 }
 
 /// Open the dialog. `on_accept` receives the validated url list plus
@@ -126,53 +123,47 @@ pub fn open_batch_parse(
                 let textarea = textarea.clone();
                 let auto_label = auto_label.clone();
                 move |content, _, _| {
-                content.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .child(
-                            div()
-                                .flex()
-                                .justify_between()
-                                .items_center()
-                                .child(Label::new(count.clone())),
-                        )
-                        .child(Textarea::new(&textarea).h(px(180.)))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap_2()
-                                .child(
-                                    Checkbox::new("auto-add")
-                                        .checked(auto_add)
-                                        .on_click({
-                                            let state = state.clone();
-                                            move |checked, _, _| {
-                                                state.borrow_mut().auto_add = *checked;
-                                            }
-                                        }),
-                                )
-                                .child(Label::new(auto_label.clone())),
-                        ),
-                )
+                    content.child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .flex()
+                                    .justify_between()
+                                    .items_center()
+                                    .child(Label::new(count.clone())),
+                            )
+                            .child(Textarea::new(&textarea).h(px(180.)))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(Checkbox::new("auto-add").checked(auto_add).on_click({
+                                        let state = state.clone();
+                                        move |checked, _, _| {
+                                            state.borrow_mut().auto_add = *checked;
+                                        }
+                                    }))
+                                    .child(Label::new(auto_label.clone())),
+                            ),
+                    )
                 }
             })
             .footer(
                 DialogFooter::new()
-                    .child(
-                        Button::new("clear").label(clear.clone()).on_click({
-                            let state = state.clone();
-                            let textarea = textarea.clone();
-                            move |_, window, cx| {
-                                state.borrow_mut().text.clear();
-                                textarea.update(cx, |s, cx| {
-                                    s.set_value("", window, cx);
-                                });
-                            }
-                        }),
-                    )
+                    .child(Button::new("clear").label(clear.clone()).on_click({
+                        let state = state.clone();
+                        let textarea = textarea.clone();
+                        move |_, window, cx| {
+                            state.borrow_mut().text.clear();
+                            textarea.update(cx, |s, cx| {
+                                s.set_value("", window, cx);
+                            });
+                        }
+                    }))
                     .child(Button::new("start").label(start.clone()).on_click({
                         let state = state.clone();
                         let cfg_cell = cfg_cell.clone();
@@ -278,7 +269,10 @@ mod tests {
         let c = catalog(ResolvedLanguage::ZhCn);
         let e = localize_error(
             c,
-            &("No Links Provided".to_owned(), "Please paste video links in the text box.".to_owned()),
+            &(
+                "No Links Provided".to_owned(),
+                "Please paste video links in the text box.".to_owned(),
+            ),
         );
         assert_eq!(e.0, "链接数量为空");
         assert_eq!(e.1, "请在文本框中粘贴视频链接");

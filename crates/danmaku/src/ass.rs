@@ -290,8 +290,8 @@ fn convert_dialogues(
         }
         let (duration_ms, kind) = match entry.mode {
             1..=3 => (scroll_ms, 0), // scroll
-            4 => (static_ms, 2),    // bottom
-            5 => (static_ms, 1),    // top
+            4 => (static_ms, 2),     // bottom
+            5 => (static_ms, 1),     // top
             _ => continue,
         };
         let text_width = engine.metrics.advance(text);
@@ -299,10 +299,12 @@ fn convert_dialogues(
         let end = ass_time(stime + duration_ms);
 
         let allocated_row = match kind {
-            0 => engine.alloc_scroll(stime, text_width, duration_ms).map(|r| {
-                let y = r as i32 * engine.line_height;
-                format!("\\move({},{y},-{text_width},{y})", engine.screen_width)
-            }),
+            0 => engine
+                .alloc_scroll(stime, text_width, duration_ms)
+                .map(|r| {
+                    let y = r as i32 * engine.line_height;
+                    format!("\\move({},{y},-{text_width},{y})", engine.screen_width)
+                }),
             1 => engine.alloc_top(stime, duration_ms).map(|r| {
                 let y = r as i32 * engine.line_height;
                 format!("\\an8\\pos({},{y})", engine.screen_width / 2)

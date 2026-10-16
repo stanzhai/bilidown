@@ -177,7 +177,10 @@ impl ParseViewModel {
     pub fn count_label(&self) -> String {
         let (checked, total) = self.counts();
         if checked > 0 {
-            format!("{} ({} selected, {} total)", self.category_name, checked, total)
+            format!(
+                "{} ({} selected, {} total)",
+                self.category_name, checked, total
+            )
         } else {
             format!("{} ({} total)", self.category_name, total)
         }
@@ -233,12 +236,15 @@ impl ParseViewModel {
     /// the "auto-selected" descriptions).
     pub fn preview_info(&self) -> PreviewInfo {
         let candidates = self.preview_candidates(1);
-        let dict = candidates.first().cloned().unwrap_or_else(|| serde_json::json!({}));
-        let attribute = dict
-            .get("attribute")
-            .and_then(Value::as_i64)
-            .unwrap_or(0) as u32;
-        let info_data = dict.get("info_data").cloned().unwrap_or(serde_json::json!(null));
+        let dict = candidates
+            .first()
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
+        let attribute = dict.get("attribute").and_then(Value::as_i64).unwrap_or(0) as u32;
+        let info_data = dict
+            .get("info_data")
+            .cloned()
+            .unwrap_or(serde_json::json!(null));
         let media_type = detect_media_type(&info_data);
         let quality_ids: Vec<i64> = dict
             .get("quality_ids")
@@ -287,7 +293,11 @@ impl ParseViewModel {
             .filter(|(_, row)| matched.iter().any(|id| id == &row.id))
             .map(|(ix, _)| ix)
             .collect();
-        self.match_cursor = if self.matches.is_empty() { None } else { Some(0) };
+        self.match_cursor = if self.matches.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
         self.matches.len()
     }
 
@@ -352,8 +362,7 @@ impl ParseViewModel {
     /// `parsers::TreeItem`, which has no such field; the set drives the
     /// gray-out rendering.
     pub fn checked_dicts_mark_downloaded(&mut self) -> Vec<Value> {
-        let items: Vec<EpisodeItem> =
-            self.list.get_checked_items().into_iter().cloned().collect();
+        let items: Vec<EpisodeItem> = self.list.get_checked_items().into_iter().cloned().collect();
         for item in &items {
             if !item.bvid.is_empty() {
                 self.downloaded.insert(item.bvid.clone());
@@ -520,10 +529,7 @@ mod tests {
 
     #[test]
     fn count_label_formats_selected_and_plain() {
-        let mut m = model_with(vec![
-            item("BV1", 1, "a", ""),
-            item("BV2", 2, "b", ""),
-        ]);
+        let mut m = model_with(vec![item("BV1", 1, "a", ""), item("BV2", 2, "b", "")]);
         m.category_name = "Favorites".into();
         assert_eq!(m.count_label(), "Favorites (2 total)");
         m.batch_select(&[2]);
@@ -538,7 +544,12 @@ mod tests {
             item("BV3", 3, "c", ""),
         ]);
         m.batch_select(&[1, 3]);
-        let checked: Vec<String> = m.list.get_checked_items().iter().map(|i| i.bvid.clone()).collect();
+        let checked: Vec<String> = m
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|i| i.bvid.clone())
+            .collect();
         assert_eq!(checked, ["BV1", "BV3"]);
     }
 
@@ -584,7 +595,12 @@ mod tests {
         ]);
         m.search(Some("ep"));
         m.check_matches();
-        let checked: Vec<String> = m.list.get_checked_items().iter().map(|i| i.bvid.clone()).collect();
+        let checked: Vec<String> = m
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|i| i.bvid.clone())
+            .collect();
         assert_eq!(checked, ["BV1"]);
     }
 
@@ -616,10 +632,17 @@ mod tests {
         let mut m = model_with(vec![item("BV1", 1, "a", "")]);
         m.category_key = "USER_UPLOADS".into();
         m.apply_auto_select(&cfg_with(2, 1, 0, 0));
-        assert_eq!(m.list.get_checked_items().len(), 1, "user_uploads 条件开启 → 全选");
+        assert_eq!(
+            m.list.get_checked_items().len(),
+            1,
+            "user_uploads 条件开启 → 全选"
+        );
         let mut m = model_with(vec![item("BV1", 1, "a", "")]);
         m.apply_auto_select(&cfg_with(2, 0, 0, 0));
-        assert!(m.list.get_checked_items().is_empty(), "user_uploads 条件关闭 → 不加选");
+        assert!(
+            m.list.get_checked_items().is_empty(),
+            "user_uploads 条件关闭 → 不加选"
+        );
 
         let mut m = model_with(vec![item("BV1", 1, "a", "")]);
         m.category_key = "FIV".into();
@@ -640,10 +663,18 @@ mod tests {
         m.list.update_tree(root, None).unwrap();
         m.check_main_episodes_node();
         let node = &m.list.root().children[0].children[0];
-        assert_eq!(node.checked, CheckState::Checked, "勾的正是 main-episodes 节点");
+        assert_eq!(
+            node.checked,
+            CheckState::Checked,
+            "勾的正是 main-episodes 节点"
+        );
         // set_checked_state 向下传播：正片节点下的条目全选
-        let checked: Vec<String> =
-            m.list.get_checked_items().iter().map(|i| i.bvid.clone()).collect();
+        let checked: Vec<String> = m
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|i| i.bvid.clone())
+            .collect();
         assert_eq!(checked, ["BV_main"]);
     }
 

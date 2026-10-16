@@ -235,7 +235,9 @@ mod tests {
         assert_eq!(CID_LIST.len(), 215);
         assert_eq!(CID_LIST[0], ("86", "中国大陆"));
         // every code numeric, every name non-empty (Python never had blanks)
-        assert!(CID_LIST.iter().all(|(c, n)| !c.is_empty() && c.chars().all(|ch| ch.is_ascii_digit()) && !n.is_empty()));
+        assert!(CID_LIST.iter().all(|(c, n)| !c.is_empty()
+            && c.chars().all(|ch| ch.is_ascii_digit())
+            && !n.is_empty()));
         // note: codes are NOT unique in Python either ("1" = 美国/加拿大);
         // combo selection is by list index, so no uniqueness assert.
         assert_eq!(DEFAULT_CID, CID_LIST[0].0);

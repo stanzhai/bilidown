@@ -261,8 +261,14 @@ pub struct FetchedMedia {
     pub info_data: Value,
 }
 
-fn with_context(mut body: Value, parser_type: &'static str, base: &str, params: &[(String, String)]) -> Value {
-    let mut url = Url::parse(base).unwrap_or_else(|_| Url::parse("https://api.bilibili.com/").unwrap());
+fn with_context(
+    mut body: Value,
+    parser_type: &'static str,
+    base: &str,
+    params: &[(String, String)],
+) -> Value {
+    let mut url =
+        Url::parse(base).unwrap_or_else(|_| Url::parse("https://api.bilibili.com/").unwrap());
     {
         let mut pairs = url.query_pairs_mut();
         pairs.clear();
@@ -477,8 +483,16 @@ pub fn parse_declared_quality_map(info_data: &Value) -> Option<Vec<(i64, Vec<i64
             continue;
         }
         let mut codecs = Vec::new();
-        for codec in f.get("codecs").and_then(Value::as_array).into_iter().flatten() {
-            let Some(prefix) = codec.as_str().map(|c| c.split('.').next().unwrap_or_default()) else {
+        for codec in f
+            .get("codecs")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let Some(prefix) = codec
+                .as_str()
+                .map(|c| c.split('.').next().unwrap_or_default())
+            else {
                 continue;
             };
             if let Some(&id) = CODEC_PREFIX_MAP.get(prefix) {
@@ -545,7 +559,10 @@ pub fn build_available_streams(
                 ) else {
                     continue;
                 };
-                out.video_map.entry(id).or_default().push((codec, node.clone()));
+                out.video_map
+                    .entry(id)
+                    .or_default()
+                    .push((codec, node.clone()));
             }
             out.quality_ids = match parser_type {
                 "video" => parse_declared_quality_map(info_data)
@@ -611,7 +628,9 @@ pub fn build_available_streams(
             }
             if let Some(list) = dash.and_then(|d| d.get("audio")).and_then(Value::as_array) {
                 for node in list {
-                    let Some(id) = node.get("id").and_then(Value::as_i64) else { continue };
+                    let Some(id) = node.get("id").and_then(Value::as_i64) else {
+                        continue;
+                    };
                     if !out.audio_ids.contains(&id) {
                         out.audio_ids.push(id);
                         out.audio_map.insert(id, node.clone());
@@ -692,11 +711,13 @@ pub fn resolve_codec(available: &[i64], requested: i64, priority: &[i64]) -> Opt
     if available.is_empty() {
         return None;
     }
-    Some(if requested == CODEC_AUTO || !available.contains(&requested) {
-        pick_by_priority(priority, available, available[0])
-    } else {
-        requested
-    })
+    Some(
+        if requested == CODEC_AUTO || !available.contains(&requested) {
+            pick_by_priority(priority, available, available[0])
+        } else {
+            requested
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -768,8 +789,7 @@ impl CodecFallbackWarning {
     }
 }
 
-static WARNED: LazyLock<Mutex<HashSet<(i64, i64)>>> =
-    LazyLock::new(|| Mutex::new(HashSet::new()));
+static WARNED: LazyLock<Mutex<HashSet<(i64, i64)>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 /// Deduped process-global codec-fallback warning; `None` when nothing was
 /// requested, `auto` was requested, the codec matched, or the pair was already
@@ -854,7 +874,14 @@ pub async fn query_mp4_info(
     let rewritten = qn_re.replace(query_url, format!("${{1}}qn={qid}"));
     let payload: Value = client.get_json(&rewritten, &[]).await?;
     check_response(&payload)?;
-    let body = take_body(&payload, if parser_type == "bangumi" { "result" } else { "data" })?;
+    let body = take_body(
+        &payload,
+        if parser_type == "bangumi" {
+            "result"
+        } else {
+            "data"
+        },
+    )?;
     let mut file_size = 0u64;
     let mut timelength = 0i64;
     if let Some(durl) = body.get("durl").and_then(Value::as_array) {
@@ -868,21 +895,19 @@ pub async fn query_mp4_info(
 
 /// `check_is_full_video` (both sides): DASH is always full; MP4/FLV compare
 /// timelengths.
-pub fn check_is_full_video(
-    media_type: MediaType,
-    info_data: &Value,
-    media_info: &Value,
-) -> bool {
+pub fn check_is_full_video(media_type: MediaType, info_data: &Value, media_info: &Value) -> bool {
     match media_type {
         MediaType::Dash => true,
-        MediaType::Mp4 | MediaType::Flv => info_data
-            .get("timelength")
-            .and_then(Value::as_i64)
-            .unwrap_or(0)
-            == media_info
+        MediaType::Mp4 | MediaType::Flv => {
+            info_data
                 .get("timelength")
                 .and_then(Value::as_i64)
-                .unwrap_or(0),
+                .unwrap_or(0)
+                == media_info
+                    .get("timelength")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0)
+        }
         _ => false,
     }
 }
@@ -938,13 +963,43 @@ pub async fn fetch_media_info(
 ) -> Result<FetchedMedia, PlayurlError> {
     let attr = item.attribute;
     if attr.contains(Attribute::VIDEO_BIT) {
-        fetch_video_info(client, apis, &item.bvid, item.cid, task_qn.unwrap_or(PREVIEW_VIDEO_QN)).await
+        fetch_video_info(
+            client,
+            apis,
+            &item.bvid,
+            item.cid,
+            task_qn.unwrap_or(PREVIEW_VIDEO_QN),
+        )
+        .await
     } else if attr.contains(Attribute::BANGUMI_BIT) {
-        fetch_bangumi_info(client, apis, &item.bvid, item.cid, task_qn.unwrap_or(PREVIEW_BANGUMI_QN)).await
+        fetch_bangumi_info(
+            client,
+            apis,
+            &item.bvid,
+            item.cid,
+            task_qn.unwrap_or(PREVIEW_BANGUMI_QN),
+        )
+        .await
     } else if attr.contains(Attribute::CHEESE_BIT) {
-        fetch_cheese_info(client, apis, item.aid, item.cid, task_qn.unwrap_or(PREVIEW_CHEESE_QN), item.ep_id).await
+        fetch_cheese_info(
+            client,
+            apis,
+            item.aid,
+            item.cid,
+            task_qn.unwrap_or(PREVIEW_CHEESE_QN),
+            item.ep_id,
+        )
+        .await
     } else if attr.contains(Attribute::LESSON_BIT) {
-        fetch_lesson_info(client, apis, item.course_id, item.lesson_id, item.item_id, item.section_id).await
+        fetch_lesson_info(
+            client,
+            apis,
+            item.course_id,
+            item.lesson_id,
+            item.item_id,
+            item.section_id,
+        )
+        .await
     } else if attr.contains(Attribute::AUDIO_BIT) {
         fetch_audio_info(client, apis, item.sid).await
     } else {

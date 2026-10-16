@@ -72,7 +72,9 @@ impl DisplayScaling {
     pub fn resolve(self, system_scale: Option<f32>) -> f32 {
         match self {
             Self::Factor(f) => f,
-            Self::Auto => system_scale.filter(|f| f.is_finite() && *f > 0.0).unwrap_or(1.0),
+            Self::Auto => system_scale
+                .filter(|f| f.is_finite() && *f > 0.0)
+                .unwrap_or(1.0),
         }
     }
 }
@@ -111,7 +113,7 @@ pub const DARK_SKIN: SkinTokens = SkinTokens {
     title_pressed: (255, 255, 255, 51),
     close_hover: (232, 17, 35),
     close_pressed: (241, 112, 122),
-    dialog_border: (0, 0, 0, 46), // rgba(0,0,0,0.18)
+    dialog_border: (0, 0, 0, 46),       // rgba(0,0,0,0.18)
     dialog_surface: (255, 255, 255, 8), // rgba(255,255,255,0.0314)
 };
 
@@ -152,7 +154,9 @@ pub const DEFAULT_ACCENT: (u8, u8, u8, u8) = (0x00, 0x9f, 0xaa, 0xff);
 /// Read the full theme configuration from the config store.
 pub fn theme_from_config(cfg: &ConfigStore) -> (ResolvedThemeMode, (u8, u8, u8, u8), f32) {
     let mode = ThemeModeSetting::from_config(
-        cfg.get("QFluentWidgets", "ThemeMode").and_then(|v| v.as_str()).unwrap_or("Auto"),
+        cfg.get("QFluentWidgets", "ThemeMode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Auto"),
     );
     let color = cfg
         .get("QFluentWidgets", "ThemeColor")
@@ -160,7 +164,9 @@ pub fn theme_from_config(cfg: &ConfigStore) -> (ResolvedThemeMode, (u8, u8, u8, 
         .and_then(accent_rgba)
         .unwrap_or(DEFAULT_ACCENT);
     let scaling = DisplayScaling::from_config(
-        cfg.get("Interface", "display_scaling").and_then(|v| v.as_str()).unwrap_or("Auto"),
+        cfg.get("Interface", "display_scaling")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Auto"),
     );
     // Auto resolution needs the OS; the service returns the unresolved Auto
     // defaults (light + 1.0) and the UI layer re-resolves with window

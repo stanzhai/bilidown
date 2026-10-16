@@ -30,7 +30,11 @@ fn fresh_dir_creates_no_file_and_reports_no_reset() {
 fn save_writes_python_identical_defaults() {
     let tmp = tempfile::tempdir().unwrap();
     let mut store = ConfigStore::with_paths(tmp.path(), FIXTURE_DOWNLOAD_PATH);
-    store.set("Download", "download_path", serde_json::json!(FIXTURE_DOWNLOAD_PATH));
+    store.set(
+        "Download",
+        "download_path",
+        serde_json::json!(FIXTURE_DOWNLOAD_PATH),
+    );
 
     store.save().unwrap();
 
@@ -57,10 +61,22 @@ fn old_python_config_upgrades_in_place_v2120() {
     assert!(store.naming_rules_reset(), "命名规则被整表重置要置标志");
 
     // 迁移语义抽查（字节已覆盖，这里是可读的锚点）
-    assert_eq!(store.get("Advanced", "proxy_mode"), Some(&serde_json::json!("manual")));
-    assert_eq!(store.get("Download", "download_path"), Some(&serde_json::json!("/tmp/old-downloads")));
-    let list: Vec<i64> = store.get("Download", "video_quality_priority").unwrap()
-        .as_array().unwrap().iter().map(|q| q.as_i64().unwrap()).collect();
+    assert_eq!(
+        store.get("Advanced", "proxy_mode"),
+        Some(&serde_json::json!("manual"))
+    );
+    assert_eq!(
+        store.get("Download", "download_path"),
+        Some(&serde_json::json!("/tmp/old-downloads"))
+    );
+    let list: Vec<i64> = store
+        .get("Download", "video_quality_priority")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|q| q.as_i64().unwrap())
+        .collect();
     let pos122 = list.iter().position(|q| *q == 122).unwrap();
     let pos120 = list.iter().position(|q| *q == 120).unwrap();
     assert_eq!(pos122 + 1, pos120, "122 要插到 120 之前");
@@ -75,7 +91,10 @@ fn old_python_config_upgrades_in_place_v2160() {
 
     assert!(store.naming_rules_reset());
     // 2160 ≥ 2140：不补 122；代理三态已在盘上，不被 2.13.0 迁移改写
-    assert_eq!(store.get("Advanced", "proxy_mode"), Some(&serde_json::json!("disabled")));
+    assert_eq!(
+        store.get("Advanced", "proxy_mode"),
+        Some(&serde_json::json!("disabled"))
+    );
     assert_eq!(
         store.get("Download", "video_quality_priority"),
         Some(&serde_json::json!([127, 126, 80]))
@@ -91,7 +110,10 @@ fn corrupt_file_recovers_to_defaults() {
 
     let bytes = fs::read(tmp.path().join("config.json")).unwrap();
     assert_eq!(String::from_utf8(bytes).unwrap(), DEFAULTS);
-    assert!(store.naming_rules_reset(), "版本未知按最旧处理，命名规则同样重置");
+    assert!(
+        store.naming_rules_reset(),
+        "版本未知按最旧处理，命名规则同样重置"
+    );
 }
 
 #[test]
@@ -102,11 +124,21 @@ fn current_config_is_loaded_not_rewritten() {
 
     let store = ConfigStore::with_paths(tmp.path(), FIXTURE_DOWNLOAD_PATH);
 
-    assert_eq!(fs::read(tmp.path().join("config.json")).unwrap(), before, "已是最新的配置不得被改写");
+    assert_eq!(
+        fs::read(tmp.path().join("config.json")).unwrap(),
+        before,
+        "已是最新的配置不得被改写"
+    );
     assert!(!store.naming_rules_reset());
     // 盘上的值要真的进了内存
-    assert_eq!(store.get("Interface", "language"), Some(&serde_json::json!("en_US")));
-    assert_eq!(store.get("Advanced", "area"), Some(&serde_json::json!("ov")));
+    assert_eq!(
+        store.get("Interface", "language"),
+        Some(&serde_json::json!("en_US"))
+    );
+    assert_eq!(
+        store.get("Advanced", "area"),
+        Some(&serde_json::json!("ov"))
+    );
 }
 
 #[test]
@@ -137,6 +169,8 @@ fn unknown_groups_and_items_are_ignored() {
     assert!(!saved.contains("sort_key"));
     assert!(!saved.contains("proxy_enabled"));
     assert!(!saved.contains("when_close\""));
-    assert_eq!(store.get("Cookie", "SESSDATA"), Some(&serde_json::json!("")));
+    assert_eq!(
+        store.get("Cookie", "SESSDATA"),
+        Some(&serde_json::json!(""))
+    );
 }
-

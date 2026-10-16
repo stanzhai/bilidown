@@ -82,7 +82,11 @@ impl SubtitleStyle {
         let d = Self::default_style();
         let g = |group: &str| value.get(group).cloned().unwrap_or(Value::Null);
         let s = |group: &str, key: &str, default: String| {
-            g(group).get(key).and_then(Value::as_str).unwrap_or(&default).to_owned()
+            g(group)
+                .get(key)
+                .and_then(Value::as_str)
+                .unwrap_or(&default)
+                .to_owned()
         };
         let i = |group: &str, key: &str, default: i64| {
             g(group).get(key).and_then(Value::as_i64).unwrap_or(default)
@@ -91,7 +95,10 @@ impl SubtitleStyle {
             g(group).get(key).and_then(Value::as_f64).unwrap_or(default)
         };
         let b = |key: &str, default: bool| {
-            g("font").get(key).and_then(Value::as_bool).unwrap_or(default)
+            g("font")
+                .get(key)
+                .and_then(Value::as_bool)
+                .unwrap_or(default)
         };
         Self {
             font_name: s("font", "name", d.font_name),
@@ -111,7 +118,10 @@ impl SubtitleStyle {
             margin_vertical: i("margin", "vertical", d.margin_vertical),
             width: i("resolution", "width", d.width),
             height: i("resolution", "height", d.height),
-            alignment: value.get("Alignment").and_then(Value::as_i64).unwrap_or(d.alignment),
+            alignment: value
+                .get("Alignment")
+                .and_then(Value::as_i64)
+                .unwrap_or(d.alignment),
         }
     }
 }

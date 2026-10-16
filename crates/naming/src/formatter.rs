@@ -62,7 +62,11 @@ pub mod numbering_type {
 /// Python `Time.from_timestamp`: ms timestamps get divided down; local time
 /// so preview and download agree.
 pub fn time_from_timestamp(ts: i64) -> Value {
-    let seconds = if ts.abs() >= 10_000_000_000 { ts / 1000 } else { ts };
+    let seconds = if ts.abs() >= 10_000_000_000 {
+        ts / 1000
+    } else {
+        ts
+    };
     let naive = chrono::DateTime::from_timestamp(seconds, 0)
         .map(|dt| dt.with_timezone(&chrono::Local).naive_local())
         .unwrap_or_default();
@@ -77,7 +81,10 @@ pub struct FileNameFormatter<'a> {
 
 impl<'a> FileNameFormatter<'a> {
     pub fn new(variable_data: HashMap<String, Value>, store: &'a RuleStore) -> Self {
-        Self { variable_data, store }
+        Self {
+            variable_data,
+            store,
+        }
     }
 
     /// `FileNameFormatter.format()`: sanitize, render, normalize; any
@@ -259,7 +266,10 @@ pub fn get_variable_data_from_task_info(task_info: &TaskInfo) -> HashMap<String,
 }
 
 fn number_value(number: &str) -> Value {
-    number.parse::<i64>().map(Value::Int).unwrap_or_else(|_| Value::Text(number.to_string()))
+    number
+        .parse::<i64>()
+        .map(Value::Int)
+        .unwrap_or_else(|_| Value::Text(number.to_string()))
 }
 
 /// Whether a naming variable would render as empty/trivial (used by the
@@ -271,7 +281,11 @@ pub fn value_is_blank(value: &Value) -> bool {
 /// Convenience wrapper for tests and callers that render one rule against
 /// task data.
 pub fn render_rule(rule: &str, data: &HashMap<String, Value>) -> Option<String> {
-    compile_rule(rule, false).ok()?.render(data).ok().map(|s| normalize_path(&s))
+    compile_rule(rule, false)
+        .ok()?
+        .render(data)
+        .ok()
+        .map(|s| normalize_path(&s))
 }
 
 /// Re-export so callers can feed `vformat` output back through the same
@@ -286,4 +300,3 @@ pub fn rule_field_names(rule: &str) -> Vec<String> {
         .map(|t| t.field_names())
         .unwrap_or_default()
 }
-

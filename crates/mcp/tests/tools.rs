@@ -12,15 +12,12 @@ use mcp::state::McpState;
 use mcp::tools::{download, parse, task};
 
 fn state(tmp: &tempfile::TempDir, api_base: &str) -> Arc<McpState> {
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Behavior", "mcp_enabled", json!(true));
     let store = Arc::new(parking_lot::Mutex::new(store));
-    let manager = Arc::new(tasks::TaskManager::open(
-        tmp.path().join("task.db"),
-        {
+    let manager = Arc::new(
+        tasks::TaskManager::open(tmp.path().join("task.db"), {
             // TaskManager::open takes a shared ConfigStore, not the MCP
             // mutex wrapper — build a second instance from the same paths.
             let shared = config::ConfigStore::with_paths(
@@ -28,8 +25,9 @@ fn state(tmp: &tempfile::TempDir, api_base: &str) -> Arc<McpState> {
                 tmp.path().join("downloads"),
             );
             std::sync::Arc::new(shared)
-        },
-    ).unwrap());
+        })
+        .unwrap(),
+    );
     Arc::new(McpState::new(store, manager, api_base))
 }
 
@@ -117,12 +115,12 @@ async fn parse_url_lists_episodes_and_reports_media_info() {
     let structured = output.structured.as_ref().unwrap();
     assert_eq!(structured["total"], json!(1));
     assert_eq!(structured["category"], json!("User Uploads"));
-    assert_eq!(
-        structured["episodes"][0]["title"],
-        json!("单视频")
-    );
+    assert_eq!(structured["episodes"][0]["title"], json!("单视频"));
     // The preview flow ran against the mock playurl.
-    assert_eq!(structured["available"]["video_quality"], json!(["auto", "1080P", "720P"]));
+    assert_eq!(
+        structured["available"]["video_quality"],
+        json!(["auto", "1080P", "720P"])
+    );
 
     // get_episodes sees the same position id.
     let episodes = parse::tool_get_episodes(state.clone(), &args(json!({})));
@@ -167,9 +165,11 @@ async fn create_download_reports_missing_and_duplicate_paths() {
         };
         let map = dict.as_object().cloned().unwrap();
         let mut db = state.manager.reader().unwrap();
-        let mut record = database::TaskDatabase::build_record(&database::TaskInfo::default(), false);
+        let mut record =
+            database::TaskDatabase::build_record(&database::TaskInfo::default(), false);
         record.hash_id = tasks::duplicate::calc_hash_id_from_episode(&map);
-        db.add_task_records(std::slice::from_ref(&record), false).unwrap();
+        db.add_task_records(std::slice::from_ref(&record), false)
+            .unwrap();
     }
 
     let duplicate = download::dispatch(
@@ -178,7 +178,11 @@ async fn create_download_reports_missing_and_duplicate_paths() {
         &args(json!({"episode_ids": ["1"]})),
     );
     assert!(!duplicate.is_error);
-    assert!(duplicate.text.contains("Nothing to download"), "got: {}", duplicate.text);
+    assert!(
+        duplicate.text.contains("Nothing to download"),
+        "got: {}",
+        duplicate.text
+    );
     assert_eq!(duplicate.structured.as_ref().unwrap()["created"], json!(0));
 
     // redownload=true overrides and creates the task.
@@ -188,10 +192,20 @@ async fn create_download_reports_missing_and_duplicate_paths() {
         &args(json!({"episode_ids": ["1"], "redownload": true})),
     );
     assert!(!redownload.is_error, "got: {}", redownload.text);
-    assert_eq!(redownload.structured.as_ref().unwrap()["created"], json!(1), "summary: {}", redownload.text);
+    assert_eq!(
+        redownload.structured.as_ref().unwrap()["created"],
+        json!(1),
+        "summary: {}",
+        redownload.text
+    );
 
     // The task shows up in list_tasks.
     let listed = task::dispatch(state.clone(), "list_tasks", &args(json!({})));
     assert!(!listed.is_error);
-    assert_eq!(listed.structured.as_ref().unwrap()["total"], json!(2), "summary: {}", listed.text);
+    assert_eq!(
+        listed.structured.as_ref().unwrap()["total"],
+        json!(2),
+        "summary: {}",
+        listed.text
+    );
 }

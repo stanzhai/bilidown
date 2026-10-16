@@ -47,9 +47,13 @@ async fn au_single_fetches_song_info_and_builds_one_track() {
         .mount(&server)
         .await;
 
-    let info = parse_audio(&client(), &server.uri(), "https://www.bilibili.com/audio/au111")
-        .await
-        .unwrap();
+    let info = parse_audio(
+        &client(),
+        &server.uri(),
+        "https://www.bilibili.com/audio/au111",
+    )
+    .await
+    .unwrap();
 
     // Single-song response carries no `data` list — the episode layer
     // normalizes the payload itself into the one track.
@@ -100,9 +104,13 @@ async fn am_menu_fetches_list_then_info_and_expands_tracks() {
         .mount(&server)
         .await;
 
-    let info = parse_audio(&client(), &server.uri(), "https://www.bilibili.com/audio/am55")
-        .await
-        .unwrap();
+    let info = parse_audio(
+        &client(),
+        &server.uri(),
+        "https://www.bilibili.com/audio/am55",
+    )
+    .await
+    .unwrap();
 
     // Menu title is folded in as a sibling key of the track list.
     assert_eq!(info.data["menu_title"], "我的歌单");
@@ -201,8 +209,12 @@ async fn non_zero_business_code_is_an_api_error() {
 
 #[tokio::test]
 async fn non_audio_link_is_invalid() {
-    let error = parse_audio(&client(), "https://example.com", "https://www.bilibili.com/video/BV1xx")
-        .await
-        .unwrap_err();
+    let error = parse_audio(
+        &client(),
+        "https://example.com",
+        "https://www.bilibili.com/video/BV1xx",
+    )
+    .await
+    .unwrap_err();
     assert!(matches!(error, AudioError::InvalidLink));
 }

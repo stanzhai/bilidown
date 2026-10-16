@@ -168,6 +168,44 @@ impl SettingsScreen {
                         }
                     });
                 }
+                "subtitle_language" => {
+                    crate::ui::dialogs::subtitles_language::open_subtitles_language(cfg, window, cx)
+                }
+                "cn_cdn_list" => crate::ui::dialogs::edit_host::open_cdn_server_list(
+                    cfg,
+                    crate::ui::dialogs::edit_host::CdnListKey::Cn,
+                    window,
+                    cx,
+                ),
+                "ov_cdn_list" => crate::ui::dialogs::edit_host::open_cdn_server_list(
+                    cfg,
+                    crate::ui::dialogs::edit_host::CdnListKey::Ov,
+                    window,
+                    cx,
+                ),
+                "auto_select" => crate::ui::dialogs::auto_select::open_auto_select(cfg, window, cx),
+                "video_priority" => crate::ui::dialogs::priority::open_priority(
+                    cfg,
+                    crate::ui::dialogs::priority::PriorityKind::VideoQuality,
+                    window,
+                    cx,
+                ),
+                "audio_priority" => crate::ui::dialogs::priority::open_priority(
+                    cfg,
+                    crate::ui::dialogs::priority::PriorityKind::AudioQuality,
+                    window,
+                    cx,
+                ),
+                "codec_priority" => crate::ui::dialogs::priority::open_priority(
+                    cfg,
+                    crate::ui::dialogs::priority::PriorityKind::VideoCodec,
+                    window,
+                    cx,
+                ),
+                "parse_list" => crate::ui::dialogs::parse_list::open_parse_list(cfg, window, cx),
+                "monitor_clipboard" => {
+                    crate::ui::dialogs::monitor_clipboard::open_monitor_clipboard(cfg, window, cx)
+                }
                 _ => {}
             }
         }
@@ -443,6 +481,8 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
     SettingPage::new(t("Behavior"))
         .icon(IconName::Wand)
         .group(SettingGroup::new().title(t("Parsing")).items([
+            configure_button(ui, "parse_list"),
+            configure_button(ui, "monitor_clipboard"),
             configure_button(ui, "batch_parse"),
             configure_button(ui, "auto_parse"),
             configure_button(ui, "auto_select"),

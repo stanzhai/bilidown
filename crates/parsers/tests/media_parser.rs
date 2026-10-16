@@ -61,9 +61,14 @@ async fn single_video_parse() {
     mount_view(&server, view_data("BV1xx411c7mD", "单视频")).await;
 
     let data = EpisodeData::default();
-    let outcome = parse_video_url(&client(), &server.uri(), "https://www.bilibili.com/video/BV1xx411c7mD", &data)
-        .await
-        .unwrap();
+    let outcome = parse_video_url(
+        &client(),
+        &server.uri(),
+        "https://www.bilibili.com/video/BV1xx411c7mD",
+        &data,
+    )
+    .await
+    .unwrap();
 
     let ParseOutcome::Episode(node, (key, value)) = outcome else {
         panic!("expected episode outcome");
@@ -75,7 +80,11 @@ async fn single_video_parse() {
     // Exactly one request, keyed on bvid.
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests.len(), 1);
-    assert!(requests[0].url.query().unwrap().contains("bvid=BV1xx411c7mD"));
+    assert!(requests[0]
+        .url
+        .query()
+        .unwrap()
+        .contains("bvid=BV1xx411c7mD"));
 }
 
 #[tokio::test]
@@ -113,9 +122,14 @@ async fn redirect_link_short_circuits() {
     mount_view(&server, body).await;
 
     let data = EpisodeData::default();
-    let outcome = parse_video_url(&client(), &server.uri(), "https://www.bilibili.com/video/BV1r", &data)
-        .await
-        .unwrap();
+    let outcome = parse_video_url(
+        &client(),
+        &server.uri(),
+        "https://www.bilibili.com/video/BV1r",
+        &data,
+    )
+    .await
+    .unwrap();
     let ParseOutcome::Redirect(url) = outcome else {
         panic!("expected redirect");
     };
@@ -383,7 +397,10 @@ async fn lesson_requires_login_and_valid_ids() {
     assert!(matches!(err, MediaError::LoginRequired));
     assert!(server.received_requests().await.unwrap().is_empty());
 
-    let logged_in = auth::AuthState { is_login: true, ..Default::default() };
+    let logged_in = auth::AuthState {
+        is_login: true,
+        ..Default::default()
+    };
     let err = parse_lesson_url(
         &client(),
         &server.uri(),
@@ -416,7 +433,10 @@ async fn lesson_post_builds_tree_and_play_payload() {
         .mount(&server)
         .await;
 
-    let logged_in = auth::AuthState { is_login: true, ..Default::default() };
+    let logged_in = auth::AuthState {
+        is_login: true,
+        ..Default::default()
+    };
     let (node, _) = parse_lesson_url(
         &client(),
         &server.uri(),
@@ -439,9 +459,11 @@ async fn lesson_post_builds_tree_and_play_payload() {
     // POST body carried the ids.
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests.len(), 1);
-    let body: Value =
-        serde_json::from_slice(&requests[0].body).unwrap();
-    assert_eq!(body, json!({"courseId": 100, "lessonId": 200, "itemId": 300}));
+    let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert_eq!(
+        body,
+        json!({"courseId": 100, "lessonId": 200, "itemId": 300})
+    );
 
     // Play payload wrapper.
     let media = build_lesson_media_info(&json!({
@@ -449,7 +471,10 @@ async fn lesson_post_builds_tree_and_play_payload() {
     }))
     .unwrap();
     assert_eq!(media["quality"], json!(80));
-    assert_eq!(media["durl"][0]["url"], json!("https://cdn.example.com/lesson.mp4"));
+    assert_eq!(
+        media["durl"][0]["url"],
+        json!("https://cdn.example.com/lesson.mp4")
+    );
     assert_eq!(media["durl"][0]["length"], json!(90000));
 
     assert!(build_lesson_media_info(&json!({})).is_err());
@@ -470,7 +495,10 @@ async fn lesson_missing_data_body_errors() {
         .mount(&server)
         .await;
 
-    let logged_in = auth::AuthState { is_login: true, ..Default::default() };
+    let logged_in = auth::AuthState {
+        is_login: true,
+        ..Default::default()
+    };
     let err = parse_lesson_url(
         &client(),
         &server.uri(),

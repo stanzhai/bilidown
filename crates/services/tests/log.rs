@@ -41,14 +41,23 @@ fn continuation_only_lines_are_dropped() {
 #[test]
 fn level_filter_is_exact() {
     let recs = LogRecord::parse_all(SAMPLE);
-    let f = LogFilter { level: LevelFilter::Error, ..Default::default() };
+    let f = LogFilter {
+        level: LevelFilter::Error,
+        ..Default::default()
+    };
     assert_eq!(f.apply(&recs).len(), 1);
     assert_eq!(f.apply(&recs)[0].level, "ERROR");
 
-    let all = LogFilter { level: LevelFilter::All, ..Default::default() };
+    let all = LogFilter {
+        level: LevelFilter::All,
+        ..Default::default()
+    };
     assert_eq!(all.apply(&recs).len(), 2);
 
-    let info = LogFilter { level: LevelFilter::Info, ..Default::default() };
+    let info = LogFilter {
+        level: LevelFilter::Info,
+        ..Default::default()
+    };
     assert_eq!(info.apply(&recs).len(), 1); // INFO only, not WARNING/ERROR
 }
 
@@ -56,11 +65,14 @@ fn level_filter_is_exact() {
 fn text_filter_matches_joined_fields_casefolded() {
     let recs = LogRecord::parse_all(SAMPLE);
     // matches timestamp
-    let f = |t: &str| LogFilter { level: LevelFilter::All, text: t.to_owned() };
+    let f = |t: &str| LogFilter {
+        level: LevelFilter::All,
+        text: t.to_owned(),
+    };
     assert_eq!(f("03:04:06").apply(&recs).len(), 1);
     // matches name
     assert_eq!(f("BILI23.PARSE").apply(&recs).len(), 1); // casefold both ways
-    // matches message content incl. continuation lines
+                                                         // matches message content incl. continuation lines
     assert_eq!(f("traceback").apply(&recs).len(), 1);
     // does NOT match the callsite (proxy model joins ts/name/level/msg only)
     assert_eq!(f("parse.py:120").apply(&recs).len(), 0);

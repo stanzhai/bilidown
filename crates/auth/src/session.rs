@@ -57,7 +57,11 @@ pub struct AuthState {
     pub is_login: bool,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub bili_jct: String,
-    #[serde(default, skip_serializing_if = "String::is_empty", rename = "DedeUserID")]
+    #[serde(
+        default,
+        skip_serializing_if = "String::is_empty",
+        rename = "DedeUserID"
+    )]
     pub dede_user_id: String,
     #[serde(
         default,
@@ -85,9 +89,7 @@ impl AuthState {
     /// other section untouched.
     pub fn save_to_config_file(&self, path: &Path) -> std::io::Result<()> {
         let mut root: serde_json::Value = match std::fs::read_to_string(path) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|_| {
-                serde_json::json!({})
-            }),
+            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|_| serde_json::json!({})),
             Err(_) => serde_json::json!({}),
         };
         root["Cookie"] = serde_json::to_value(self).expect("AuthState serializes");
@@ -207,7 +209,10 @@ impl Session<'_> {
 
     /// `get_buvid` + its success chain.
     pub async fn get_buvid(&mut self) -> Result<(), AuthError> {
-        let response: serde_json::Value = self.client.get_json::<serde_json::Value>(FINGER_SPI_API, &[]).await?;
+        let response: serde_json::Value = self
+            .client
+            .get_json::<serde_json::Value>(FINGER_SPI_API, &[])
+            .await?;
         check_response(&response)?;
         let data = &response["data"];
         self.state.buvid3 = data["b_3"].as_str().unwrap_or_default().to_owned();
@@ -233,12 +238,8 @@ impl Session<'_> {
             ("context[ts]".to_owned(), self.now.to_string()),
             ("csrf".to_owned(), self.state.bili_jct.clone()),
         ];
-        let response: serde_json::Value = post_params(
-            self.client,
-            GEN_WEB_TICKET_API,
-            &params,
-        )
-        .await?;
+        let response: serde_json::Value =
+            post_params(self.client, GEN_WEB_TICKET_API, &params).await?;
         check_response(&response)?;
         self.state.bili_ticket = response["data"]["ticket"]
             .as_str()
@@ -270,7 +271,8 @@ impl Session<'_> {
             .text()
             .await
             .map_err(network::HttpError::from)?;
-        let response: serde_json::Value = serde_json::from_str(&response).map_err(network::HttpError::Json)?;
+        let response: serde_json::Value =
+            serde_json::from_str(&response).map_err(network::HttpError::Json)?;
         check_response(&response)
     }
 
@@ -305,10 +307,7 @@ impl Session<'_> {
         let entries: Vec<(&str, String)> = vec![
             ("bili_jct", self.state.bili_jct.clone()),
             ("DedeUserID", self.state.dede_user_id.clone()),
-            (
-                "DedeUserID__ckMd5",
-                self.state.dede_user_id_ck_md5.clone(),
-            ),
+            ("DedeUserID__ckMd5", self.state.dede_user_id_ck_md5.clone()),
             ("SESSDATA", self.state.sessdata.clone()),
         ];
         for (name, value) in entries {

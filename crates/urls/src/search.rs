@@ -33,15 +33,22 @@ pub fn support_search(url: &str) -> bool {
 pub fn extract_keyword(url: &str) -> Option<String> {
     let param = keyword_param(url)?;
     let parsed = Url::parse(url).ok()?;
-    parsed.query_pairs().find(|(k, _)| k == param).map(|(_, v)| v.trim().to_owned())
+    parsed
+        .query_pairs()
+        .find(|(k, _)| k == param)
+        .map(|(_, v)| v.trim().to_owned())
 }
 
 /// Write the keyword back into the link. An empty/whitespace keyword removes
 /// the parameter (restoring the full list); types without search support get
 /// the link back unchanged. Other params keep their values and order.
 pub fn build_search_url(url: &str, keyword: &str) -> String {
-    let Some(param) = keyword_param(url) else { return url.to_owned() };
-    let Ok(mut parsed) = Url::parse(url) else { return url.to_owned() };
+    let Some(param) = keyword_param(url) else {
+        return url.to_owned();
+    };
+    let Ok(mut parsed) = Url::parse(url) else {
+        return url.to_owned();
+    };
     let keyword = keyword.trim();
 
     // Rebuild the query: keep other params (and their order), drop or

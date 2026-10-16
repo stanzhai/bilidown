@@ -42,6 +42,8 @@ pub async fn get_data(client: &HttpClient, base: &str, task: &TaskInfo) -> anyho
     let url = format!("{base}/x/player/wbi/v2");
     let body = client.get(&url, &player_params(task)).await?;
     let response: Value = serde_json::from_str(&body)?;
-    Ok(response.get("data").cloned().unwrap_or_else(|| Value::Object(Default::default())))
+    Ok(response
+        .get("data")
+        .cloned()
+        .unwrap_or_else(|| Value::Object(Default::default())))
 }
-

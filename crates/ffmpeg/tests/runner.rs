@@ -32,11 +32,7 @@ fn fast_watchdog() -> WatchdogConfig {
 
 /// Records the invocation argv for inspection by echoing it to stderr.
 fn recording_ffmpeg(dir: &Path) -> PathBuf {
-    fake_ffmpeg(
-        dir,
-        "ffmpeg-record",
-        r#"printf '%s\n' "$@" >&2"#,
-    )
+    fake_ffmpeg(dir, "ffmpeg-record", r#"printf '%s\n' "$@" >&2"#)
 }
 
 #[test]
@@ -92,7 +88,10 @@ fn progress_lines_become_percentages() {
     let mut seen = Vec::new();
     let outcome = runner.run(|p| seen.push(p));
 
-    assert!(matches!(outcome, FFmpegOutcome::Success { code: 0, .. }), "{outcome:?}");
+    assert!(
+        matches!(outcome, FFmpegOutcome::Success { code: 0, .. }),
+        "{outcome:?}"
+    );
     // 25%, 50%, then 99% (capped below 100).
     assert_eq!(seen, vec![25, 50, 99]);
 }
@@ -103,11 +102,7 @@ fn preset_duration_carries_progress_before_stderr_reports() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     // No Duration on stderr at all; the preset must carry the math.
-    let exe = fake_ffmpeg(
-        &dir,
-        "ffmpeg-preset",
-        "printf 'out_time_us=50000000\\n'",
-    );
+    let exe = fake_ffmpeg(&dir, "ffmpeg-preset", "printf 'out_time_us=50000000\\n'");
 
     let mut runner = FFmpegRunner::new(&exe, vec!["ffmpeg".into()]);
     runner.set_duration(100.0);
@@ -177,7 +172,11 @@ fn nonzero_exit_surfaces_failed_with_code() {
     let mut runner = FFmpegRunner::new(&exe, vec!["ffmpeg".into()]);
     let outcome = runner.run(|_| {});
     match outcome {
-        FFmpegOutcome::Failed { code, message, stderr_tail } => {
+        FFmpegOutcome::Failed {
+            code,
+            message,
+            stderr_tail,
+        } => {
             assert_eq!(code, 3);
             assert_eq!(message, "FFmpeg failed with exit code 3");
             assert!(stderr_tail.contains("boom"));
@@ -244,8 +243,21 @@ fn spawned_process_receives_the_full_built_argv() {
     assert_eq!(
         received,
         vec![
-            "-progress", "pipe:1", "-nostats", "-y", "-i", "v.m4s", "-i", "a.m4s", "-c:v",
-            "copy", "-c:a", "copy", "-strict", "unofficial", "out.mp4",
+            "-progress",
+            "pipe:1",
+            "-nostats",
+            "-y",
+            "-i",
+            "v.m4s",
+            "-i",
+            "a.m4s",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "copy",
+            "-strict",
+            "unofficial",
+            "out.mp4",
         ]
     );
 }

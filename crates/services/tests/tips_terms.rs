@@ -30,7 +30,7 @@ fn tip_flags_default_to_not_shown() {
     assert!(tutorial_pending(&cfg));
     assert!(area_dialog_pending(&cfg));
     assert!(login_tip_pending(&cfg)); // Cookie/is_login defaults false → logged out
-    // first tip in the post-terms order
+                                      // first tip in the post-terms order
     assert_eq!(next_tip(&cfg), PendingTip::TutorialDialog);
 }
 
@@ -65,11 +65,19 @@ fn auto_parse_tip_requires_pagination_and_flags() {
 
     // user turned the "don't show" switch on → never
     let mut cfg = cfg;
-    cfg.set("Misc", "show_auto_parse_dialog", serde_json::Value::Bool(true));
+    cfg.set(
+        "Misc",
+        "show_auto_parse_dialog",
+        serde_json::Value::Bool(true),
+    );
     assert!(!auto_parse_tip_pending(&cfg, 2));
 
     // once shown, never again
-    cfg.set("Misc", "show_auto_parse_dialog", serde_json::Value::Bool(false));
+    cfg.set(
+        "Misc",
+        "show_auto_parse_dialog",
+        serde_json::Value::Bool(false),
+    );
     mark_auto_parse_tip_shown(&mut cfg);
     assert!(!auto_parse_tip_pending(&cfg, 2));
 }

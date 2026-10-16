@@ -124,7 +124,7 @@ pub fn resolve(config: &ConfigStore, task_info: &TaskInfo, key: &str) -> Value {
 
 fn frozen_value(task_info: &TaskInfo, key: &str) -> Option<Value> {
     let options = task_info.Options.clone();
-    
+
     match key {
         "video_container" => options.video_container.map(Value::String),
         "danmaku_type" => options.danmaku_type.map(Value::String),
@@ -141,9 +141,9 @@ fn frozen_value(task_info: &TaskInfo, key: &str) -> Option<Value> {
         "delete_cover_after_attach" => options.delete_cover_after_attach.map(Value::Bool),
         "metadata_type" => options.metadata_type.map(Value::String),
         "m4a_to_mp3" => options.m4a_to_mp3.map(Value::Bool),
-        "keep_original_files_type" => {
-            options.keep_original_files_type.map(|v| Value::Number(v.into()))
-        }
+        "keep_original_files_type" => options
+            .keep_original_files_type
+            .map(|v| Value::Number(v.into())),
         _ => None,
     }
 }
@@ -157,27 +157,17 @@ pub fn apply_snapshot(task_info: &mut TaskInfo, data: &serde_json::Map<String, V
             "video_container" => o.video_container = value.as_str().map(str::to_owned),
             "danmaku_type" => o.danmaku_type = value.as_str().map(str::to_owned),
             "embed_danmaku" => o.embed_danmaku = value.as_bool(),
-            "delete_danmaku_after_embed" => {
-                o.delete_danmaku_after_embed = value.as_bool()
-            }
+            "delete_danmaku_after_embed" => o.delete_danmaku_after_embed = value.as_bool(),
             "subtitle_type" => o.subtitle_type = value.as_str().map(str::to_owned),
             "embed_subtitle" => o.embed_subtitle = value.as_bool(),
-            "delete_subtitle_after_embed" => {
-                o.delete_subtitle_after_embed = value.as_bool()
-            }
-            "subtitle_language" => {
-                o.subtitle_language = value.as_object().cloned()
-            }
+            "delete_subtitle_after_embed" => o.delete_subtitle_after_embed = value.as_bool(),
+            "subtitle_language" => o.subtitle_language = value.as_object().cloned(),
             "cover_type" => o.cover_type = value.as_str().map(str::to_owned),
             "attach_cover" => o.attach_cover = value.as_bool(),
-            "delete_cover_after_attach" => {
-                o.delete_cover_after_attach = value.as_bool()
-            }
+            "delete_cover_after_attach" => o.delete_cover_after_attach = value.as_bool(),
             "metadata_type" => o.metadata_type = value.as_str().map(str::to_owned),
             "m4a_to_mp3" => o.m4a_to_mp3 = value.as_bool(),
-            "keep_original_files_type" => {
-                o.keep_original_files_type = value.as_i64()
-            }
+            "keep_original_files_type" => o.keep_original_files_type = value.as_i64(),
             _ => {}
         }
     }

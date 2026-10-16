@@ -72,7 +72,10 @@ fn multi_part_video() {
     assert_eq!(second.title, "第二P");
     assert_eq!(second.cid, 2002);
     assert_eq!(second.pubtime, 1700000100);
-    assert_eq!(second.url, "https://www.bilibili.com/video/BV17x411w7KC?p=2");
+    assert_eq!(
+        second.url,
+        "https://www.bilibili.com/video/BV17x411w7KC?p=2"
+    );
     assert!(second.has_attribute(Attribute::VIDEO_BIT | Attribute::PART_BIT));
     assert_eq!(second.related_titles["parent_title"], "分P视频");
     assert_eq!(key, "cid");
@@ -356,7 +359,7 @@ fn lesson_tree_and_side_data() {
     let node = parse_lesson(&data, &id, &info);
 
     assert_eq!(node.title, "测试课程"); // lessonName over itemsName
-    // Blank chapter name → sections attach to root; named chapter kept.
+                                        // Blank chapter name → sections attach to root; named chapter kept.
     assert_eq!(node.count(), 4);
 
     let first = node.child(0);
@@ -393,9 +396,6 @@ fn lesson_tree_and_side_data() {
 #[test]
 fn duration_helpers() {
     assert_eq!(episode_duration(&json!({"duration": 42})), 42);
-    assert_eq!(
-        episode_duration(&json!({"arc": {"duration": 50}})),
-        50
-    );
+    assert_eq!(episode_duration(&json!({"arc": {"duration": 50}})), 50);
     assert_eq!(episode_duration(&json!({"length": "1:02:03"})), 3723);
 }

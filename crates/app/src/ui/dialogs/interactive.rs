@@ -10,9 +10,9 @@ use serde_json::Value;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::dialog::DialogFooter;
 use gpui_kit::component::label::Label;
-use gpui_kit::component::WindowExt;
 use gpui_kit::component::radio::{Radio, RadioGroup};
-use gpui_kit::{ParentElement, Window, div, px, prelude::*};
+use gpui_kit::component::WindowExt;
+use gpui_kit::{div, prelude::*, px, ParentElement, Window};
 
 use super::active_catalog;
 
@@ -97,20 +97,25 @@ pub fn open_interactive_video(
                             .gap_2()
                             .child(Label::new(tip.clone()))
                             .child(
-                                RadioGroup::new("interactive").selected_index(Some(0)).child(
-                                    Radio::new("auto").checked(true).label(label.clone()).on_click({
-                                        let state = state.clone();
-                                        move |checked, _, _| {
-                                            state.borrow_mut().auto_parse = *checked;
-                                        }
-                                    }),
-                                ),
+                                RadioGroup::new("interactive")
+                                    .selected_index(Some(0))
+                                    .child(
+                                        Radio::new("auto")
+                                            .checked(true)
+                                            .label(label.clone())
+                                            .on_click({
+                                                let state = state.clone();
+                                                move |checked, _, _| {
+                                                    state.borrow_mut().auto_parse = *checked;
+                                                }
+                                            }),
+                                    ),
                             ),
                     )
                 }
             })
-            .footer(DialogFooter::new().child(
-                Button::new("confirm").label(ok.clone()).on_click({
+            .footer(
+                DialogFooter::new().child(Button::new("confirm").label(ok.clone()).on_click({
                     let state = state.clone();
                     let on_accept = on_accept.clone();
                     let data = std::rc::Rc::clone(&data);
@@ -121,8 +126,8 @@ pub fn open_interactive_video(
                             cb(st.payload((*data).clone()), cx);
                         }
                     }
-                }),
-            ))
+                })),
+            )
     });
 }
 

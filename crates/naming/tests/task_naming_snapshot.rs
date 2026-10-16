@@ -93,10 +93,15 @@ fn falls_back_to_the_type_default() {
 fn uses_the_selected_rule() {
     let rule_id = default_rule_id(&store(), convention_type::SPACE).unwrap();
 
-    let mut task_info = make_task(attribute::SPACE | attribute::VIDEO | attribute::NORMAL, "标题");
+    let mut task_info = make_task(
+        attribute::SPACE | attribute::VIDEO | attribute::NORMAL,
+        "标题",
+    );
     let mut map = HashMap::new();
     map.insert(convention_type::SPACE, rule_id.clone());
-    let options = NamingOptions { naming_rule_ids: map };
+    let options = NamingOptions {
+        naming_rule_ids: map,
+    };
     freeze(&mut task_info, Some(&options));
 
     assert_eq!(task_info.Naming.rule_id.as_deref(), Some(rule_id.as_str()));
@@ -106,7 +111,9 @@ fn uses_the_selected_rule() {
 fn options_override_global_state() {
     // runtime.naming.target_rule_ids 被污染成不存在的规则时，空 options 必须覆盖
     let mut naming_state = naming();
-    naming_state.target_rule_ids.insert(convention_type::NORMAL, "不存在的规则".to_string());
+    naming_state
+        .target_rule_ids
+        .insert(convention_type::NORMAL, "不存在的规则".to_string());
 
     let mut task_info = make_task(attribute::VIDEO | attribute::NORMAL, "标题");
     let options = NamingOptions::default();
@@ -130,7 +137,9 @@ fn queued_task_is_not_rewritten_by_a_later_choice() {
 
     // 用户接着解析了别的链接，并选了另一条规则
     let mut naming_state = naming();
-    naming_state.target_rule_ids.insert(convention_type::NORMAL, "另一条规则".to_string());
+    naming_state
+        .target_rule_ids
+        .insert(convention_type::NORMAL, "另一条规则".to_string());
 
     // 下载开始，二次格式化只读固化下来的规则
     freeze_naming_rule(&mut task_info, None, &store(), &naming_state);
@@ -148,11 +157,18 @@ fn each_item_uses_its_own_type_rule() {
     let favorite_rule_id = default_rule_id(&store(), convention_type::FAVORITE).unwrap();
     let mut map = HashMap::new();
     map.insert(convention_type::FAVORITE, favorite_rule_id);
-    let options = NamingOptions { naming_rule_ids: map };
+    let options = NamingOptions {
+        naming_rule_ids: map,
+    };
 
-    let mut favorite = make_task(attribute::FAVLIST | attribute::VIDEO | attribute::NORMAL, "标题");
-    let mut bangumi =
-        make_task(attribute::FAVLIST | attribute::BANGUMI | attribute::NEED_PARSE, "标题");
+    let mut favorite = make_task(
+        attribute::FAVLIST | attribute::VIDEO | attribute::NORMAL,
+        "标题",
+    );
+    let mut bangumi = make_task(
+        attribute::FAVLIST | attribute::BANGUMI | attribute::NEED_PARSE,
+        "标题",
+    );
 
     freeze(&mut favorite, Some(&options));
     freeze(&mut bangumi, Some(&options));
@@ -188,7 +204,10 @@ fn entry_label_survives_a_multi_part_reparse() {
     let merged = update_episode_info(&mut episode_info, &1.into());
 
     assert_eq!(merged["source_title"], "稍后再看");
-    assert_eq!(merged["parent_title"], "【KEY社20周年音乐专辑】Key BEST SELECTION");
+    assert_eq!(
+        merged["parent_title"],
+        "【KEY社20周年音乐专辑】Key BEST SELECTION"
+    );
     assert_eq!(merged["number"], 1);
 
     EpisodeData::remove(&episode_id);

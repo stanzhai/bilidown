@@ -25,12 +25,16 @@ use serde_json::{json, Value};
 
 /// Read a bool (missing/typed-wrong → `fallback`).
 pub fn get_bool(cfg: &config::ConfigStore, group: &str, item: &str) -> bool {
-    cfg.get(group, item).and_then(Value::as_bool).unwrap_or(false)
+    cfg.get(group, item)
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 /// Read an int (missing → `fallback`).
 pub fn get_int(cfg: &config::ConfigStore, group: &str, item: &str, fallback: i64) -> i64 {
-    cfg.get(group, item).and_then(Value::as_i64).unwrap_or(fallback)
+    cfg.get(group, item)
+        .and_then(Value::as_i64)
+        .unwrap_or(fallback)
 }
 
 /// Read a string (missing → `""`).
@@ -44,7 +48,12 @@ pub fn get_str(cfg: &config::ConfigStore, group: &str, item: &str) -> String {
 /// Write one value through the store and save atomically. Returns the
 /// save error (if any) so the screen can toast it — the in-memory value
 /// is already updated either way, exactly like qfluentwidgets.
-pub fn set_and_save(cfg: &mut config::ConfigStore, group: &str, item: &str, value: Value) -> anyhow::Result<()> {
+pub fn set_and_save(
+    cfg: &mut config::ConfigStore,
+    group: &str,
+    item: &str,
+    value: Value,
+) -> anyhow::Result<()> {
     cfg.set(group, item, value);
     cfg.save()
 }
@@ -184,8 +193,10 @@ impl RuleEditorModel {
         if rule.is_empty() {
             return Err("Naming rule cannot be empty".into());
         }
-        if rule.starts_with('/') || rule.starts_with('.')
-            || rule.ends_with('/') || rule.ends_with('.')
+        if rule.starts_with('/')
+            || rule.starts_with('.')
+            || rule.ends_with('/')
+            || rule.ends_with('.')
         {
             return Err("Rule must not start or end with '/' or '.'".into());
         }
@@ -195,10 +206,13 @@ impl RuleEditorModel {
                 return Err(format!("Unmatched '<' or '>' at position {}", e.position));
             }
         };
-        let illegal = |c: char| {
-            matches!(c, '<' | '>' | ':' | '"' | '\\' | '|' | '?' | '*') || c.is_control()
-        };
-        if template.literal_texts().iter().any(|t| t.chars().any(illegal)) {
+        let illegal =
+            |c: char| matches!(c, '<' | '>' | ':' | '"' | '\\' | '|' | '?' | '*') || c.is_control();
+        if template
+            .literal_texts()
+            .iter()
+            .any(|t| t.chars().any(illegal))
+        {
             return Err("Rule contains illegal characters".into());
         }
         let factory = VariableListFactory::new();
@@ -224,12 +238,18 @@ impl RuleEditorModel {
     }
 
     /// Full `validate(other_names)`: name first, then the rule.
-    pub fn validate(&self, other_names: &std::collections::BTreeSet<String>) -> Result<(), (EditorField, String)> {
+    pub fn validate(
+        &self,
+        other_names: &std::collections::BTreeSet<String>,
+    ) -> Result<(), (EditorField, String)> {
         if self.name_text.is_empty() {
             return Err((EditorField::Name, "Rule name cannot be empty".into()));
         }
         if other_names.contains(self.name_text.as_str()) {
-            return Err((EditorField::Name, "Another rule of this type already uses this name".into()));
+            return Err((
+                EditorField::Name,
+                "Another rule of this type already uses this name".into(),
+            ));
         }
         self.validate_rule().map_err(|m| (EditorField::Rule, m))
     }
@@ -256,7 +276,12 @@ impl RuleEditorModel {
         if path.parent() == Some(Path::new("")) || path.parent() == Some(Path::new(".")) {
             Some(result)
         } else {
-            Some(format!("{}{}{}", path.parent().unwrap().display(), std::path::MAIN_SEPARATOR, path.file_name()?.to_string_lossy()))
+            Some(format!(
+                "{}{}{}",
+                path.parent().unwrap().display(),
+                std::path::MAIN_SEPARATOR,
+                path.file_name()?.to_string_lossy()
+            ))
         }
     }
 
@@ -271,7 +296,14 @@ impl RuleEditorModel {
             .collect();
         if let Some((_, mixed)) = MIXED_ENTRY_TYPES.iter().find(|(t, _)| *t == type_) {
             rows.push((
-                format!("{}\u{1f}", mixed.iter().map(|t| t.id().to_string()).collect::<Vec<_>>().join("/")),
+                format!(
+                    "{}\u{1f}",
+                    mixed
+                        .iter()
+                        .map(|t| t.id().to_string())
+                        .collect::<Vec<_>>()
+                        .join("/")
+                ),
                 None,
             ));
         }
@@ -353,7 +385,9 @@ impl RuleListModel {
     /// `_commit_editor()`: validate, write back, then converge the default
     /// flag per type. Err carries the validation failure.
     pub fn commit_editor(&mut self) -> Result<(), (EditorField, String)> {
-        let Some(ix) = self.current_index else { return Ok(()) };
+        let Some(ix) = self.current_index else {
+            return Ok(());
+        };
         self.editor.validate(&self.other_names())?;
         let entry = self.editor.dump();
         self.rules[ix] = entry.clone();
@@ -401,7 +435,8 @@ impl RuleListModel {
     /// `on_add_rule` → `_append_rule`: new rule follows the current type,
     /// seeded from that type's built-in default.
     pub fn add_rule(&mut self, new_id: String) -> Result<(), (usize, (EditorField, String))> {
-        self.commit_editor().map_err(|e| (self.current_index.unwrap_or(0), e))?;
+        self.commit_editor()
+            .map_err(|e| (self.current_index.unwrap_or(0), e))?;
         let type_id = self
             .current_index
             .and_then(|ix| self.rules.get(ix))
@@ -428,8 +463,11 @@ impl RuleListModel {
 
     /// `on_duplicate_rule`: "{display_name} (copy)", not default.
     pub fn duplicate_rule(&mut self, new_id: String) -> Result<(), (usize, (EditorField, String))> {
-        self.commit_editor().map_err(|e| (self.current_index.unwrap_or(0), e))?;
-        let Some(ix) = self.current_index else { return Ok(()) };
+        self.commit_editor()
+            .map_err(|e| (self.current_index.unwrap_or(0), e))?;
+        let Some(ix) = self.current_index else {
+            return Ok(());
+        };
         let mut entry = self.rules[ix].clone();
         entry.id = new_id;
         entry.name = format!("{} (copy)", display_name(&entry));
@@ -443,7 +481,9 @@ impl RuleListModel {
 
     /// `on_delete_rule`: default rules are undeletable (Err explains).
     pub fn delete_rule(&mut self) -> Result<(), String> {
-        let Some(ix) = self.current_index else { return Ok(()) };
+        let Some(ix) = self.current_index else {
+            return Ok(());
+        };
         if self.rules[ix].default {
             return Err("Only non-default naming rules can be deleted.".into());
         }
@@ -457,7 +497,9 @@ impl RuleListModel {
 
     /// `on_restore_default_rule`: restore this row to its built-in value.
     pub fn restore_default_rule(&mut self) -> bool {
-        let Some(ix) = self.current_index else { return false };
+        let Some(ix) = self.current_index else {
+            return false;
+        };
         let Some(builtin) = default_entries()
             .into_iter()
             .find(|e| e.id == self.rules[ix].id)
@@ -477,8 +519,13 @@ impl RuleListModel {
     }
 
     /// `on_item_moved`: reorder the working copy (after committing).
-    pub fn move_rule(&mut self, from: usize, to: usize) -> Result<(), (usize, (EditorField, String))> {
-        self.commit_editor().map_err(|e| (self.current_index.unwrap_or(0), e))?;
+    pub fn move_rule(
+        &mut self,
+        from: usize,
+        to: usize,
+    ) -> Result<(), (usize, (EditorField, String))> {
+        self.commit_editor()
+            .map_err(|e| (self.current_index.unwrap_or(0), e))?;
         if from >= self.rules.len() || to >= self.rules.len() {
             return Ok(());
         }
@@ -502,7 +549,9 @@ impl RuleListModel {
     /// state, with default-exclusivity applied across the whole table.
     pub fn display_entries(&self) -> Vec<RuleEntry> {
         let mut entries = self.rules.clone();
-        let Some(ix) = self.current_index else { return entries };
+        let Some(ix) = self.current_index else {
+            return entries;
+        };
         let mut live = self.editor.dump();
         if live.name.is_empty() {
             live.name = entries[ix].name.clone();
@@ -530,9 +579,13 @@ impl RuleListModel {
                 .iter()
                 .enumerate()
                 .filter(|(_, entry)| {
-                    [display_name(entry), type_str(entry.type_), entry.rule.clone()]
-                        .iter()
-                        .any(|f| f.to_lowercase().contains(&keywords))
+                    [
+                        display_name(entry),
+                        type_str(entry.type_),
+                        entry.rule.clone(),
+                    ]
+                    .iter()
+                    .any(|f| f.to_lowercase().contains(&keywords))
                 })
                 .map(|(i, _)| i)
                 .collect(),
@@ -598,11 +651,31 @@ impl MediaOptions {
 
     /// `save()` — five keys, one atomic save.
     pub fn save(&self, cfg: &mut config::ConfigStore) -> anyhow::Result<()> {
-        cfg.set("Download", "download_video_stream", Value::from(self.download_video_stream));
-        cfg.set("Download", "download_audio_stream", Value::from(self.download_audio_stream));
-        cfg.set("Download", "merge_video_audio", Value::from(self.merge_video_audio));
-        cfg.set("Download", "keep_original_files", Value::from(self.keep_original_files));
-        cfg.set("Download", "keep_original_files_type", Value::from(self.keep_original_files_type));
+        cfg.set(
+            "Download",
+            "download_video_stream",
+            Value::from(self.download_video_stream),
+        );
+        cfg.set(
+            "Download",
+            "download_audio_stream",
+            Value::from(self.download_audio_stream),
+        );
+        cfg.set(
+            "Download",
+            "merge_video_audio",
+            Value::from(self.merge_video_audio),
+        );
+        cfg.set(
+            "Download",
+            "keep_original_files",
+            Value::from(self.keep_original_files),
+        );
+        cfg.set(
+            "Download",
+            "keep_original_files_type",
+            Value::from(self.keep_original_files_type),
+        );
         cfg.save()
     }
 
@@ -655,7 +728,12 @@ pub fn can_embed_subtitle_like(download: bool, format: &str, container: &str) ->
 
 /// Cover: `on_change_cover_format` + the toggles. avif cannot be embedded;
 /// unchecking download or attach cascades the checkbox values down.
-pub fn cover_cascade(download: bool, cover_type: &str, attach: bool, delete: bool) -> (bool, bool, bool, bool) {
+pub fn cover_cascade(
+    download: bool,
+    cover_type: &str,
+    attach: bool,
+    delete: bool,
+) -> (bool, bool, bool, bool) {
     let can_embed = download && cover_type != "avif";
     let attach = if can_embed { attach } else { false };
     let delete = if can_embed && attach { delete } else { false };
@@ -760,23 +838,44 @@ mod tests {
     fn validation_order_is_empty_name_then_rule_then_syntax() {
         let mut e = editor("{leaf_title}");
         e.name_text = String::new();
-        assert_eq!(e.validate(&Default::default()).unwrap_err().0, EditorField::Name);
+        assert_eq!(
+            e.validate(&Default::default()).unwrap_err().0,
+            EditorField::Name
+        );
 
         e.name_text = "T".into();
         e.rule_text = String::new();
-        assert_eq!(e.validate(&Default::default()).unwrap_err(), (EditorField::Rule, "Naming rule cannot be empty".into()));
+        assert_eq!(
+            e.validate(&Default::default()).unwrap_err(),
+            (EditorField::Rule, "Naming rule cannot be empty".into())
+        );
 
         e.rule_text = "/{leaf_title}".into();
-        assert!(e.validate(&Default::default()).unwrap_err().1.starts_with("Rule must not start"));
+        assert!(e
+            .validate(&Default::default())
+            .unwrap_err()
+            .1
+            .starts_with("Rule must not start"));
 
         e.rule_text = "{leaf_title}<".into();
-        assert!(e.validate(&Default::default()).unwrap_err().1.starts_with("Unmatched"));
+        assert!(e
+            .validate(&Default::default())
+            .unwrap_err()
+            .1
+            .starts_with("Unmatched"));
 
         e.rule_text = "{nope}".into();
-        assert_eq!(e.validate(&Default::default()).unwrap_err().1, "Unknown variable: nope");
+        assert_eq!(
+            e.validate(&Default::default()).unwrap_err().1,
+            "Unknown variable: nope"
+        );
 
         e.rule_text = "<->".into(); // optional segment with no variable
-        assert!(e.validate(&Default::default()).unwrap_err().1.contains("optional segment"));
+        assert!(e
+            .validate(&Default::default())
+            .unwrap_err()
+            .1
+            .contains("optional segment"));
     }
 
     #[test]
@@ -874,7 +973,10 @@ mod tests {
     fn delete_blocked_for_default_and_reselects_neighbor() {
         let mut m = list();
         m.select(0);
-        assert_eq!(m.delete_rule().unwrap_err(), "Only non-default naming rules can be deleted.");
+        assert_eq!(
+            m.delete_rule().unwrap_err(),
+            "Only non-default naming rules can be deleted."
+        );
         m.add_rule("a".into()).unwrap();
         let count = m.rules.len();
         m.delete_rule().unwrap();
@@ -946,7 +1048,10 @@ mod tests {
         let hits = m.filter_indices("multi-part series").unwrap();
         assert_eq!(hits, vec![1], "only PART's type name matches");
         let hits = m.filter_indices("{leaf_title}");
-        assert!(hits.as_ref().is_some_and(|h| h.len() > 1), "substring rule-body match: {hits:?}");
+        assert!(
+            hits.as_ref().is_some_and(|h| h.len() > 1),
+            "substring rule-body match: {hits:?}"
+        );
         assert!(m.filter_indices("zzz-not-there").unwrap().is_empty());
         assert!(m.filter_indices("").is_none());
     }
@@ -981,7 +1086,10 @@ mod tests {
         assert!(mo.merge_video_audio, "merge re-checked when both on");
         assert!(!mo.keep_original_files, "stream change cleared keep");
         mo.set_merge(true);
-        assert!(mo.keep_type_enabled() == mo.keep_original_files, "type combo follows keep checkbox");
+        assert!(
+            mo.keep_type_enabled() == mo.keep_original_files,
+            "type combo follows keep checkbox"
+        );
         mo.set_keep(true);
         assert!(mo.keep_enabled());
         assert!(mo.keep_type_enabled());

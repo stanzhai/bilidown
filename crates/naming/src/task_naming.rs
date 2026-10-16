@@ -6,11 +6,13 @@
 //! task creation keeps a rule's meaning stable across config edits —
 //! renaming presets must never retroactively move files already on disk.
 
-use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
-use crate::formatter::{get_type_id_from_attribute, get_variable_data_from_task_info, FileNameFormatter};
+use crate::formatter::{
+    get_type_id_from_attribute, get_variable_data_from_task_info, FileNameFormatter,
+};
 use crate::naming_rules::RuleStore;
 use database::info::TaskInfo;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
 
 /// Naming-related runtime state (Python `NamingInfo` snapshot inputs, from
 /// `runtime.py`).
@@ -79,14 +81,12 @@ pub fn update_file_name_info(task_info: &mut TaskInfo, store: &RuleStore) -> Res
     let variable_data = get_variable_data_from_task_info(task_info);
     let formatter = FileNameFormatter::new(variable_data, store);
 
-    let frozen_rule = task_info
-        .Naming
-        .rule
-        .clone()
-        .filter(|r| !r.is_empty());
+    let frozen_rule = task_info.Naming.rule.clone().filter(|r| !r.is_empty());
 
     let rendered = match frozen_rule {
-        Some(rule) => formatter.format(task_info.Naming.type_id, task_info.Episode.attribute, &rule),
+        Some(rule) => {
+            formatter.format(task_info.Naming.type_id, task_info.Episode.attribute, &rule)
+        }
         None => None,
     };
 
@@ -112,8 +112,7 @@ pub fn update_file_name_info(task_info: &mut TaskInfo, store: &RuleStore) -> Res
 /// Episode-side variable data keyed by episode id (Python `EpisodeData`):
 /// source-list titles, related titles and uploader info attach here before
 /// the formatter ever sees the task.
-static EPISODE_DATA: LazyLock<Mutex<EpisodeMap>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static EPISODE_DATA: LazyLock<Mutex<EpisodeMap>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 type EpisodeMap = HashMap<String, serde_json::Map<String, serde_json::Value>>;
 
@@ -194,7 +193,10 @@ pub fn update_episode_info(
 
     // Python mutates episode_info before spreading: leaf_title (and
     // episode_title on media-kind entries) always overwrite stale inputs.
-    episode_info.insert("leaf_title".into(), serde_json::Value::String(title.clone()));
+    episode_info.insert(
+        "leaf_title".into(),
+        serde_json::Value::String(title.clone()),
+    );
     if attribute & (ATTR_BANGUMI | ATTR_CHEESE | ATTR_LESSON) != 0 {
         episode_info.insert("episode_title".into(), serde_json::Value::String(title));
     }

@@ -122,4 +122,3 @@ fn python_ascii(s: &str) -> String {
     out.push('"');
     out
 }
-
