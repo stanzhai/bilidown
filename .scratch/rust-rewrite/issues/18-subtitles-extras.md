@@ -7,8 +7,7 @@ with the thumbnail DB as source cache.
 
 **Blocked by:** 08, 03.
 
-**Status:** ready-for-agent
-
+**Status:** in-progress
 - [ ] Subtitle list fetch + each format export tested against fixtures
 - [ ] Language selection filters; ASS styling applied per config
 - [ ] NFO variants and JSON sidecar match Python output shapes

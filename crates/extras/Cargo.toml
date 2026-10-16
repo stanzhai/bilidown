@@ -1,0 +1,20 @@
+[package]
+name = "extras"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+chrono = "=0.4.45"
+config = { path = "../config" }
+database = { path = "../database" }
+md-5 = "=0.10.6"
+network = { path = "../network" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+thiserror = "=2.0.17"
+
+[dev-dependencies]
+tempfile = "=3.27.0"
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros"] }
+wiremock = "=0.6.5"
