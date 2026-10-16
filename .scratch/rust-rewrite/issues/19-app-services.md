@@ -8,11 +8,15 @@ Terms Gate + privacy state; Parse History (capped 100).
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] i18n: all three catalogs cover the Python message keys (test_i18n_context semantics)
-- [ ] Theme tokens map the two qss skins onto gpui-kit themes
-- [ ] Clipboard monitor: debounce behavior + startup re-check tested headless (injectable source)
-- [ ] Notifications, window-state persist/restore, terms-acceptance state, history cap 100 all round-trip
+- [x] i18n: all three catalogs cover the Python message keys (test_i18n_context semantics)
+- [x] Theme tokens map the two qss skins onto gpui-kit themes
+- [x] Clipboard monitor: debounce behavior + startup re-check tested headless (injectable source)
+- [x] Notifications, window-state persist/restore, terms-acceptance state, history cap 100 all round-trip
+
+## Answer
+
+Implemented in `crates/services` (commit dc36dc99): generated i18n catalog (973 entries / 125 contexts, zh_CN + zh_TW verbatim from the `.ts` files, en passthrough), theme tokens + accent parsing, log viewer backend (verbatim Python LOG_PATTERN port + filters), headless clipboard monitor (1.5 s same-URL debounce, injectable source/clock), notifications, window-state persist/restore with title-bar visibility check, teaching tips, terms gate, parse-history wrapper over `database::HistoryDatabase` (cap enforced there). 42 integration tests.
 
 ## Comments
