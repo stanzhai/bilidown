@@ -1,5 +1,6 @@
 //! App UI modules: navigation shell + screens.
 
+pub mod dialogs;
 pub mod downloads;
 pub mod fmt;
 pub mod login;
@@ -97,6 +98,7 @@ impl Shell {
         let manager = task_db_path()
             .and_then(|p| tasks::TaskManager::open(p, config.clone()).ok())
             .map(Arc::new);
+        dialogs::update::run_startup_check(window, cx);
         Self {
             screen: Screen::Parse,
             parse: ParseScreen::new(window, cx),
@@ -152,7 +154,7 @@ fn task_db_path() -> Option<std::path::PathBuf> {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use gpui_kit::assets::IconName;
 
         let screen = self.screen;
@@ -187,8 +189,8 @@ impl Render for Shell {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
                 Screen::Downloads => self.downloads.render(cx).into_any_element(),
                 Screen::Favorites => self.screens.favorites.render().into_any_element(),
-                Screen::About => screens::about::render_about().into_any_element(),
-                Screen::Settings => self.screens.settings.render().into_any_element(),
+                Screen::About => screens::about::render_about(cx).into_any_element(),
+                Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
             .child(
                 // login entry (Python: the avatar button on the main page)

@@ -234,6 +234,22 @@ impl ParseListView {
         }
     }
 
+    /// Batch-selection by episode number (the misc dialog's
+    /// "1,3,5-10" grammar already parsed by the caller).
+    pub fn check_numbers(&mut self, numbers: &[i64]) {
+        fn walk(node: &mut TreeItem, numbers: &[i64]) {
+            for item in node.children.iter_mut() {
+                if let crate::Number::Int(n) = &item.number {
+                    if numbers.contains(n) {
+                        item.checked = CheckState::Checked;
+                    }
+                }
+                walk(item, numbers);
+            }
+        }
+        walk(&mut self.root, numbers);
+    }
+
     /// Filter by title (`search_keywords`): returns the matching items in
     /// tree order; `None`/empty keyword clears the filter. The match list
     /// is what the search widget's prev/next navigation walks.

@@ -204,6 +204,7 @@ dependencies = [
  "parking_lot",
  "parsers",
  "qrcode",
+ "serde",
  "serde_json",
  "services",
  "tasks",
