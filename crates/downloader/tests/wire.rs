@@ -565,7 +565,7 @@ async fn pause_mid_download_then_resume_finishes_without_redownload() {
     loop {
         tokio::time::sleep(Duration::from_millis(50)).await;
         if control.snapshot().downloaded_size > 0
-            || matches!(handle.is_finished(), true)
+            || handle.is_finished()
         {
             break;
         }
@@ -597,7 +597,7 @@ async fn pause_mid_download_then_resume_finishes_without_redownload() {
     let ranges = ranges_of(&server).await;
     let mid_chunk = ranges.iter().any(|r| {
         let start: u64 = r[6..].split('-').next().unwrap().parse().unwrap();
-        start % CHUNK_SIZE != 0
+        !start.is_multiple_of(CHUNK_SIZE)
     });
     assert!(
         mid_chunk,
