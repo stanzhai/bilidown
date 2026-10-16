@@ -7,7 +7,7 @@ CREATE_NO_WINDOW on Windows. Later muxing tickets call this.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Resolution order from config; missing-binary error surfaced
 - [ ] Command builder ports test_ffmpeg_command expectations verbatim
