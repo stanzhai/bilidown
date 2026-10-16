@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["app", "database", "network"]
+members = ["app", "auth", "database", "ffmpeg", "network", "urls"]
 
 [workspace.package]
 edition = "2021"
@@ -13,3 +13,5 @@ license = "GPL-3.0"
 # in a dedicated task. (spec: Maturity acknowledgment)
 gpui-kit = "=0.7.3"
 anyhow = "1"
+parking_lot = "0.12"
+libc = "0.2"
