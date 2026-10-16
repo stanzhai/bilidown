@@ -24,7 +24,10 @@ async fn sends_fingerprint_params_and_bvid() {
     assert!(query.contains("cid=99"));
     assert!(query.contains("bvid=BV1xx"));
     assert!(query.contains("dm_img_str=V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ"));
-    assert!(query.contains("dm_img_list=%5B%5D"), "dm_img_list=[] must serialize as %5B%5D");
+    assert!(
+        query.contains("dm_img_list=%5B%5D"),
+        "dm_img_list=[] must serialize as %5B%5D"
+    );
 }
 
 #[tokio::test]

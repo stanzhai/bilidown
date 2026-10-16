@@ -14,14 +14,8 @@
 pub const WBI_PARSER_TYPES: [&str; 5] = ["video", "list", "space", "popular", "watch_later"];
 
 /// Parser types that must NOT be signed (their endpoints reject it).
-pub const NO_WBI_PARSER_TYPES: [&str; 6] = [
-    "bangumi",
-    "cheese",
-    "lesson",
-    "favlist",
-    "history",
-    "audio",
-];
+pub const NO_WBI_PARSER_TYPES: [&str; 6] =
+    ["bangumi", "cheese", "lesson", "favlist", "history", "audio"];
 
 /// Which gate a parser type belongs to; `None` when the type is unknown
 /// to the dispatcher (`b23`, `festival`, `favorite`, `dynamic` are handled

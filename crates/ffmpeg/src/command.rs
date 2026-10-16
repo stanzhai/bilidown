@@ -28,8 +28,10 @@ impl FFmpegCommand {
     /// Options are prepended to this input (e.g. `-f concat`); routed
     /// through here so input indices stay reliable.
     pub fn add_input(&mut self, input_path: impl Into<String>, options: &[&str]) -> &mut Self {
-        self.inputs
-            .push((options.iter().map(|s| s.to_string()).collect(), input_path.into()));
+        self.inputs.push((
+            options.iter().map(|s| s.to_string()).collect(),
+            input_path.into(),
+        ));
         self
     }
 
@@ -137,15 +139,13 @@ impl FFmpegCommand {
         match (cover_path, !subtitle_list.is_empty()) {
             // Cover is the third input (index 2).
             (Some(cover), _) => {
-                c.add_cover(
-                    cover.to_string_lossy(),
-                    &["0:v:0", "1:a:0", "2:v:0"],
-                );
+                c.add_cover(cover.to_string_lossy(), &["0:v:0", "1:a:0", "2:v:0"]);
             }
             // Without a cover the main streams ride on FFmpeg's default
             // selection — until a subtitle `-map` disables it.
             (None, true) => {
-                c.add_param(&["-map", "0:v:0"]).add_param(&["-map", "1:a:0"]);
+                c.add_param(&["-map", "0:v:0"])
+                    .add_param(&["-map", "1:a:0"]);
             }
             _ => {}
         }
@@ -172,10 +172,13 @@ impl FFmpegCommand {
         subtitle_list: &[SubtitleEntry],
     ) -> FFmpegCommand {
         let mut c = FFmpegCommand::new();
-        c.add_input(lists_path.to_string_lossy(), &["-f", "concat", "-safe", "0"])
-            .add_param(&["-c:v", "copy"])
-            .add_param(&["-c:a", "copy"])
-            .allow_unofficial();
+        c.add_input(
+            lists_path.to_string_lossy(),
+            &["-f", "concat", "-safe", "0"],
+        )
+        .add_param(&["-c:v", "copy"])
+        .add_param(&["-c:a", "copy"])
+        .allow_unofficial();
 
         match (cover_path, !subtitle_list.is_empty()) {
             // Parts are input 0, the cover input 1. `0:a?` keeps the

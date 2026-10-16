@@ -3,17 +3,17 @@
 //! (cover / title / info / size / progress / status / action), empty
 //! states, and the QueryWorker-equivalent background refresh.
 
+use gpui_kit::base::Disableable;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::progress::Progress;
 use gpui_kit::component::tab::{Tab, TabBar};
-use gpui_kit::base::Disableable;
-use gpui_kit::{IntoElement, SharedString, div, prelude::*, px};
+use gpui_kit::{div, prelude::*, px, IntoElement, SharedString};
 use std::sync::Arc;
 
-use super::dialogs::{error_message, open_log_viewer, open_duplicate_dialog, tip_message};
+use super::dialogs::{error_message, open_duplicate_dialog, open_log_viewer, tip_message};
 use super::model::{
-    RowAction, SortKey, TaskListState, batch_cancel, batch_pause, batch_start, cancel_download,
-    info_text, redownload, row_action, size_text, status_text, toggle_pause_resume,
+    batch_cancel, batch_pause, batch_start, cancel_download, info_text, redownload, row_action,
+    size_text, status_text, toggle_pause_resume, RowAction, SortKey, TaskListState,
 };
 use super::screen_state::{DownloadsTab, ScreenState};
 use crate::ui::Shell;
@@ -120,11 +120,7 @@ impl DownloadsScreen {
             DownloadsTab::Downloading => &mut self.model.downloading,
             DownloadsTab::Completed => &mut self.model.completed,
         };
-        let Some(ix) = list
-            .tasks
-            .iter()
-            .position(|t| t.Basic.task_id == task_id)
-        else {
+        let Some(ix) = list.tasks.iter().position(|t| t.Basic.task_id == task_id) else {
             return;
         };
         let mut task = list.tasks[ix].clone();
@@ -174,11 +170,7 @@ impl DownloadsScreen {
             DownloadsTab::Downloading => &mut self.model.downloading,
             DownloadsTab::Completed => &mut self.model.completed,
         };
-        let Some(ix) = list
-            .tasks
-            .iter()
-            .position(|t| t.Basic.task_id == task_id)
-        else {
+        let Some(ix) = list.tasks.iter().position(|t| t.Basic.task_id == task_id) else {
             return;
         };
         let mut task = list.tasks[ix].clone();
@@ -408,11 +400,16 @@ impl DownloadsScreen {
                             .child(div().child(title).truncate())
                             .child(div().opacity(0.6).child(info))
                             .child(div().opacity(0.6).child(size))
-                            .child(Progress::new(SharedString::from(format!("task-progress-{id}"))).value(progress)),
+                            .child(
+                                Progress::new(SharedString::from(format!("task-progress-{id}")))
+                                    .value(progress),
+                            ),
                     )
                     .child(div().w(px(140.)).child(status))
                     .child(
-                        div().flex().gap_2()
+                        div()
+                            .flex()
+                            .gap_2()
                             .child(
                                 Button::new(SharedString::from(format!("task-action-{id}")))
                                     .label(action_caption)

@@ -45,10 +45,7 @@ pub struct DetectOptions {
 /// failure interrupts the user with a dialog, so it must fail fast, and
 /// the zone link carries no auth params so it need not share the global
 /// cookie jar. Callers treat [`AreaError`] as "ask the user".
-pub async fn detect_area(
-    client: &network::HttpClient,
-    base: &str,
-) -> Result<Area, AreaError> {
+pub async fn detect_area(client: &network::HttpClient, base: &str) -> Result<Area, AreaError> {
     let url = if base.is_empty() {
         AREA_ZONE_API.to_owned()
     } else {
@@ -56,8 +53,8 @@ pub async fn detect_area(
     };
 
     let body = client.get(&url, &[]).await?;
-    let response: serde_json::Value = serde_json::from_str(&body)
-        .map_err(|_| AreaError::Unparsable)?;
+    let response: serde_json::Value =
+        serde_json::from_str(&body).map_err(|_| AreaError::Unparsable)?;
 
     parse_area(&response).ok_or(AreaError::Unparsable)
 }

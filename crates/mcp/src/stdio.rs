@@ -25,9 +25,7 @@ fn log(message: &str) {
 
 fn encode_header_value(value: &str) -> String {
     let needs_encoding = !value.is_ascii()
-        || value
-            .chars()
-            .any(|ch| ch.is_control() || ch == '\u{7f}')
+        || value.chars().any(|ch| ch.is_control() || ch == '\u{7f}')
         || value != value.trim()
         || (value.starts_with(BASE64_PREFIX) && value.ends_with(BASE64_SUFFIX));
 
@@ -47,18 +45,14 @@ fn default_config_path() -> std::path::PathBuf {
             .map(std::path::PathBuf::from)
             .unwrap_or_else(dirs_like_appdata)
     } else if cfg!(target_os = "macos") {
-        std::path::PathBuf::from(
-            std::env::var("HOME").unwrap_or_default(),
-        )
-        .join("Library/Application Support")
+        std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
+            .join("Library/Application Support")
     } else {
         std::env::var_os("XDG_DATA_HOME")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| {
-                std::path::PathBuf::from(
-                    std::env::var("HOME").unwrap_or_default(),
-                )
-                .join(".local/share")
+                std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
+                    .join(".local/share")
             })
     };
     base.join(APP_NAME).join("config.json")
@@ -95,7 +89,9 @@ pub fn load_config_token(explicit_path: Option<&Path>) -> Result<Option<String>>
             log(&format!("未找到配置文件：{}", path.display()));
             return Ok(None);
         }
-        Err(err) => return Err(err).with_context(|| format!("读取配置文件失败：{}", path.display())),
+        Err(err) => {
+            return Err(err).with_context(|| format!("读取配置文件失败：{}", path.display()))
+        }
     };
 
     let data: Value = serde_json::from_str(&text)
@@ -115,7 +111,10 @@ fn rpc_error(id: &Value, code: i64, message: &str) -> Value {
 fn build_headers(message: &Value, token: &str) -> Vec<(String, String)> {
     let mut headers = vec![
         ("Content-Type".into(), "application/json".into()),
-        ("Accept".into(), "application/json, text/event-stream".into()),
+        (
+            "Accept".into(),
+            "application/json, text/event-stream".into(),
+        ),
         ("Authorization".into(), format!("Bearer {token}")),
     ];
 
@@ -213,8 +212,14 @@ pub async fn run(port: u16, token: String) -> Result<()> {
             Ok(Some(value)) => value,
             Ok(None) => continue,
             Err(err) => {
-                let Some(id) = message.get("id") else { continue };
-                rpc_error(id, -32603, &format!("Cannot reach Bili23 Downloader: {err}"))
+                let Some(id) = message.get("id") else {
+                    continue;
+                };
+                rpc_error(
+                    id,
+                    -32603,
+                    &format!("Cannot reach Bili23 Downloader: {err}"),
+                )
             }
         };
 
@@ -310,10 +315,7 @@ mod tests {
         let value = json!({"title": "中文", "n": 1, "list": ["a", null]});
         let encoded = ascii_escaped(&value);
         assert!(encoded.is_ascii(), "{encoded}");
-        assert_eq!(
-            serde_json::from_str::<Value>(&encoded).unwrap(),
-            value
-        );
+        assert_eq!(serde_json::from_str::<Value>(&encoded).unwrap(), value);
     }
 
     #[tokio::test]
@@ -321,9 +323,10 @@ mod tests {
         use serde_json::json;
         let server = wiremock::MockServer::start().await;
         wiremock::Mock::given(wiremock::matchers::method("POST"))
-            .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(
-                json!({"jsonrpc": "2.0", "id": 1, "result": {"ok": true}}),
-            ))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200)
+                    .set_body_json(json!({"jsonrpc": "2.0", "id": 1, "result": {"ok": true}})),
+            )
             .mount(&server)
             .await;
 

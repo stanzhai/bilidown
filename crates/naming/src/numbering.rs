@@ -18,7 +18,10 @@ pub struct NumberingState {
 
 impl Default for NumberingState {
     fn default() -> Self {
-        Self { global: 1, current: None }
+        Self {
+            global: 1,
+            current: None,
+        }
     }
 }
 
@@ -47,12 +50,21 @@ impl NumberingState {
                 self.current = Some(self.current.unwrap_or(0) + 1);
                 value
             }
-            _ => episode_number.cloned().unwrap_or(Value::Text(String::new())),
+            _ => episode_number
+                .cloned()
+                .unwrap_or(Value::Text(String::new())),
         };
 
         self.global += 1;
 
-        let token = if mode == USE_PARSE_LIST { NumberingToken::None } else { NumberingToken::Active { global: self.global, current: self.current } };
+        let token = if mode == USE_PARSE_LIST {
+            NumberingToken::None
+        } else {
+            NumberingToken::Active {
+                global: self.global,
+                current: self.current,
+            }
+        };
         (number, token)
     }
 
@@ -87,7 +99,10 @@ mod tests {
 
     #[test]
     fn from_specified_advances_current() {
-        let mut state = NumberingState { global: 7, current: Some(5) };
+        let mut state = NumberingState {
+            global: 7,
+            current: Some(5),
+        };
         let (n, _) = state.next_number(FROM_SPECIFIED, None);
         assert_eq!(n, Value::Int(5));
         assert_eq!(state.current, Some(6));
@@ -106,14 +121,20 @@ mod tests {
 
     #[test]
     fn rollback_restores_only_fresh_state() {
-        let mut state = NumberingState { global: 4, current: Some(2) };
+        let mut state = NumberingState {
+            global: 4,
+            current: Some(2),
+        };
         let (_, token) = state.next_number(FROM_SPECIFIED, None);
         // fresh: restore
         state.rollback(&token);
         assert_eq!((state.global, state.current), (4, Some(2)));
 
         // stale: state moved on, no-op
-        let mut state = NumberingState { global: 4, current: Some(2) };
+        let mut state = NumberingState {
+            global: 4,
+            current: Some(2),
+        };
         let (_, token) = state.next_number(FROM_SPECIFIED, None);
         state.next_number(FROM_SPECIFIED, None);
         state.rollback(&token);

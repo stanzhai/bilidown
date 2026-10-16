@@ -19,13 +19,11 @@ use naming::conventions::{ConventionType, SampleShape, VariableListFactory};
 use naming::formatter::{get_type_id_from_attribute, FileNameFormatter};
 use naming::naming_rules::RuleStore;
 use naming::task_naming::NamingState;
-use parsers::playurl::{
-    audio_quality_label, codec_label, video_quality_label, CODEC_AUTO,
-};
 use parsers::playurl::MediaType;
+use parsers::playurl::{audio_quality_label, codec_label, video_quality_label, CODEC_AUTO};
 use parsers::preview::{AudioQueryInfo, ChoiceData, PreviewInfo, VideoQueryInfo};
-use services::i18n::{self, Catalog};
 use serde_json::Value;
+use services::i18n::{self, Catalog};
 
 use crate::ui::download_options::units::{format_bitrate, format_file_size, format_frame_rate};
 
@@ -73,11 +71,7 @@ impl MediaPage {
     /// `MediaOptionsCard.on_change_download_stream_options` /
     /// `on_change_merge_option`: merge is only meaningful with both streams
     /// on (and is force-checked then), keep-originals needs merge on.
-    pub fn set_stream_switches(
-        &mut self,
-        video: bool,
-        audio: bool,
-    ) {
+    pub fn set_stream_switches(&mut self, video: bool, audio: bool) {
         self.download_video_stream = video;
         self.download_audio_stream = audio;
 
@@ -96,9 +90,8 @@ impl MediaPage {
     }
 
     fn sync_keep_original(&mut self) {
-        let enabled = self.download_video_stream
-            && self.download_audio_stream
-            && self.merge_video_audio;
+        let enabled =
+            self.download_video_stream && self.download_audio_stream && self.merge_video_audio;
         if !enabled {
             self.keep_original_files = false;
         }
@@ -143,7 +136,10 @@ impl MediaPage {
     pub fn video_quality_description(&self, media_type: MediaType, c: &Catalog) -> String {
         let Some(info) = &self.video_info else {
             return c
-                .tr("MediaInfoCard", "Video quality will be automatically selected based on priority settings")
+                .tr(
+                    "MediaInfoCard",
+                    "Video quality will be automatically selected based on priority settings",
+                )
                 .to_string();
         };
         let key = video_quality_label(info.quality_id).unwrap_or("");
@@ -170,14 +166,20 @@ impl MediaPage {
     pub fn audio_quality_description(&self, media_type: MediaType, c: &Catalog) -> String {
         let Some(info) = &self.audio_info else {
             return match media_type {
-                MediaType::Dash => {
-                    c.tr("MediaInfoCard", "No audio track (silent video stream)").to_string()
-                }
+                MediaType::Dash => c
+                    .tr("MediaInfoCard", "No audio track (silent video stream)")
+                    .to_string(),
                 MediaType::Mp4 | MediaType::Flv => c
-                    .tr("MediaInfoCard", "Audio track is already embedded in the video stream")
+                    .tr(
+                        "MediaInfoCard",
+                        "Audio track is already embedded in the video stream",
+                    )
                     .to_string(),
                 MediaType::Unknown | MediaType::M4a => c
-                    .tr("MediaInfoCard", "Audio quality will be automatically selected based on priority settings")
+                    .tr(
+                        "MediaInfoCard",
+                        "Audio quality will be automatically selected based on priority settings",
+                    )
                     .to_string(),
             };
         };
@@ -189,20 +191,27 @@ impl MediaPage {
             format_bitrate(value_as_i64(&info.bitrate)),
             format_file_size(info.file_size as i64),
         ];
-        parts.iter().filter(|p| !p.is_empty()).cloned().collect::<Vec<_>>().join(", ")
+        parts
+            .iter()
+            .filter(|p| !p.is_empty())
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 
     /// `get_codec_fallback_message` (card.py:200-220): the requested codec is
     /// missing from the source and auto (20) isn't a fallback.
     pub fn codec_fallback_message(&self, c: &Catalog) -> String {
-        let Some(info) = &self.video_info else { return String::new() };
+        let Some(info) = &self.video_info else {
+            return String::new();
+        };
         let actual = info.codec_id;
         if self.video_codec_id == CODEC_AUTO || self.video_codec_id == actual {
             return String::new();
         }
         let requested_key = codec_label(self.video_codec_id).unwrap_or("");
-        let requested = i18n::video_codec(c, requested_key)
-            .unwrap_or_else(|| requested_key.to_string());
+        let requested =
+            i18n::video_codec(c, requested_key).unwrap_or_else(|| requested_key.to_string());
         i18n::tip_messages(c, "VIDEO_CODEC_FALLBACK")
             .unwrap_or_else(|| "This video has no {requested}".into())
             .replace("{requested}", &requested)
@@ -213,7 +222,10 @@ impl MediaPage {
     pub fn video_codec_description(&self, c: &Catalog) -> String {
         let Some(info) = &self.video_info else {
             return c
-                .tr("MediaInfoCard", "Video codec will be automatically selected based on priority settings")
+                .tr(
+                    "MediaInfoCard",
+                    "Video codec will be automatically selected based on priority settings",
+                )
                 .to_string();
         };
         let name = codec_label(info.codec_id)
@@ -236,7 +248,6 @@ impl MediaPage {
     }
 }
 
-
 /// `reversed_audio_codec_map` (`util/common/data.py`): AAC LC → AAC LC.
 fn audio_codec_name(codec: &str) -> String {
     match codec {
@@ -247,11 +258,15 @@ fn audio_codec_name(codec: &str) -> String {
 }
 
 fn value_as_f64(v: &Value) -> f64 {
-    v.as_f64().or_else(|| v.as_i64().map(|i| i as f64)).unwrap_or(0.0)
+    v.as_f64()
+        .or_else(|| v.as_i64().map(|i| i as f64))
+        .unwrap_or(0.0)
 }
 
 fn value_as_i64(v: &Value) -> i64 {
-    v.as_i64().or_else(|| v.as_f64().map(|f| f as i64)).unwrap_or(0)
+    v.as_i64()
+        .or_else(|| v.as_f64().map(|f| f as i64))
+        .unwrap_or(0)
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +387,11 @@ impl RuleChoice {
                 selected = Some(entry.id.clone());
             }
         }
-        Self { type_id, entries, selected }
+        Self {
+            type_id,
+            entries,
+            selected,
+        }
     }
 }
 
@@ -448,7 +467,9 @@ pub struct DownloadOptionsModel {
 }
 
 fn cfg_bool(cfg: &ConfigStore, group: &str, key: &str) -> bool {
-    cfg.get(group, key).and_then(Value::as_bool).unwrap_or(false)
+    cfg.get(group, key)
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 fn cfg_str(cfg: &ConfigStore, group: &str, key: &str) -> String {
@@ -507,11 +528,19 @@ impl DownloadOptionsModel {
                 download_danmaku: cfg_bool(cfg, "Additional", "download_danmaku"),
                 danmaku_type: cfg_str(cfg, "Additional", "danmaku_type"),
                 embed_danmaku: cfg_bool(cfg, "Additional", "embed_danmaku"),
-                delete_danmaku_after_embed: cfg_bool(cfg, "Additional", "delete_danmaku_after_embed"),
+                delete_danmaku_after_embed: cfg_bool(
+                    cfg,
+                    "Additional",
+                    "delete_danmaku_after_embed",
+                ),
                 download_subtitle: cfg_bool(cfg, "Additional", "download_subtitle"),
                 subtitle_type: cfg_str(cfg, "Additional", "subtitle_type"),
                 embed_subtitle: cfg_bool(cfg, "Additional", "embed_subtitle"),
-                delete_subtitle_after_embed: cfg_bool(cfg, "Additional", "delete_subtitle_after_embed"),
+                delete_subtitle_after_embed: cfg_bool(
+                    cfg,
+                    "Additional",
+                    "delete_subtitle_after_embed",
+                ),
                 download_cover: cfg_bool(cfg, "Additional", "download_cover"),
                 cover_type: cfg_str(cfg, "Additional", "cover_type"),
                 attach_cover: cfg_bool(cfg, "Additional", "attach_cover"),
@@ -566,42 +595,151 @@ impl DownloadOptionsModel {
     /// `MediaOptionsCard.save`: commit the transaction. `naming` gets the
     /// per-type rule ids; the caller persists the config afterwards.
     pub fn commit(&self, cfg: &mut ConfigStore, naming: &mut NamingState) {
-        cfg.set("Download", "download_video_stream", Value::Bool(self.media.download_video_stream));
-        cfg.set("Download", "download_audio_stream", Value::Bool(self.media.download_audio_stream));
-        cfg.set("Download", "merge_video_audio", Value::Bool(self.media.merge_video_audio));
-        cfg.set("Download", "keep_original_files", Value::Bool(self.media.keep_original_files));
-        cfg.set("Download", "keep_original_files_type", Value::from(self.media.keep_original_files_type));
-        cfg.set("Download", "video_container", Value::String(self.download.video_container.clone()));
-        cfg.set("Download", "m4a_to_mp3", Value::Bool(self.download.m4a_to_mp3));
-        cfg.set("Download", "download_path", Value::String(self.download.download_path.clone()));
-        cfg.set("Download", "video_quality_priority", Value::Array(
-            self.video_quality_priority.iter().map(|i| Value::from(*i)).collect(),
-        ));
-        cfg.set("Download", "audio_quality_priority", Value::Array(
-            self.audio_quality_priority.iter().map(|i| Value::from(*i)).collect(),
-        ));
-        cfg.set("Download", "video_codec_priority", Value::Array(
-            self.video_codec_priority.iter().map(|i| Value::from(*i)).collect(),
-        ));
-        cfg.set("Behavior", "show_download_options_dialog", Value::Bool(self.download.show_dialog));
-        cfg.set("File Naming", "numbering_type", Value::from(self.download.numbering_type));
+        cfg.set(
+            "Download",
+            "download_video_stream",
+            Value::Bool(self.media.download_video_stream),
+        );
+        cfg.set(
+            "Download",
+            "download_audio_stream",
+            Value::Bool(self.media.download_audio_stream),
+        );
+        cfg.set(
+            "Download",
+            "merge_video_audio",
+            Value::Bool(self.media.merge_video_audio),
+        );
+        cfg.set(
+            "Download",
+            "keep_original_files",
+            Value::Bool(self.media.keep_original_files),
+        );
+        cfg.set(
+            "Download",
+            "keep_original_files_type",
+            Value::from(self.media.keep_original_files_type),
+        );
+        cfg.set(
+            "Download",
+            "video_container",
+            Value::String(self.download.video_container.clone()),
+        );
+        cfg.set(
+            "Download",
+            "m4a_to_mp3",
+            Value::Bool(self.download.m4a_to_mp3),
+        );
+        cfg.set(
+            "Download",
+            "download_path",
+            Value::String(self.download.download_path.clone()),
+        );
+        cfg.set(
+            "Download",
+            "video_quality_priority",
+            Value::Array(
+                self.video_quality_priority
+                    .iter()
+                    .map(|i| Value::from(*i))
+                    .collect(),
+            ),
+        );
+        cfg.set(
+            "Download",
+            "audio_quality_priority",
+            Value::Array(
+                self.audio_quality_priority
+                    .iter()
+                    .map(|i| Value::from(*i))
+                    .collect(),
+            ),
+        );
+        cfg.set(
+            "Download",
+            "video_codec_priority",
+            Value::Array(
+                self.video_codec_priority
+                    .iter()
+                    .map(|i| Value::from(*i))
+                    .collect(),
+            ),
+        );
+        cfg.set(
+            "Behavior",
+            "show_download_options_dialog",
+            Value::Bool(self.download.show_dialog),
+        );
+        cfg.set(
+            "File Naming",
+            "numbering_type",
+            Value::from(self.download.numbering_type),
+        );
 
         let a = &self.additional;
-        cfg.set("Additional", "download_danmaku", Value::Bool(a.download_danmaku));
-        cfg.set("Additional", "danmaku_type", Value::String(a.danmaku_type.clone()));
+        cfg.set(
+            "Additional",
+            "download_danmaku",
+            Value::Bool(a.download_danmaku),
+        );
+        cfg.set(
+            "Additional",
+            "danmaku_type",
+            Value::String(a.danmaku_type.clone()),
+        );
         cfg.set("Additional", "embed_danmaku", Value::Bool(a.embed_danmaku));
-        cfg.set("Additional", "delete_danmaku_after_embed", Value::Bool(a.delete_danmaku_after_embed));
-        cfg.set("Additional", "download_subtitle", Value::Bool(a.download_subtitle));
-        cfg.set("Additional", "subtitle_type", Value::String(a.subtitle_type.clone()));
-        cfg.set("Additional", "embed_subtitle", Value::Bool(a.embed_subtitle));
-        cfg.set("Additional", "delete_subtitle_after_embed", Value::Bool(a.delete_subtitle_after_embed));
-        cfg.set("Additional", "download_cover", Value::Bool(a.download_cover));
-        cfg.set("Additional", "cover_type", Value::String(a.cover_type.clone()));
+        cfg.set(
+            "Additional",
+            "delete_danmaku_after_embed",
+            Value::Bool(a.delete_danmaku_after_embed),
+        );
+        cfg.set(
+            "Additional",
+            "download_subtitle",
+            Value::Bool(a.download_subtitle),
+        );
+        cfg.set(
+            "Additional",
+            "subtitle_type",
+            Value::String(a.subtitle_type.clone()),
+        );
+        cfg.set(
+            "Additional",
+            "embed_subtitle",
+            Value::Bool(a.embed_subtitle),
+        );
+        cfg.set(
+            "Additional",
+            "delete_subtitle_after_embed",
+            Value::Bool(a.delete_subtitle_after_embed),
+        );
+        cfg.set(
+            "Additional",
+            "download_cover",
+            Value::Bool(a.download_cover),
+        );
+        cfg.set(
+            "Additional",
+            "cover_type",
+            Value::String(a.cover_type.clone()),
+        );
         cfg.set("Additional", "attach_cover", Value::Bool(a.attach_cover));
-        cfg.set("Additional", "delete_cover_after_attach", Value::Bool(a.delete_cover_after_attach));
+        cfg.set(
+            "Additional",
+            "delete_cover_after_attach",
+            Value::Bool(a.delete_cover_after_attach),
+        );
         cfg.set("Additional", "embed_chapter", Value::Bool(a.embed_chapter));
-        cfg.set("Additional", "download_metadata", Value::Bool(a.download_metadata));
-        cfg.set("Additional", "metadata_type", Value::String(a.metadata_type.clone()));
+        cfg.set(
+            "Additional",
+            "download_metadata",
+            Value::Bool(a.download_metadata),
+        );
+        cfg.set(
+            "Additional",
+            "metadata_type",
+            Value::String(a.metadata_type.clone()),
+        );
 
         // runtime.download.* — per-task selections, not persisted config.
         // runtime.naming.target_rule_ids — set below; global starting number
@@ -641,8 +779,8 @@ impl DownloadOptionsModel {
         };
         let rule = self.download.preview_rule(store, type_id)?;
         let convention = convention_from_id(type_id)?;
-        let variable_data = VariableListFactory::new()
-            .build_variable_data(convention, first_shape(convention));
+        let variable_data =
+            VariableListFactory::new().build_variable_data(convention, first_shape(convention));
         let formatter = FileNameFormatter::new(variable_data, store);
         formatter.format(Some(type_id), 0, &rule)
     }

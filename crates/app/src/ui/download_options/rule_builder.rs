@@ -15,8 +15,13 @@ pub const MAX_LEVELS: usize = 8;
 /// Format presets (`rule_format.py`): dates and numbers. The first preset is
 /// the default applied when a variable changes (a date spec on a number
 /// would fail to render).
-pub const DATETIME_PRESETS: [&str; 5] =
-    ["%Y-%m-%d", "%Y-%m", "%Y", "%Y-%m-%d_%H-%M-%S", "%Y年%m月%d日"];
+pub const DATETIME_PRESETS: [&str; 5] = [
+    "%Y-%m-%d",
+    "%Y-%m",
+    "%Y",
+    "%Y-%m-%d_%H-%M-%S",
+    "%Y年%m月%d日",
+];
 pub const NUMBER_PRESETS: [&str; 4] = ["", "02d", "03d", "04d"];
 
 pub fn presets_for(variable: &str) -> &'static [&'static str] {
@@ -44,7 +49,9 @@ impl RuleBuilderModel {
         self.unsupported = None;
         self.editing = None;
         if rule.is_empty() {
-            self.model = RuleModel { levels: vec![Level::default()] };
+            self.model = RuleModel {
+                levels: vec![Level::default()],
+            };
             return true;
         }
         match parse_rule(rule) {
@@ -104,7 +111,11 @@ impl RuleBuilderModel {
         if let Some(f) = self.fragment_mut(level, frag) {
             if !f.is_text() {
                 f.variable = Some(variable.clone());
-                f.spec = presets_for(&variable).first().copied().unwrap_or("").to_string();
+                f.spec = presets_for(&variable)
+                    .first()
+                    .copied()
+                    .unwrap_or("")
+                    .to_string();
             }
         }
     }
@@ -112,15 +123,26 @@ impl RuleBuilderModel {
     /// `add_fragment` — variable fragments insert with the variable's first
     /// preset as spec.
     pub fn add_variable(&mut self, level: usize, variable: String) {
-        let spec = presets_for(&variable).first().copied().unwrap_or("").to_string();
+        let spec = presets_for(&variable)
+            .first()
+            .copied()
+            .unwrap_or("")
+            .to_string();
         if let Some(l) = self.model.levels.get_mut(level) {
-            l.fragments.push(Fragment { variable: Some(variable), spec, ..Default::default() });
+            l.fragments.push(Fragment {
+                variable: Some(variable),
+                spec,
+                ..Default::default()
+            });
         }
     }
 
     pub fn add_text(&mut self, level: usize, text: String) {
         if let Some(l) = self.model.levels.get_mut(level) {
-            l.fragments.push(Fragment { text, ..Default::default() });
+            l.fragments.push(Fragment {
+                text,
+                ..Default::default()
+            });
         }
     }
 

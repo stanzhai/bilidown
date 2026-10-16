@@ -8,19 +8,20 @@ use serde_json::json;
 #[tokio::test]
 async fn start_disabled_returns_none() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("MCP", "mcp_enabled", json!(false));
 
-    let manager = Arc::new(tasks::TaskManager::open(
-        tmp.path().join("task.db"),
-        Arc::new(config::ConfigStore::with_paths(
-            tmp.path().join("config"),
-            tmp.path().join("downloads"),
-        )),
-    ).unwrap());
+    let manager = Arc::new(
+        tasks::TaskManager::open(
+            tmp.path().join("task.db"),
+            Arc::new(config::ConfigStore::with_paths(
+                tmp.path().join("config"),
+                tmp.path().join("downloads"),
+            )),
+        )
+        .unwrap(),
+    );
 
     let handle = mcp::start(Arc::new(parking_lot::Mutex::new(store)), manager)
         .await
@@ -38,20 +39,26 @@ async fn start_generates_and_persists_token_then_serves() {
     shared.lock().set("MCP", "mcp_enabled", json!(true));
     shared.lock().set("MCP", "mcp_port", json!(0)); // ephemeral port
 
-    let manager = Arc::new(tasks::TaskManager::open(
-        tmp.path().join("task.db"),
-        Arc::new(config::ConfigStore::with_paths(
-            tmp.path().join("config"),
-            tmp.path().join("downloads"),
-        )),
-    ).unwrap());
+    let manager = Arc::new(
+        tasks::TaskManager::open(
+            tmp.path().join("task.db"),
+            Arc::new(config::ConfigStore::with_paths(
+                tmp.path().join("config"),
+                tmp.path().join("downloads"),
+            )),
+        )
+        .unwrap(),
+    );
 
     let handle = mcp::start(shared.clone(), manager).await.unwrap().unwrap();
     let token = handle.token().to_owned();
     // 32 bytes → 43 URL-safe base64 chars, generated not configured.
     assert_eq!(token.len(), 43);
     // Persisted for the next run.
-    assert_eq!(shared.lock().get("MCP", "mcp_token").cloned(), Some(json!(token)));
+    assert_eq!(
+        shared.lock().get("MCP", "mcp_token").cloned(),
+        Some(json!(token))
+    );
 
     // Live round trip: tools/list over the loopback with the Bearer token.
     let body = json!({

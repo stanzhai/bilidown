@@ -58,9 +58,7 @@ impl Numbering {
                 self.state.current_starting_number = Some(current + 1);
                 current.to_string()
             }
-            NumberingType::UseParseList => {
-                episode_number.unwrap_or_default().to_string()
-            }
+            NumberingType::UseParseList => episode_number.unwrap_or_default().to_string(),
         };
         self.state.global_starting_number += 1;
         let after = self.counters();

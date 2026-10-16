@@ -90,7 +90,11 @@ where
 
         let output = parse(page).await?;
         outcome.episodes.extend(output.node.children.clone());
-        on_progress(&page_progress_text(page, options.end_page), page, options.end_page);
+        on_progress(
+            &page_progress_text(page, options.end_page),
+            page,
+            options.end_page,
+        );
         outcome.pages.push(PageOutcome { page, output });
 
         if page < options.end_page && !options.interval.is_zero() {

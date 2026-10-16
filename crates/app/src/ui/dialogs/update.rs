@@ -11,19 +11,16 @@ use gpui_kit::component::button::Button;
 use gpui_kit::component::dialog::DialogFooter;
 use gpui_kit::component::label::Label;
 use gpui_kit::component::WindowExt;
-use gpui_kit::{ParentElement, Window, div, prelude::*};
+use gpui_kit::{div, prelude::*, ParentElement, Window};
 
 use super::{active_catalog, format_tr};
 
-pub use services::update::{
-    to_verhub_locale, UpdateInfo, VERHUB_BASE_URL, VERHUB_PROJECT_KEY,
-};
+pub use services::update::{to_verhub_locale, UpdateInfo, VERHUB_BASE_URL, VERHUB_PROJECT_KEY};
 
 /// App version shown in the dialog tip (workspace version line).
 pub fn app_version() -> &'static str {
     services::update::APP_VERSION
 }
-
 
 /// `Updater.check`: decide what a finished check does.
 #[derive(Debug, Clone, PartialEq)]
@@ -71,15 +68,10 @@ pub async fn check_for_update(
         locale: locale.map(str::to_owned),
         ..Default::default()
     };
-    services::update::VerhubClient::with_options(
-        client,
-        base,
-        VERHUB_PROJECT_KEY,
-        app_version(),
-    )
-    .check_update(&params)
-    .await
-    .map(|outcome| outcome.info)
+    services::update::VerhubClient::with_options(client, base, VERHUB_PROJECT_KEY, app_version())
+        .check_update(&params)
+        .await
+        .map(|outcome| outcome.info)
 }
 
 /// Assemble the params from a config store (`request_update`).
@@ -129,17 +121,12 @@ pub fn run_startup_check(window: &mut Window, cx: &mut gpui_kit::Context<crate::
     let slot = std::rc::Rc::new(std::cell::RefCell::<Option<UpdateInfo>>::new(None));
     let tail = slot.clone();
     cx.spawn(async move |shell, cx| {
-        let cfg = config::ConfigStore::open()
-            .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let cfg =
+            config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
         let (include_preview, locale) = check_params(&cfg);
         let service = super::super::parse::dispatch::ParseService::new(&cfg);
-        let fetched = check_for_update(
-            &service.client,
-            VERHUB_BASE_URL,
-            include_preview,
-            locale,
-        )
-        .await;
+        let fetched =
+            check_for_update(&service.client, VERHUB_BASE_URL, include_preview, locale).await;
         let Ok(fetched) = fetched else { return };
         if let UpdateAction::Show(found) = decide(&fetched, &cfg, false) {
             *tail.borrow_mut() = Some(found);
@@ -189,16 +176,16 @@ pub fn open_update_dialog(
                 let whats_new = whats_new.clone();
                 let content_line = info.content.clone();
                 move |content, _, _| {
-                content.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .child(Label::new(subtitle.clone()))
-                        .child(Label::new(tip.clone()))
-                        .child(Label::new(whats_new.clone()))
-                        .child(Label::new(content_line.clone())),
-                )
+                    content.child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(Label::new(subtitle.clone()))
+                            .child(Label::new(tip.clone()))
+                            .child(Label::new(whats_new.clone()))
+                            .child(Label::new(content_line.clone())),
+                    )
                 }
             })
             .footer({
@@ -340,7 +327,10 @@ mod tests {
     fn gate_honors_skip_version_for_auto_checks() {
         let mut cfg = config::ConfigStore::with_paths("", "");
         skip_version(&mut cfg, "9.9.9");
-        assert_eq!(decide(&info(true, "9.9.9"), &cfg, false), UpdateAction::Skip);
+        assert_eq!(
+            decide(&info(true, "9.9.9"), &cfg, false),
+            UpdateAction::Skip
+        );
         // manual overrides the skip
         assert!(decide(&info(true, "9.9.9"), &cfg, true).is_show());
     }
@@ -348,7 +338,10 @@ mod tests {
     #[test]
     fn gate_silent_when_current() {
         let cfg = config::ConfigStore::with_paths("", "");
-        assert_eq!(decide(&info(false, "2.21.0"), &cfg, false), UpdateAction::Silent);
+        assert_eq!(
+            decide(&info(false, "2.21.0"), &cfg, false),
+            UpdateAction::Silent
+        );
         assert_eq!(
             decide(&info(false, "2.21.0"), &cfg, true),
             UpdateAction::AlreadyLatest
@@ -366,11 +359,7 @@ mod tests {
         let mut cfg = config::ConfigStore::with_paths("", "");
         assert_eq!(check_params(&cfg), (false, None));
         cfg.set("Update", "include_prerelease", Value::Bool(true));
-        cfg.set(
-            "Interface",
-            "language",
-            Value::String("zh_TW".to_owned()),
-        );
+        cfg.set("Interface", "language", Value::String("zh_TW".to_owned()));
         assert_eq!(check_params(&cfg), (true, Some("zh-TW")));
     }
 

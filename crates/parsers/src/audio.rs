@@ -127,7 +127,10 @@ async fn get_menu_info(
         )
         .await?;
     check_response(&response)?;
-    Ok(response["data"]["title"].as_str().unwrap_or_default().to_owned())
+    Ok(response["data"]["title"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned())
 }
 
 fn check_response(response: &Value) -> Result<(), AudioError> {
@@ -169,10 +172,7 @@ pub fn build_audio_tree(info_data: &Value) -> TreeItem {
         Some(_) | None => vec![info_data],
     };
 
-    let mut root = TreeItem::root(
-        Number::Text(AUDIO_CATEGORY.to_owned()),
-        &menu_title,
-    );
+    let mut root = TreeItem::root(Number::Text(AUDIO_CATEGORY.to_owned()), &menu_title);
     root.set_attribute(Attribute::TREE_NODE_BIT);
 
     for (index, track) in tracks.iter().enumerate() {
@@ -186,12 +186,9 @@ pub fn build_audio_tree(info_data: &Value) -> TreeItem {
             track["passtime"].as_i64().unwrap_or(0),
             &format!("https://www.bilibili.com/audio/au{sid}"),
             track["author"].as_str().unwrap_or_default(),
-            [(
-                "source_title".to_owned(),
-                Value::String(menu_title.clone()),
-            )]
-            .into_iter()
-            .collect(),
+            [("source_title".to_owned(), Value::String(menu_title.clone()))]
+                .into_iter()
+                .collect(),
         );
         item.set_attribute(Attribute::AUDIO_BIT);
         root.add_child(item);

@@ -6,6 +6,7 @@
 //! the builder. Localization goes through the i18n catalog with the exact
 //! Qt contexts Python used.
 
+use gpui_kit::base::IndexPath;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::dialog::DialogButtonProps;
@@ -13,10 +14,9 @@ use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::radio::RadioGroup;
 use gpui_kit::component::select::{SearchableVec, Select, SelectItem, SelectState};
 use gpui_kit::component::WindowExt;
-use gpui_kit::base::IndexPath;
-use gpui_kit::{AppContext, Context, SharedString, Window, div, prelude::*};
+use gpui_kit::{div, prelude::*, AppContext, Context, SharedString, Window};
 
-use super::log_view::{LogViewModel, default_log_path, open_logs_directory};
+use super::log_view::{default_log_path, open_logs_directory, LogViewModel};
 use super::model::{apply_duplicate_choice, apply_exit_choice};
 use crate::ui::Shell;
 
@@ -180,25 +180,29 @@ pub fn open_exit_dialog(
                     .gap_3()
                     .py_2()
                     .child(div().child(tr("ExitDialog", "Choose an action")))
-                    .child(RadioGroup::new("exit-choice")
-                        .selected_index(Some(selected))
-                        .child(tr("ExitDialog", "Exit the program"))
-                        .child(tr("ExitDialog", "Minimize to system tray"))
-                        .on_change({
-                            let selection = selection.clone();
-                            move |ix, _w, cx| {
-                                selection.update(cx, |s, _| s.exit = *ix == 0);
-                            }
-                        }))
-                    .child(Checkbox::new("exit-never-ask")
-                        .checked(remember_checked)
-                        .label(tr("ExitDialog", "Don't ask again"))
-                        .on_click({
-                            let remember = remember.clone();
-                            move |checked, _w, cx| {
-                                remember.update(cx, |r, _| r.checked = *checked);
-                            }
-                        })),
+                    .child(
+                        RadioGroup::new("exit-choice")
+                            .selected_index(Some(selected))
+                            .child(tr("ExitDialog", "Exit the program"))
+                            .child(tr("ExitDialog", "Minimize to system tray"))
+                            .on_change({
+                                let selection = selection.clone();
+                                move |ix, _w, cx| {
+                                    selection.update(cx, |s, _| s.exit = *ix == 0);
+                                }
+                            }),
+                    )
+                    .child(
+                        Checkbox::new("exit-never-ask")
+                            .checked(remember_checked)
+                            .label(tr("ExitDialog", "Don't ask again"))
+                            .on_click({
+                                let remember = remember.clone();
+                                move |checked, _w, cx| {
+                                    remember.update(cx, |r, _| r.checked = *checked);
+                                }
+                            }),
+                    ),
             )
             .button_props(
                 DialogButtonProps::default()
@@ -271,9 +275,8 @@ pub fn open_log_viewer(window: &mut Window, cx: &mut Context<Shell>) {
         m.refresh();
         m
     });
-    let search = cx.new(|cx| {
-        InputState::new(window, cx).placeholder(tr("LogViewerDialog", "Search logs..."))
-    });
+    let search = cx
+        .new(|cx| InputState::new(window, cx).placeholder(tr("LogViewerDialog", "Search logs...")));
     let levels = [
         (services::log::LevelFilter::All, "All"),
         (services::log::LevelFilter::Debug, "Debug"),
@@ -288,7 +291,12 @@ pub fn open_log_viewer(window: &mut Window, cx: &mut Context<Shell>) {
     })
     .collect::<Vec<_>>();
     let level_select = cx.new(|cx| {
-        SelectState::new(SearchableVec::new(levels), Some(IndexPath::new(0)), window, cx)
+        SelectState::new(
+            SearchableVec::new(levels),
+            Some(IndexPath::new(0)),
+            window,
+            cx,
+        )
     });
 
     window.open_dialog(cx, move |dialog, _window, cx| {
@@ -317,70 +325,70 @@ pub fn open_log_viewer(window: &mut Window, cx: &mut Context<Shell>) {
                 )
             })
             .collect();
-        dialog
-            .title(tr("LogViewerDialog", "Logs"))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .py_2()
-                    .w(gpui_kit::px(720.))
-                    .child(div().flex().gap_2().child(
-                        div().w(gpui_kit::px(160.)).child(Select::new(&level_select)),
-                    ))
-                    .child(Input::new(&search).id("log-search"))
-                    .child(
+        dialog.title(tr("LogViewerDialog", "Logs")).child(
+            div()
+                .flex()
+                .flex_col()
+                .gap_2()
+                .py_2()
+                .w(gpui_kit::px(720.))
+                .child(
+                    div().flex().gap_2().child(
                         div()
-                            .flex()
-                            .gap_2()
-                            .child(
-                                Button::new("log-refresh")
-                                    .label(tr("LogViewerDialog", "Refresh"))
-                                    .on_click({
-                                        let model = model.clone();
-                                        move |_, _, cx| {
-                                            model.update(cx, |m, _| m.refresh());
-                                        }
-                                    }),
-                            )
-                            .child(
-                                Button::new("log-clear")
-                                    .label(tr("LogViewerDialog", "Clear Logs"))
-                                    .on_click({
-                                        let model = model.clone();
-                                        move |_, _, cx| {
-                                            model.update(cx, |m, _| m.clear());
-                                        }
-                                    }),
-                            )
-                            .child(
-                                Button::new("log-open-dir")
-                                    .label(tr("LogViewerDialog", "Open Logs Directory"))
-                                    .on_click({
-                                        let model = model.clone();
-                                        move |_, _, cx| {
-                                            let dir = model.read(cx).path.parent().map(|p| p.to_path_buf());
-                                            if let Some(dir) = dir {
-                                                let _ = open_logs_directory(&dir);
-                                            }
-                                        }
-                                    }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("log-list")
-                            .flex_1()
-                            .min_h(gpui_kit::px(240.))
-                            .max_h(gpui_kit::px(480.))
-                            .overflow_y_scroll()
-                            .children(
-                                rows.into_iter()
-                                    .map(|row| div().child(row)),
-                            ),
+                            .w(gpui_kit::px(160.))
+                            .child(Select::new(&level_select)),
                     ),
-            )
+                )
+                .child(Input::new(&search).id("log-search"))
+                .child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            Button::new("log-refresh")
+                                .label(tr("LogViewerDialog", "Refresh"))
+                                .on_click({
+                                    let model = model.clone();
+                                    move |_, _, cx| {
+                                        model.update(cx, |m, _| m.refresh());
+                                    }
+                                }),
+                        )
+                        .child(
+                            Button::new("log-clear")
+                                .label(tr("LogViewerDialog", "Clear Logs"))
+                                .on_click({
+                                    let model = model.clone();
+                                    move |_, _, cx| {
+                                        model.update(cx, |m, _| m.clear());
+                                    }
+                                }),
+                        )
+                        .child(
+                            Button::new("log-open-dir")
+                                .label(tr("LogViewerDialog", "Open Logs Directory"))
+                                .on_click({
+                                    let model = model.clone();
+                                    move |_, _, cx| {
+                                        let dir =
+                                            model.read(cx).path.parent().map(|p| p.to_path_buf());
+                                        if let Some(dir) = dir {
+                                            let _ = open_logs_directory(&dir);
+                                        }
+                                    }
+                                }),
+                        ),
+                )
+                .child(
+                    div()
+                        .id("log-list")
+                        .flex_1()
+                        .min_h(gpui_kit::px(240.))
+                        .max_h(gpui_kit::px(480.))
+                        .overflow_y_scroll()
+                        .children(rows.into_iter().map(|row| div().child(row))),
+                ),
+        )
     });
 }
 

@@ -48,7 +48,9 @@ pub struct Notification {
 
 /// `Behavior.show_notification` (default false).
 pub fn enabled(cfg: &ConfigStore) -> bool {
-    cfg.get("Behavior", "show_notification").and_then(|v| v.as_bool()).unwrap_or(false)
+    cfg.get("Behavior", "show_notification")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 /// The download-complete notification the Python build fires when the last

@@ -20,11 +20,19 @@ pub fn gate(cfg: &ConfigStore) -> TermsGate {
         .get("Application", "accepted_terms")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    if accepted { TermsGate::Accepted } else { TermsGate::Pending }
+    if accepted {
+        TermsGate::Accepted
+    } else {
+        TermsGate::Pending
+    }
 }
 
 /// Persist the user's accept. Called from the terms dialog's accept button;
 /// the reject path exits the app and never writes.
 pub fn accept(cfg: &mut ConfigStore) {
-    cfg.set("Application", "accepted_terms", serde_json::Value::Bool(true));
+    cfg.set(
+        "Application",
+        "accepted_terms",
+        serde_json::Value::Bool(true),
+    );
 }

@@ -4,12 +4,12 @@
 //! duplicate detection, numbering, Task Info assembly, scheduler
 //! admission, and resume-from-offsets through wiremock.
 
-use database::TaskDatabase;
 use database::info::TaskInfo;
+use database::TaskDatabase;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::Duration;
-use tasks::info::{NamingInput, episode_to_task_info, CreateInputs};
+use tasks::info::{episode_to_task_info, CreateInputs, NamingInput};
 use tasks::numbering::Numbering;
 use tasks::options::{self, OPTION_KEYS};
 use tasks::status::{download_status, download_type, NumberingType};
@@ -86,10 +86,8 @@ fn snapshot_covers_every_option() {
 #[test]
 fn snapshot_freezes_config_value() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Download", "keep_original_files_type", json!(2));
     let snap = options::snapshot(&store, None);
     assert_eq!(snap["keep_original_files_type"], json!(2));
@@ -98,10 +96,8 @@ fn snapshot_freezes_config_value() {
 #[test]
 fn missing_option_falls_back_to_config() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Download", "keep_original_files_type", json!(2));
     // Old task: no Options section at all.
     let task = TaskInfo::default();
@@ -114,10 +110,8 @@ fn missing_option_falls_back_to_config() {
 #[test]
 fn frozen_option_wins_over_config() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Download", "keep_original_files_type", json!(2));
     let mut task = TaskInfo::default();
     task.Options.keep_original_files_type = Some(1);
@@ -136,7 +130,8 @@ fn wait_true_is_on_disk_when_it_returns() {
     let task_info = make_task("wait-true");
     {
         let mut db = manager.reader().unwrap();
-        db.add_tasks(std::slice::from_ref(&task_info), false).unwrap();
+        db.add_tasks(std::slice::from_ref(&task_info), false)
+            .unwrap();
     }
 
     let reader = manager.reader().unwrap();
@@ -158,14 +153,17 @@ fn wait_true_does_not_deadlock_from_the_caller_thread() {
     let task_info = make_task("no-deadlock");
     {
         let mut db = manager.reader().unwrap();
-        db.add_tasks(std::slice::from_ref(&task_info), false).unwrap();
+        db.add_tasks(std::slice::from_ref(&task_info), false)
+            .unwrap();
     }
 
     let worker = manager.clone();
     let thread = std::thread::spawn(move || {
         worker.mark_as_completed(&task_info, true, 5.0);
     });
-    thread.join().expect("mark_as_completed(wait=true) did not return within the join, likely deadlock");
+    thread
+        .join()
+        .expect("mark_as_completed(wait=true) did not return within the join, likely deadlock");
     manager.shutdown(5.0);
 }
 
@@ -176,7 +174,8 @@ fn timeout_does_not_raise_and_write_still_lands() {
     let task_info = make_task("timeout");
     {
         let mut db = manager.reader().unwrap();
-        db.add_tasks(std::slice::from_ref(&task_info), false).unwrap();
+        db.add_tasks(std::slice::from_ref(&task_info), false)
+            .unwrap();
     }
 
     let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
@@ -206,7 +205,8 @@ fn without_wait_there_is_no_durability_guarantee() {
     let task_info = make_task("no-guarantee");
     {
         let mut db = manager.reader().unwrap();
-        db.add_tasks(std::slice::from_ref(&task_info), false).unwrap();
+        db.add_tasks(std::slice::from_ref(&task_info), false)
+            .unwrap();
     }
 
     let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
@@ -238,7 +238,8 @@ fn wait_false_keeps_the_old_asynchronous_contract() {
     let task_info = make_task("wait-false");
     {
         let mut db = manager.reader().unwrap();
-        db.add_tasks(std::slice::from_ref(&task_info), false).unwrap();
+        db.add_tasks(std::slice::from_ref(&task_info), false)
+            .unwrap();
     }
 
     manager.mark_as_completed(&task_info, false, 5.0);
@@ -266,10 +267,8 @@ fn hash_from_episode_matches_database_calc() {
 #[test]
 fn duplicate_ask_skip_and_continue() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Behavior", "duplicate_download_resolution", json!(2));
     let db_path = tmp.path().join("task.db");
     let mut db = TaskDatabase::open(&db_path).unwrap();
@@ -277,16 +276,10 @@ fn duplicate_ask_skip_and_continue() {
     existing_hash_insert(&mut db, &ep);
 
     let asked = std::cell::Cell::new(0);
-    let outcome = tasks::duplicate::check_duplicate(
-        &db,
-        &store,
-        &ep,
-        None,
-        || {
-            asked.set(asked.get() + 1);
-            tasks::duplicate::AskOutcome::Skip
-        },
-    );
+    let outcome = tasks::duplicate::check_duplicate(&db, &store, &ep, None, || {
+        asked.set(asked.get() + 1);
+        tasks::duplicate::AskOutcome::Skip
+    });
     assert_eq!(outcome, tasks::duplicate::DuplicateCheck::Skip);
     assert_eq!(asked.get(), 1, "ALWAYS_ASK must invoke the resolver");
 
@@ -295,16 +288,10 @@ fn duplicate_ask_skip_and_continue() {
     let mut fresh = fresh.clone();
     fresh.insert("cid".into(), json!(999));
     asked.set(0);
-    let outcome = tasks::duplicate::check_duplicate(
-        &db,
-        &store,
-        &fresh,
-        None,
-        || {
-            asked.set(asked.get() + 1);
-            tasks::duplicate::AskOutcome::Skip
-        },
-    );
+    let outcome = tasks::duplicate::check_duplicate(&db, &store, &fresh, None, || {
+        asked.set(asked.get() + 1);
+        tasks::duplicate::AskOutcome::Skip
+    });
     assert_eq!(outcome, tasks::duplicate::DuplicateCheck::Continue);
     assert_eq!(asked.get(), 0);
 }
@@ -315,16 +302,15 @@ fn existing_hash_insert(db: &mut TaskDatabase, ep: &serde_json::Map<String, Valu
     task.Basic.task_id = "existing".into();
     let mut record = TaskDatabase::build_record(&task, false);
     record.hash_id = hash;
-    db.add_task_records(std::slice::from_ref(&record), false).unwrap();
+    db.add_task_records(std::slice::from_ref(&record), false)
+        .unwrap();
 }
 
 #[test]
 fn duplicate_resolution_skip_and_continue_from_options() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     let db_path = tmp.path().join("task.db");
     let mut db = TaskDatabase::open(&db_path).unwrap();
     let ep = episode(1);
@@ -418,11 +404,14 @@ fn assembly_freezes_task_info() {
         ..Default::default()
     };
     let episode_data = parsers::EpisodeData::new();
-    let task = episode_to_task_info(&make_inputs(&store, &episode_data), &ep, "1", None, &naming)
-        .unwrap();
+    let task =
+        episode_to_task_info(&make_inputs(&store, &episode_data), &ep, "1", None, &naming).unwrap();
 
     assert_eq!(task.Download.status, download_status::QUEUED);
-    assert_eq!(task.Download.type_, download_type::VIDEO | download_type::AUDIO);
+    assert_eq!(
+        task.Download.type_,
+        download_type::VIDEO | download_type::AUDIO
+    );
     assert_eq!(task.Episode.leaf_title, "第 1 话");
     assert_eq!(task.Episode.number, "1");
     assert_eq!(task.File.folder, "番剧");
@@ -440,7 +429,10 @@ fn assembly_filters_illegal_characters_only_on_title_keys() {
         tasks::info::filter_illegal_characters("a/b\\c:d*e?f\"g<h>i|j"),
         "a_b_c_d_e_f_g_h_i_j"
     );
-    assert_eq!(tasks::info::filter_illegal_characters("正常标题"), "正常标题");
+    assert_eq!(
+        tasks::info::filter_illegal_characters("正常标题"),
+        "正常标题"
+    );
 }
 
 #[test]
@@ -475,10 +467,8 @@ fn assembly_merges_extra_data_related_titles_uploader_and_number() {
 #[test]
 fn assembly_trims_lesson_download_type() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Additional", "download_danmaku", json!(true));
     store.set("Additional", "download_subtitle", json!(true));
     store.set("Additional", "download_cover", json!(true));
@@ -486,9 +476,14 @@ fn assembly_trims_lesson_download_type() {
 
     let ep = episode(1 << 18); // LESSON
     let episode_data = parsers::EpisodeData::new();
-    let task =
-        episode_to_task_info(&make_inputs(&store, &episode_data), &ep, "1", None, &Default::default())
-            .unwrap();
+    let task = episode_to_task_info(
+        &make_inputs(&store, &episode_data),
+        &ep,
+        "1",
+        None,
+        &Default::default(),
+    )
+    .unwrap();
     // LESSON entries carry no danmaku/subtitle/chapter/cover.
     assert_eq!(task.Download.type_ & download_type::DANMAKU, 0);
     assert_eq!(task.Download.type_ & download_type::SUBTITLE, 0);
@@ -539,7 +534,10 @@ fn create_then_complete_moves_row_between_tables() {
     assert_eq!(db.count_tasks(false).unwrap(), 0);
     assert_eq!(db.count_tasks(true).unwrap(), 1);
     // Task Info sections survive the round trip.
-    let back = db.query_task_by_id(&task.Basic.task_id, true).unwrap().unwrap();
+    let back = db
+        .query_task_by_id(&task.Basic.task_id, true)
+        .unwrap()
+        .unwrap();
     assert_eq!(back.Basic.show_title, task.Basic.show_title);
     assert_eq!(back.Episode.leaf_title, task.Episode.leaf_title);
 }
@@ -547,10 +545,8 @@ fn create_then_complete_moves_row_between_tables() {
 #[test]
 fn create_skips_duplicates_and_reports_need_reparse() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Behavior", "duplicate_download_resolution", json!(1)); // SKIP
     let store = Arc::new(store);
     let manager = TaskManager::open(tmp.path().join("task.db"), store.clone()).unwrap();
@@ -563,7 +559,8 @@ fn create_skips_duplicates_and_reports_need_reparse() {
         let mut db = manager.reader().unwrap();
         let mut record = TaskDatabase::build_record(&TaskInfo::default(), false);
         record.hash_id = tasks::duplicate::calc_hash_id_from_episode(&existing);
-        db.add_task_records(std::slice::from_ref(&record), false).unwrap();
+        db.add_task_records(std::slice::from_ref(&record), false)
+            .unwrap();
     }
 
     let result = manager
@@ -606,10 +603,8 @@ fn scheduler_clamps_parallel_limit() {
 #[test]
 fn scheduler_admits_queued_up_to_limit() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut store = config::ConfigStore::with_paths(
-        tmp.path().join("config"),
-        tmp.path().join("downloads"),
-    );
+    let mut store =
+        config::ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
     store.set("Download", "download_parallel", json!(2));
     let manager = TaskManager::open(tmp.path().join("task.db"), Arc::new(store)).unwrap();
 
@@ -636,8 +631,20 @@ fn scheduler_admits_queued_up_to_limit() {
         .iter()
         .map(|t| t.Download.status)
         .collect();
-    assert_eq!(statuses.iter().filter(|&&s| s == download_status::DOWNLOADING).count(), 2);
-    assert_eq!(statuses.iter().filter(|&&s| s == download_status::QUEUED).count(), 2);
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|&&s| s == download_status::DOWNLOADING)
+            .count(),
+        2
+    );
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|&&s| s == download_status::QUEUED)
+            .count(),
+        2
+    );
 }
 
 // ---- wiremock resume through the manager's offset store ----
@@ -682,21 +689,24 @@ async fn paused_offsets_persist_and_resume_skips_done_chunks() {
         .respond_with({
             let data = data.clone();
             move |req: &wiremock::Request| {
-            let range = req
-                .headers
-                .get("range")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.to_owned());
-            match range {
-                Some(range) if range.starts_with("bytes=") => {
-                    let (s, e) = range[6..].split_once('-').unwrap();
-                    let (start, end): (usize, usize) = (s.parse().unwrap(), e.parse().unwrap());
-                    ResponseTemplate::new(206)
-                        .append_header("Content-Range", format!("bytes {}-{}/{}", start, end, data.len()))
-                        .set_body_bytes(data[start..=end].to_vec())
+                let range = req
+                    .headers
+                    .get("range")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.to_owned());
+                match range {
+                    Some(range) if range.starts_with("bytes=") => {
+                        let (s, e) = range[6..].split_once('-').unwrap();
+                        let (start, end): (usize, usize) = (s.parse().unwrap(), e.parse().unwrap());
+                        ResponseTemplate::new(206)
+                            .append_header(
+                                "Content-Range",
+                                format!("bytes {}-{}/{}", start, end, data.len()),
+                            )
+                            .set_body_bytes(data[start..=end].to_vec())
+                    }
+                    _ => ResponseTemplate::new(200).set_body_bytes(data.as_ref().clone()),
                 }
-                _ => ResponseTemplate::new(200).set_body_bytes(data.as_ref().clone()),
-            }
             }
         })
         .mount(&server)
@@ -753,7 +763,10 @@ async fn paused_offsets_persist_and_resume_skips_done_chunks() {
         .cloned()
         .expect("chunk_offsets persisted in Download.files");
     let persisted_table = OffsetTable::from_json(offsets_value);
-    assert!(!persisted_table.total_written(|_| downloader::CHUNK_SIZE).to_string().is_empty());
+    assert!(!persisted_table
+        .total_written(|_| downloader::CHUNK_SIZE)
+        .to_string()
+        .is_empty());
 
     // Resume in a fresh engine from the persisted table: only the
     // unfinished chunks hit the CDN again.
@@ -767,7 +780,10 @@ async fn paused_offsets_persist_and_resume_skips_done_chunks() {
     );
     resumed.resume_from(single_table("video", persisted_table));
     let final_state = resumed.run().await;
-    assert_eq!(final_state.status.code(), downloader::TaskStatus::Completed.code());
+    assert_eq!(
+        final_state.status.code(),
+        downloader::TaskStatus::Completed.code()
+    );
 
     let after = server.received_requests().await.unwrap().len();
     assert!(after > before, "resume must re-request remaining chunks");
@@ -775,7 +791,10 @@ async fn paused_offsets_persist_and_resume_skips_done_chunks() {
     assert_eq!(expected, data.as_ref().clone());
 }
 
-fn single_table(key: &str, table: downloader::OffsetTable) -> std::collections::BTreeMap<String, downloader::OffsetTable> {
+fn single_table(
+    key: &str,
+    table: downloader::OffsetTable,
+) -> std::collections::BTreeMap<String, downloader::OffsetTable> {
     let mut map = std::collections::BTreeMap::new();
     map.insert(key.to_string(), table);
     map

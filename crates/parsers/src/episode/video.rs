@@ -31,7 +31,9 @@ pub fn episode_badge(attribute: i64) -> String {
 /// naive `datetime.timestamp()` reads the wall clock in the host zone;
 /// the app targets zh-CN (UTC+8), so interpret CST.
 pub fn timestamp_from_string(text: &str) -> i64 {
-    let mut parts = text.split(['-', ' ', ':']).map(|p| p.parse::<i64>().unwrap_or(0));
+    let mut parts = text
+        .split(['-', ' ', ':'])
+        .map(|p| p.parse::<i64>().unwrap_or(0));
     let mut fields = [0i64; 6];
     for field in fields.iter_mut() {
         *field = parts.next().unwrap_or(0);
@@ -70,12 +72,24 @@ fn badge_of(episode: &Value) -> String {
 /// (`_video_episode_data_parser`).
 pub fn video_episode_data(info_data: &Value) -> Map<String, Value> {
     let mut map = Map::new();
-    map.insert("description".into(), Value::String(text(info_data, "desc").to_owned()));
+    map.insert(
+        "description".into(),
+        Value::String(text(info_data, "desc").to_owned()),
+    );
     map.insert("tid".into(), Value::from(int(info_data, "tid")));
     map.insert("tid_v2".into(), Value::from(int(info_data, "tid_v2")));
-    map.insert("uploader".into(), Value::String(text(&info_data["owner"], "name").to_owned()));
-    map.insert("uploader_uid".into(), Value::from(int(&info_data["owner"], "mid")));
-    map.insert("uploader_face".into(), Value::String(text(&info_data["owner"], "face").to_owned()));
+    map.insert(
+        "uploader".into(),
+        Value::String(text(&info_data["owner"], "name").to_owned()),
+    );
+    map.insert(
+        "uploader_uid".into(),
+        Value::from(int(&info_data["owner"], "mid")),
+    );
+    map.insert(
+        "uploader_face".into(),
+        Value::String(text(&info_data["owner"], "face").to_owned()),
+    );
     map
 }
 
@@ -87,7 +101,13 @@ pub fn parse_video(
     info_data: &Value,
 ) -> (TreeItem, (String, Value)) {
     let mut map = video_episode_data(info_data);
-    for (k, v) in episode_data.get_episode_data(episode_id).as_object().cloned().into_iter().flatten() {
+    for (k, v) in episode_data
+        .get_episode_data(episode_id)
+        .as_object()
+        .cloned()
+        .into_iter()
+        .flatten()
+    {
         map.insert(k, v);
     }
     episode_data.set_episode_data(episode_id, Value::Object(map));
@@ -151,7 +171,8 @@ pub fn pages_parser(info_data: &Value, episode_id: &str) -> TreeItem {
             int(page, "page")
         );
         item.episode_id = episode_id.to_owned();
-        item.related_titles.insert("parent_title".into(), Value::String(parent_title.clone()));
+        item.related_titles
+            .insert("parent_title".into(), Value::String(parent_title.clone()));
         item.set_attribute(Attribute::VIDEO_BIT | Attribute::PART_BIT);
         root.add_child(item);
     }
@@ -185,14 +206,17 @@ pub fn ugc_season_parser(info_data: &Value, episode_id: &str) -> TreeItem {
             );
             related.insert(
                 "section_title".into(),
-                Value::String(if section_count > 1 { section_title.clone() } else { String::new() }),
+                Value::String(if section_count > 1 {
+                    section_title.clone()
+                } else {
+                    String::new()
+                }),
             );
             let multi = episode["pages"].as_array().map(|p| p.len()).unwrap_or(0) > 1;
 
             if multi {
                 let parent_title = text(&episode, "title").to_owned();
-                let mut page_node =
-                    TreeItem::root(Number::Text("分P".to_owned()), &parent_title);
+                let mut page_node = TreeItem::root(Number::Text("分P".to_owned()), &parent_title);
                 page_node.set_attribute(Attribute::TREE_NODE_BIT);
 
                 for page in episode["pages"].as_array().cloned().unwrap_or_default() {
@@ -214,13 +238,15 @@ pub fn ugc_season_parser(info_data: &Value, episode_id: &str) -> TreeItem {
                     );
                     item.episode_id = episode_id.to_owned();
                     item.related_titles = related.clone();
-                    item
-                        .related_titles
+                    item.related_titles
                         .insert("parent_title".into(), Value::String(parent_title.clone()));
                     item.set_attribute(Attribute::VIDEO_BIT | Attribute::COLLECTION_BIT);
                     page_node.add_child(item);
                 }
-                attach(root_or_section(&mut root, &mut section_node, section_count), page_node);
+                attach(
+                    root_or_section(&mut root, &mut section_node, section_count),
+                    page_node,
+                );
             } else {
                 number += 1;
                 let mut item = TreeItem::empty();
@@ -237,7 +263,10 @@ pub fn ugc_season_parser(info_data: &Value, episode_id: &str) -> TreeItem {
                 item.episode_id = episode_id.to_owned();
                 item.related_titles = related.clone();
                 item.set_attribute(Attribute::VIDEO_BIT | Attribute::COLLECTION_BIT);
-                attach(root_or_section(&mut root, &mut section_node, section_count), item);
+                attach(
+                    root_or_section(&mut root, &mut section_node, section_count),
+                    item,
+                );
             }
         }
 
@@ -248,7 +277,11 @@ pub fn ugc_season_parser(info_data: &Value, episode_id: &str) -> TreeItem {
     root
 }
 
-fn root_or_section<'a>(root: &'a mut TreeItem, section: &'a mut TreeItem, count: usize) -> &'a mut TreeItem {
+fn root_or_section<'a>(
+    root: &'a mut TreeItem,
+    section: &'a mut TreeItem,
+    count: usize,
+) -> &'a mut TreeItem {
     if count > 1 {
         section
     } else {

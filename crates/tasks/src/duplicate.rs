@@ -99,8 +99,11 @@ pub fn check_duplicate(
         .get("Behavior", "duplicate_download_resolution")
         .cloned()
         .unwrap_or_else(|| Value::from(2));
-    let resolution =
-        DuplicateResolution::from_code(pick_option(options, "duplicate_resolution", &fallback).as_i64().unwrap_or(2));
+    let resolution = DuplicateResolution::from_code(
+        pick_option(options, "duplicate_resolution", &fallback)
+            .as_i64()
+            .unwrap_or(2),
+    );
 
     match resolution {
         DuplicateResolution::Continue => DuplicateCheck::Continue,

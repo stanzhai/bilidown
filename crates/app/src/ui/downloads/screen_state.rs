@@ -17,10 +17,7 @@ impl DownloadsTab {
                 "downloading_list_sort_by",
                 "downloading_list_sort_ascending",
             ),
-            Self::Completed => (
-                "completed_list_sort_by",
-                "completed_list_sort_ascending",
-            ),
+            Self::Completed => ("completed_list_sort_by", "completed_list_sort_ascending"),
         }
     }
 }
@@ -85,10 +82,26 @@ mod tests {
     fn sort_prefs_load_from_config() {
         let dir = tempfile::tempdir().unwrap();
         let mut cfg = config::ConfigStore::with_paths(dir.path(), dir.path());
-        cfg.set("Behavior", "downloading_list_sort_by", serde_json::json!("file_size"));
-        cfg.set("Behavior", "downloading_list_sort_ascending", serde_json::json!(false));
-        cfg.set("Behavior", "completed_list_sort_by", serde_json::json!("show_title"));
-        cfg.set("Behavior", "completed_list_sort_ascending", serde_json::json!(true));
+        cfg.set(
+            "Behavior",
+            "downloading_list_sort_by",
+            serde_json::json!("file_size"),
+        );
+        cfg.set(
+            "Behavior",
+            "downloading_list_sort_ascending",
+            serde_json::json!(false),
+        );
+        cfg.set(
+            "Behavior",
+            "completed_list_sort_by",
+            serde_json::json!("show_title"),
+        );
+        cfg.set(
+            "Behavior",
+            "completed_list_sort_ascending",
+            serde_json::json!(true),
+        );
 
         let mut s = ScreenState::new();
         s.load_sort_prefs(&cfg);

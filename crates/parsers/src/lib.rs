@@ -11,9 +11,9 @@ pub mod auto_parse;
 pub mod batch;
 pub mod episode;
 pub mod list;
+pub mod media_parser;
 pub mod playurl;
 pub mod preview;
-pub mod media_parser;
 pub mod tree;
 pub mod view;
 pub mod worker;
@@ -28,16 +28,16 @@ pub use auto_parse::{
     DEFAULT_PAGE_INTERVAL,
 };
 pub use batch::{
-    aid_to_bvid, bvid_of, build_video_items, fetch_video_data, parse_batch,
-    validate_batch_input, video_episode_data, BatchError, BatchPage, VIDEO_VIEW_API,
+    aid_to_bvid, build_video_items, bvid_of, fetch_video_data, parse_batch, validate_batch_input,
+    video_episode_data, BatchError, BatchPage, VIDEO_VIEW_API,
 };
 pub use episode::list_base::{
     episode_type, unformat_episode_duration, with_search_keyword, wrap_node,
 };
 pub use list::{
     check_response, parse_favlist, parse_history, parse_list, parse_popular, parse_space,
-    parse_watch_later, space_params, swap_host, ExtraData, ListError, ListParseContext,
-    Pagination, ParseOutput,
+    parse_watch_later, space_params, swap_host, ExtraData, ListError, ListParseContext, Pagination,
+    ParseOutput,
 };
 pub use tree::{Attribute, CheckState, EpisodeData, Number, TreeItem};
 pub use view::{ParseListView, ViewError};

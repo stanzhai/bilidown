@@ -21,7 +21,7 @@ use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::label::Label;
 use gpui_kit::component::notification::Notification;
 use gpui_kit::component::WindowExt;
-use gpui_kit::{AppContext, ParentElement, Window, div, px, prelude::*};
+use gpui_kit::{div, prelude::*, px, AppContext, ParentElement, Window};
 
 use super::active_catalog;
 
@@ -53,7 +53,6 @@ pub fn alignment_caption(c: &services::i18n::Catalog, value: i64) -> String {
         .map(|(k, v)| alignment_label(c, k, *v))
         .unwrap_or_else(|| "Alignment".to_owned())
 }
-
 
 // Danmaku style
 // ---------------------------------------------------------------------
@@ -103,7 +102,12 @@ impl DanmakuStyleState {
         ensure(&mut resolution, "width", json!(1280));
         ensure(&mut resolution, "height", json!(720));
 
-        Self { font, border, advanced, resolution }
+        Self {
+            font,
+            border,
+            advanced,
+            resolution,
+        }
     }
 
     /// `accept()` → the dict written back to
@@ -187,7 +191,14 @@ impl SubtitleStyleState {
             })
             .unwrap_or(2);
 
-        Self { font, border, color, margin, resolution, alignment }
+        Self {
+            font,
+            border,
+            color,
+            margin,
+            resolution,
+            alignment,
+        }
     }
 
     /// `accept()` → the dict written back to `Additional.subtitle_style`.
@@ -220,7 +231,6 @@ pub fn danmaku_caption(c: &services::i18n::Catalog) -> String {
 pub fn subtitle_caption(c: &services::i18n::Catalog) -> String {
     c.tr("ContentWidget", "Customize Subtitle Style").to_owned()
 }
-
 
 /// One editable row: a text field bound to a map entry (string-typed
 /// in the UI; parsed back to the field's JSON type on save).
@@ -290,11 +300,7 @@ fn style_fields(
 
 /// Open the danmaku-style dialog (`ContentWidget` →
 /// `Additional.danmaku_style`).
-pub fn open_danmaku_style(
-    cfg: config::ConfigStore,
-    window: &mut Window,
-    cx: &mut gpui_kit::App,
-) {
+pub fn open_danmaku_style(cfg: config::ConfigStore, window: &mut Window, cx: &mut gpui_kit::App) {
     let catalog = active_catalog(&cfg);
     let state = DanmakuStyleState::load(&cfg);
     let caption = danmaku_caption(catalog);
@@ -325,15 +331,60 @@ pub fn open_danmaku_style(
         ("font", "italic", labels("FontGroup", "Italic"), 'b'),
         ("font", "underline", labels("FontGroup", "Underline"), 'b'),
         ("font", "strike", labels("FontGroup", "Strikethrough"), 'b'),
-        ("border", "border", labels("BorderGroup", "Outline (px)"), 'f'),
-        ("border", "shadow", labels("BorderGroup", "Shadow (px)"), 'f'),
-        ("advanced", "display_area", labels("AdvancedGroup", "Display Area (%)"), 'i'),
-        ("advanced", "opacity", labels("AdvancedGroup", "Opacity (%)"), 'i'),
-        ("advanced", "scroll_duration", labels("AdvancedGroup", "Scroll Duration (s)"), 'i'),
-        ("advanced", "static_duration", labels("AdvancedGroup", "Static Duration (s)"), 'i'),
-        ("advanced", "minimum_gap", labels("AdvancedGroup", "Minimum Horizontal Spacing (px)"), 'i'),
-        ("resolution", "width", labels("ResolutionGroup", "Screen Width (px)"), 'i'),
-        ("resolution", "height", labels("ResolutionGroup", "Screen Height (px)"), 'i'),
+        (
+            "border",
+            "border",
+            labels("BorderGroup", "Outline (px)"),
+            'f',
+        ),
+        (
+            "border",
+            "shadow",
+            labels("BorderGroup", "Shadow (px)"),
+            'f',
+        ),
+        (
+            "advanced",
+            "display_area",
+            labels("AdvancedGroup", "Display Area (%)"),
+            'i',
+        ),
+        (
+            "advanced",
+            "opacity",
+            labels("AdvancedGroup", "Opacity (%)"),
+            'i',
+        ),
+        (
+            "advanced",
+            "scroll_duration",
+            labels("AdvancedGroup", "Scroll Duration (s)"),
+            'i',
+        ),
+        (
+            "advanced",
+            "static_duration",
+            labels("AdvancedGroup", "Static Duration (s)"),
+            'i',
+        ),
+        (
+            "advanced",
+            "minimum_gap",
+            labels("AdvancedGroup", "Minimum Horizontal Spacing (px)"),
+            'i',
+        ),
+        (
+            "resolution",
+            "width",
+            labels("ResolutionGroup", "Screen Width (px)"),
+            'i',
+        ),
+        (
+            "resolution",
+            "height",
+            labels("ResolutionGroup", "Screen Height (px)"),
+            'i',
+        ),
     ];
     let fields = style_fields(window, cx, rows, &read);
     let fields = std::rc::Rc::new(fields);
@@ -346,20 +397,16 @@ pub fn open_danmaku_style(
             .content({
                 let fields = fields.clone();
                 move |content, _, _| {
-                    content.child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .children(fields.iter().map(|f| {
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .child(div().w(px(180.)).child(Label::new(f.label.clone())))
-                                    .child(div().flex_1().child(Input::new(&f.input).id(f.key)))
-                            })),
-                    )
+                    content.child(div().flex().flex_col().gap_2().children(fields.iter().map(
+                        |f| {
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .child(div().w(px(180.)).child(Label::new(f.label.clone())))
+                                .child(div().flex_1().child(Input::new(&f.input).id(f.key)))
+                        },
+                    )))
                 }
             })
             .footer({
@@ -371,10 +418,7 @@ pub fn open_danmaku_style(
                         let writes = match collect_fields(&fields, cx) {
                             Ok(w) => w,
                             Err(e) => {
-                                window.push_notification(
-                                    Notification::error(e.clone()),
-                                    cx,
-                                );
+                                window.push_notification(Notification::error(e.clone()), cx);
                                 return;
                             }
                         };
@@ -401,11 +445,7 @@ pub fn open_danmaku_style(
 
 /// Open the subtitle-style dialog (`ContentWidget` →
 /// `Additional.subtitle_style`).
-pub fn open_subtitle_style(
-    cfg: config::ConfigStore,
-    window: &mut Window,
-    cx: &mut gpui_kit::App,
-) {
+pub fn open_subtitle_style(cfg: config::ConfigStore, window: &mut Window, cx: &mut gpui_kit::App) {
     let catalog = active_catalog(&cfg);
     let state = SubtitleStyleState::load(&cfg);
     let caption = subtitle_caption(catalog);
@@ -435,17 +475,67 @@ pub fn open_subtitle_style(
         ("font", "name", labels("FontGroup", "Font Family"), 's'),
         ("font", "size", labels("FontGroup", "Font Size"), 'i'),
         ("font", "bold", labels("FontGroup", "Bold"), 'b'),
-        ("border", "outline", labels("BorderGroup", "Outline (px)"), 'f'),
-        ("border", "shadow", labels("BorderGroup", "Shadow (px)"), 'f'),
-        ("color", "primary", labels("ColorGroup", "Primary Color"), 's'),
-        ("color", "secondary", labels("ColorGroup", "Secondary Color"), 's'),
-        ("color", "outline", labels("ColorGroup", "Outline Color"), 's'),
+        (
+            "border",
+            "outline",
+            labels("BorderGroup", "Outline (px)"),
+            'f',
+        ),
+        (
+            "border",
+            "shadow",
+            labels("BorderGroup", "Shadow (px)"),
+            'f',
+        ),
+        (
+            "color",
+            "primary",
+            labels("ColorGroup", "Primary Color"),
+            's',
+        ),
+        (
+            "color",
+            "secondary",
+            labels("ColorGroup", "Secondary Color"),
+            's',
+        ),
+        (
+            "color",
+            "outline",
+            labels("ColorGroup", "Outline Color"),
+            's',
+        ),
         ("color", "back", labels("ColorGroup", "Back Color"), 's'),
-        ("margin", "vertical", labels("MarginGroup", "Vertical Margin (px)"), 'i'),
-        ("margin", "horizontal", labels("MarginGroup", "Horizontal Margin (px)"), 'i'),
-        ("resolution", "width", labels("ResolutionGroup", "Screen Width (px)"), 'i'),
-        ("resolution", "height", labels("ResolutionGroup", "Screen Height (px)"), 'i'),
-        ("", "alignment", alignment_caption(catalog, state.alignment), 'i'),
+        (
+            "margin",
+            "vertical",
+            labels("MarginGroup", "Vertical Margin (px)"),
+            'i',
+        ),
+        (
+            "margin",
+            "horizontal",
+            labels("MarginGroup", "Horizontal Margin (px)"),
+            'i',
+        ),
+        (
+            "resolution",
+            "width",
+            labels("ResolutionGroup", "Screen Width (px)"),
+            'i',
+        ),
+        (
+            "resolution",
+            "height",
+            labels("ResolutionGroup", "Screen Height (px)"),
+            'i',
+        ),
+        (
+            "",
+            "alignment",
+            alignment_caption(catalog, state.alignment),
+            'i',
+        ),
     ];
     let fields = std::rc::Rc::new(style_fields(window, cx, rows, &read));
     let cfg_cell = std::rc::Rc::new(std::cell::RefCell::new(cfg));
@@ -457,20 +547,16 @@ pub fn open_subtitle_style(
             .content({
                 let fields = fields.clone();
                 move |content, _, _| {
-                    content.child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .children(fields.iter().map(|f| {
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .child(div().w(px(180.)).child(Label::new(f.label.clone())))
-                                    .child(div().flex_1().child(Input::new(&f.input).id(f.key)))
-                            })),
-                    )
+                    content.child(div().flex().flex_col().gap_2().children(fields.iter().map(
+                        |f| {
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .child(div().w(px(180.)).child(Label::new(f.label.clone())))
+                                .child(div().flex_1().child(Input::new(&f.input).id(f.key)))
+                        },
+                    )))
                 }
             })
             .footer({
@@ -482,10 +568,7 @@ pub fn open_subtitle_style(
                         let writes = match collect_fields(&fields, cx) {
                             Ok(w) => w,
                             Err(e) => {
-                                window.push_notification(
-                                    Notification::error(e.clone()),
-                                    cx,
-                                );
+                                window.push_notification(Notification::error(e.clone()), cx);
                                 return;
                             }
                         };
@@ -536,7 +619,6 @@ mod tests {
         ));
         config::ConfigStore::with_paths(&dir, "")
     }
-
 
     #[test]
     fn danmaku_load_defaults_match_the_config_fixture() {
@@ -606,7 +688,8 @@ mod tests {
         // the ASS reader's spelling stays in sync
         assert_eq!(section["Alignment"], 7);
         assert_eq!(
-            SubtitleStyleState::load(&cfg).alignment, 7,
+            SubtitleStyleState::load(&cfg).alignment,
+            7,
             "lowercase wins on reload"
         );
     }
@@ -614,7 +697,10 @@ mod tests {
     #[test]
     fn alignment_map_covers_the_nine_keypad_slots() {
         assert_eq!(
-            SUBTITLES_ALIGNMENT_MAP.iter().map(|(_, v)| *v).collect::<Vec<_>>(),
+            SUBTITLES_ALIGNMENT_MAP
+                .iter()
+                .map(|(_, v)| *v)
+                .collect::<Vec<_>>(),
             (1..=9).collect::<Vec<_>>()
         );
         let c = catalog(ResolvedLanguage::ZhCn);

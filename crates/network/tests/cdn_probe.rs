@@ -10,8 +10,8 @@ use network::cdn::{
     clear_host_health_for_test, host_is_cooling, report_host_failure, CdnConfig, CdnServer,
     PreferProvider, HOST_FAILURE_THRESHOLD,
 };
-use network::{ClientOptions, HttpClient};
 use network::probe::{resolve_download_url, DEFAULT_MIN_FILE_SIZE};
+use network::{ClientOptions, HttpClient};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -36,7 +36,9 @@ fn config(servers: Vec<CdnServer>) -> CdnConfig {
 /// whole sync test so a sibling's clear cannot wipe our cooldown mid-body.
 fn clean() -> std::sync::MutexGuard<'static, ()> {
     static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let guard = SERIAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let guard = SERIAL
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     clear_host_health_for_test();
     guard
 }
@@ -60,7 +62,11 @@ async fn probed_host_selection_ranks_by_candidate_order() {
     // winner answers, so a sibling may see one probe — never a hit.
     Mock::given(method("HEAD"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "video/mp4").insert_header("content-length", "1048576"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "video/mp4")
+                .insert_header("content-length", "1048576"),
+        )
         .expect(1)
         .mount(&first)
         .await;
@@ -98,7 +104,6 @@ async fn probed_host_selection_ranks_by_candidate_order() {
     first.verify().await;
     second.verify().await;
     third.verify().await;
-
 }
 
 #[tokio::test]
@@ -116,7 +121,11 @@ async fn first_mirror_down_second_answers() {
         .await;
     Mock::given(method("HEAD"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "video/mp4").insert_header("content-length", "2097152"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "video/mp4")
+                .insert_header("content-length", "2097152"),
+        )
         .expect(1)
         .mount(&good)
         .await;
@@ -140,10 +149,12 @@ async fn first_mirror_down_second_answers() {
     assert_eq!(resolved.file_size, 2097152);
     // The failed mirror's host entered cooldown after one conclusive
     // failure... wait, threshold is 2 — one failure is *not* cooling yet.
-    assert!(!host_is_cooling(&format!("127.0.0.1:{}", bad.address().port())));
+    assert!(!host_is_cooling(&format!(
+        "127.0.0.1:{}",
+        bad.address().port()
+    )));
     bad.verify().await;
     good.verify().await;
-
 }
 
 #[test]
@@ -208,7 +219,6 @@ async fn same_host_candidates_skipped_after_host_failure() {
     assert_eq!(error.hosts, 3);
     assert!(error.to_string().contains("无法获取有效的下载链接"));
     bad.verify().await;
-
 }
 
 #[tokio::test]
@@ -253,7 +263,6 @@ async fn head_405_falls_back_to_range_get() {
     assert_eq!(resolved.file_size, 3145728);
     assert!(resolved.url.starts_with(server.uri().as_str()));
     server.verify().await;
-
 }
 
 #[tokio::test]
@@ -267,13 +276,21 @@ async fn text_error_page_is_failure() {
     // and the resolve falls through to the original link (also dead).
     Mock::given(method("HEAD"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "text/html").insert_header("content-length", "4096"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/html")
+                .insert_header("content-length", "4096"),
+        )
         .expect(1)
         .mount(&server)
         .await;
     Mock::given(method("GET"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "text/html").insert_header("content-length", "4096"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/html")
+                .insert_header("content-length", "4096"),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -295,7 +312,6 @@ async fn text_error_page_is_failure() {
     assert_eq!(error.total, 2);
     assert_eq!(error.hosts, 2);
     server.verify().await;
-
 }
 
 #[tokio::test]
@@ -309,19 +325,31 @@ async fn small_file_moves_on_to_next_candidate() {
     // GET fallback confirms the small size and the probe moves on.
     Mock::given(method("HEAD"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "video/mp4").insert_header("content-length", "100"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "video/mp4")
+                .insert_header("content-length", "100"),
+        )
         .expect(1)
         .mount(&tiny)
         .await;
     Mock::given(method("GET"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(206).insert_header("content-type", "video/mp4").insert_header("content-range", "bytes 0-0/100"))
+        .respond_with(
+            ResponseTemplate::new(206)
+                .insert_header("content-type", "video/mp4")
+                .insert_header("content-range", "bytes 0-0/100"),
+        )
         .expect(0..=1)
         .mount(&tiny)
         .await;
     Mock::given(method("HEAD"))
         .and(path("/video.m4s"))
-        .respond_with(ResponseTemplate::new(200).insert_header("content-type", "video/mp4").insert_header("content-length", "8388608"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "video/mp4")
+                .insert_header("content-length", "8388608"),
+        )
         .expect(1)
         .mount(&real)
         .await;
@@ -345,7 +373,6 @@ async fn small_file_moves_on_to_next_candidate() {
     assert_eq!(resolved.file_size, 8388608);
     tiny.verify().await;
     real.verify().await;
-
 }
 
 #[tokio::test]

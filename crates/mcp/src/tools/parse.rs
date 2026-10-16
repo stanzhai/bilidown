@@ -40,7 +40,9 @@ pub fn category_name(parser: ParserType) -> &'static str {
 fn clamp_limit(value: Option<&Value>) -> usize {
     match value {
         Some(Value::Number(n)) if n.is_u64() || n.is_i64() => {
-            n.as_i64().unwrap_or(DEFAULT_LIMIT as i64).clamp(1, MAX_LIMIT as i64) as usize
+            n.as_i64()
+                .unwrap_or(DEFAULT_LIMIT as i64)
+                .clamp(1, MAX_LIMIT as i64) as usize
         }
         _ => DEFAULT_LIMIT,
     }
@@ -80,7 +82,11 @@ struct Collected {
     link_target_episode: Option<Value>,
 }
 
-fn collect_episodes(view: &ParseListView, limit: usize, downloaded: &std::collections::HashSet<String>) -> Collected {
+fn collect_episodes(
+    view: &ParseListView,
+    limit: usize,
+    downloaded: &std::collections::HashSet<String>,
+) -> Collected {
     let items = view.get_all_items();
     let total = items.len();
 
@@ -92,14 +98,29 @@ fn collect_episodes(view: &ParseListView, limit: usize, downloaded: &std::collec
     let mut episodes = Vec::new();
     for (index, item) in items.iter().take(limit).enumerate() {
         let id = (index + 1).to_string();
-        episodes.push(episode_to_dict(&id, item, link_target == Some(index + 1), downloaded.contains(&id)));
+        episodes.push(episode_to_dict(
+            &id,
+            item,
+            link_target == Some(index + 1),
+            downloaded.contains(&id),
+        ));
     }
 
-    let link_target_episode = link_target
-        .filter(|id| *id > limit)
-        .map(|id| episode_to_dict(&id.to_string(), items[id - 1], true, downloaded.contains(&id.to_string())));
+    let link_target_episode = link_target.filter(|id| *id > limit).map(|id| {
+        episode_to_dict(
+            &id.to_string(),
+            items[id - 1],
+            true,
+            downloaded.contains(&id.to_string()),
+        )
+    });
 
-    Collected { total, episodes, link_target_id: link_target.map(|i| i.to_string()), link_target_episode }
+    Collected {
+        total,
+        episodes,
+        link_target_id: link_target.map(|i| i.to_string()),
+        link_target_episode,
+    }
 }
 
 fn link_target_note(collected: &Collected) -> String {
@@ -122,7 +143,9 @@ fn link_target_note(collected: &Collected) -> String {
                 .map(str::to_owned)
         });
     match title {
-        Some(title) if !title.is_empty() => format!(" The link points to episode_id {id} ({title})."),
+        Some(title) if !title.is_empty() => {
+            format!(" The link points to episode_id {id} ({title}).")
+        }
         _ => format!(" The link points to episode_id {id}."),
     }
 }
@@ -131,7 +154,10 @@ fn fallback_note(source: &Value) -> String {
     if source.get("from_fallback").and_then(Value::as_bool) != Some(true) {
         return String::new();
     }
-    let title = source.get("title").and_then(Value::as_str).unwrap_or_default();
+    let title = source
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     format!(
         " Note: the linked item did not provide media information, so the qualities in 'available' are those of another item ({title}) and may differ from what the item you download actually offers."
     )
@@ -177,9 +203,8 @@ pub fn media_info_error(preview: &Option<PreviewSummary>) -> Option<String> {
         return Some(error.clone());
     }
     // No preview at all after a parse = never retrieved.
-    (preview.video_quality.is_empty() && preview.audio_quality.is_empty()).then(|| {
-        "media information was not retrieved".to_owned()
-    })
+    (preview.video_quality.is_empty() && preview.audio_quality.is_empty())
+        .then(|| "media information was not retrieved".to_owned())
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +232,10 @@ pub async fn tool_parse_url(state: Arc<McpState>, arguments: &Map<String, Value>
         ));
     };
 
-    let Some(_guard) = state.parse_guard.try_lock_for(std::time::Duration::from_secs(2)) else {
+    let Some(_guard) = state
+        .parse_guard
+        .try_lock_for(std::time::Duration::from_secs(2))
+    else {
         return ToolOutput::error(
             "Another parse is already running. Only one parse can run at a time because it replaces the application's parse list. Retry once it finishes.",
         );
@@ -246,7 +274,6 @@ pub async fn tool_parse_url(state: Arc<McpState>, arguments: &Map<String, Value>
     // Auto-check the link target (view.update_tree already did) — record
     // the post-parse fingerprint so the guard ignores it next time.
     record_snapshot(&state);
-
 
     let mut structured = json!({"category": result.category});
     structured["total"] = json!(collected.total);
@@ -316,7 +343,11 @@ pub struct ParsedTree {
 }
 
 /// Run the family dispatch (`ParseWorker.run` minus the Qt plumbing).
-pub async fn run_parse(state: &McpState, url: &str, parser: ParserType) -> anyhow::Result<ParsedTree> {
+pub async fn run_parse(
+    state: &McpState,
+    url: &str,
+    parser: ParserType,
+) -> anyhow::Result<ParsedTree> {
     let client = http_client(state)?;
     let base = state.api_base.clone();
     let auth = auth_state(state);
@@ -365,7 +396,11 @@ async fn dispatch_parse(
 
     let wrap = |node: TreeItem, current: Option<(String, String)>, category: &'static str| {
         let (_title, wrapper) = wrap_node(node);
-        ParsedTree { wrapper, current_episode: current, category }
+        ParsedTree {
+            wrapper,
+            current_episode: current,
+            category,
+        }
     };
 
     match parser {
@@ -383,7 +418,12 @@ async fn dispatch_parse(
                             continue;
                         }
                         return Box::pin(dispatch_parse(
-                            client, base, &current_url, next_parser, episode_data, auth,
+                            client,
+                            base,
+                            &current_url,
+                            next_parser,
+                            episode_data,
+                            auth,
                         ))
                         .await;
                     }
@@ -391,7 +431,11 @@ async fn dispatch_parse(
                         return Ok(wrap(tree, None, category_name(parser)));
                     }
                     ParseOutcome::Episode(node, (key, value)) => {
-                        return Ok(wrap(node, Some((key, value.to_string())), category_name(parser)));
+                        return Ok(wrap(
+                            node,
+                            Some((key, value.to_string())),
+                            category_name(parser),
+                        ));
                     }
                 }
             }
@@ -462,7 +506,10 @@ pub fn tool_get_episodes(state: Arc<McpState>, arguments: &Map<String, Value>) -
     let (collected, preview) = {
         let view = state.view.lock();
         let downloaded = state.downloaded.lock();
-        (collect_episodes(&view, limit, &downloaded), state.preview.lock().clone())
+        (
+            collect_episodes(&view, limit, &downloaded),
+            state.preview.lock().clone(),
+        )
     };
 
     if collected.total == 0 {
@@ -533,4 +580,3 @@ pub fn parse_schemas() -> Vec<ToolSchema> {
         },
     ]
 }
-

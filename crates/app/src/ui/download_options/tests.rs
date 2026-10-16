@@ -175,11 +175,10 @@ fn filename_preview_matches_engine() {
     let rule = store
         .get_rule_from_config(Some(11))
         .expect("default normal rule exists");
-    let variable_data = naming::conventions::VariableListFactory::new()
-        .build_variable_data(
-            naming::conventions::ConventionType::Normal,
-            naming::conventions::SampleShape::Single,
-        );
+    let variable_data = naming::conventions::VariableListFactory::new().build_variable_data(
+        naming::conventions::ConventionType::Normal,
+        naming::conventions::SampleShape::Single,
+    );
     let expected = naming::formatter::FileNameFormatter::new(variable_data, &store)
         .format(Some(11), 0, &rule)
         .expect("engine formats the default rule");
@@ -196,11 +195,13 @@ fn commit_writes_config_and_naming_state() {
     let mut naming = NamingState::default();
     m.commit(&mut cfg, &mut naming);
     assert_eq!(
-        cfg.get("Download", "video_container").and_then(Value::as_str),
+        cfg.get("Download", "video_container")
+            .and_then(Value::as_str),
         Some("mp4")
     );
     assert_eq!(
-        cfg.get("File Naming", "numbering_type").and_then(Value::as_i64),
+        cfg.get("File Naming", "numbering_type")
+            .and_then(Value::as_i64),
         Some(2)
     );
     // CONTINUOUS → the dialog's starting number becomes the runtime's

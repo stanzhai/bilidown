@@ -28,7 +28,8 @@ fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
 }
 
 fn user_version(conn: &Connection) -> i64 {
-    conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap_or(0)
+    conn.query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap_or(0)
 }
 
 fn set_user_version(conn: &Connection, version: i64) -> rusqlite::Result<()> {
@@ -188,9 +189,9 @@ impl TaskDatabase {
             }
 
             if !updates.is_empty() {
-                let mut stmt = self.conn.prepare(&format!(
-                    "UPDATE {table} SET hash_id = ? WHERE task_id = ?"
-                ))?;
+                let mut stmt = self
+                    .conn
+                    .prepare(&format!("UPDATE {table} SET hash_id = ? WHERE task_id = ?"))?;
                 for (hash_id, task_id) in &updates {
                     stmt.execute(params![hash_id, task_id])?;
                 }
@@ -249,7 +250,9 @@ impl TaskDatabase {
     }
 
     fn collect_records(&self, table: &str, completed: bool) -> anyhow::Result<Vec<TaskRecord>> {
-        let mut stmt = self.conn.prepare(&format!("SELECT data FROM \"{table}\""))?;
+        let mut stmt = self
+            .conn
+            .prepare(&format!("SELECT data FROM \"{table}\""))?;
         let rows = stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -264,7 +267,11 @@ impl TaskDatabase {
 
     /// Reads task rows. `limit = None` returns everything (startup list
     /// restore); otherwise the most recent `limit` rows by time desc.
-    pub fn query_tasks(&self, completed: bool, limit: Option<i64>) -> rusqlite::Result<Vec<TaskInfo>> {
+    pub fn query_tasks(
+        &self,
+        completed: bool,
+        limit: Option<i64>,
+    ) -> rusqlite::Result<Vec<TaskInfo>> {
         let (table, order_column) = if completed {
             ("completed_task", "completed_time")
         } else {
@@ -272,9 +279,9 @@ impl TaskDatabase {
         };
         let sql = match limit {
             None => format!(r#"SELECT data FROM "{table}""#),
-            Some(_) => format!(
-                r#"SELECT data FROM "{table}" ORDER BY "{order_column}" DESC LIMIT ?"#,
-            ),
+            Some(_) => {
+                format!(r#"SELECT data FROM "{table}" ORDER BY "{order_column}" DESC LIMIT ?"#,)
+            }
         };
         let mut stmt = self.conn.prepare(&sql)?;
         let rows = match limit {
@@ -294,11 +301,19 @@ impl TaskDatabase {
     }
 
     /// Reads one row by `task_id` (UNIQUE column; no full scan).
-    pub fn query_task_by_id(&self, task_id: &str, completed: bool) -> rusqlite::Result<Option<TaskInfo>> {
-        let table = if completed { "completed_task" } else { "download_task" };
-        let mut stmt = self
-            .conn
-            .prepare(&format!(r#"SELECT data FROM "{table}" WHERE "task_id" = ?"#))?;
+    pub fn query_task_by_id(
+        &self,
+        task_id: &str,
+        completed: bool,
+    ) -> rusqlite::Result<Option<TaskInfo>> {
+        let table = if completed {
+            "completed_task"
+        } else {
+            "download_task"
+        };
+        let mut stmt = self.conn.prepare(&format!(
+            r#"SELECT data FROM "{table}" WHERE "task_id" = ?"#
+        ))?;
         let mut rows = stmt.query(params![task_id])?;
         match rows.next()? {
             Some(row) => {
@@ -310,11 +325,19 @@ impl TaskDatabase {
     }
 
     /// Raw `data` JSON of one row, by `task_id` (point query).
-    pub fn query_task_json(&self, task_id: &str, completed: bool) -> rusqlite::Result<Option<String>> {
-        let table = if completed { "completed_task" } else { "download_task" };
-        let mut stmt = self
-            .conn
-            .prepare(&format!(r#"SELECT data FROM "{table}" WHERE "task_id" = ?"#))?;
+    pub fn query_task_json(
+        &self,
+        task_id: &str,
+        completed: bool,
+    ) -> rusqlite::Result<Option<String>> {
+        let table = if completed {
+            "completed_task"
+        } else {
+            "download_task"
+        };
+        let mut stmt = self.conn.prepare(&format!(
+            r#"SELECT data FROM "{table}" WHERE "task_id" = ?"#
+        ))?;
         let mut rows = stmt.query(params![task_id])?;
         match rows.next()? {
             Some(row) => Ok(Some(row.get(0)?)),
@@ -323,8 +346,13 @@ impl TaskDatabase {
     }
 
     pub fn count_tasks(&self, completed: bool) -> rusqlite::Result<i64> {
-        let table = if completed { "completed_task" } else { "download_task" };
-        self.conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+        let table = if completed {
+            "completed_task"
+        } else {
+            "download_task"
+        };
+        self.conn
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
     }
 
     /// Assembles a record from a task, recomputing the hash id.
@@ -349,11 +377,19 @@ impl TaskDatabase {
     }
 
     /// Inserts tasks into either table (batch of pre-built records).
-    pub fn add_task_records(&mut self, records: &[TaskRecord], completed: bool) -> rusqlite::Result<()> {
+    pub fn add_task_records(
+        &mut self,
+        records: &[TaskRecord],
+        completed: bool,
+    ) -> rusqlite::Result<()> {
         if records.is_empty() {
             return Ok(());
         }
-        let table = if completed { "completed_task" } else { "download_task" };
+        let table = if completed {
+            "completed_task"
+        } else {
+            "download_task"
+        };
         let mut stmt = self.conn.prepare(&format!(
             "INSERT INTO {table} (task_id, hash_id, cover_id, title, created_time, data)
              VALUES (?, ?, ?, ?, ?, ?)"
@@ -398,7 +434,11 @@ impl TaskDatabase {
         if task_ids.is_empty() {
             return Ok(());
         }
-        let table = if completed { "completed_task" } else { "download_task" };
+        let table = if completed {
+            "completed_task"
+        } else {
+            "download_task"
+        };
         // SQLITE_MAX_VARIABLE_NUMBER defaults to 999; batch to stay safe.
         for batch in task_ids.chunks(500) {
             let placeholders = vec!["?"; batch.len()].join(", ");
@@ -414,7 +454,10 @@ impl TaskDatabase {
     /// transaction so a mid-flight failure cannot lose the task.
     pub fn move_to_completed(&mut self, record: &TaskRecord) -> rusqlite::Result<()> {
         let tx = self.conn.transaction()?;
-        tx.execute("DELETE FROM download_task WHERE task_id = ?", params![record.task_id])?;
+        tx.execute(
+            "DELETE FROM download_task WHERE task_id = ?",
+            params![record.task_id],
+        )?;
         insert_records(&tx, true, std::slice::from_ref(record))?;
         tx.commit()
     }
@@ -422,22 +465,26 @@ impl TaskDatabase {
     /// Moves a record from completed_task back to download_task.
     pub fn recreate_task(&mut self, record: &TaskRecord) -> rusqlite::Result<()> {
         let tx = self.conn.transaction()?;
-        tx.execute("DELETE FROM completed_task WHERE task_id = ?", params![record.task_id])?;
+        tx.execute(
+            "DELETE FROM completed_task WHERE task_id = ?",
+            params![record.task_id],
+        )?;
         insert_records(&tx, false, std::slice::from_ref(record))?;
         tx.commit()
     }
 
     /// Duplicate detection across both tables in one round-trip.
     pub fn check_duplicate(&self, hash_id: &str) -> rusqlite::Result<bool> {
-        self.conn.query_row(
-            "SELECT
+        self.conn
+            .query_row(
+                "SELECT
                 EXISTS(SELECT 1 FROM completed_task WHERE hash_id = ?)
                 OR EXISTS(SELECT 1 FROM download_task WHERE hash_id = ?)",
-            params![hash_id, hash_id],
-            |r| r.get::<_, i64>(0),
-        )
-        .map(|v| v != 0)
-        .or(Ok(false))
+                params![hash_id, hash_id],
+                |r| r.get::<_, i64>(0),
+            )
+            .map(|v| v != 0)
+            .or(Ok(false))
     }
 
     pub fn user_version(&self) -> i64 {
@@ -525,7 +572,13 @@ impl CoverDatabase {
                 |r| r.get(0),
             )
             .map(Some)
-            .or_else(|e| if e == rusqlite::Error::QueryReturnedNoRows { Ok(None) } else { Err(e) })
+            .or_else(|e| {
+                if e == rusqlite::Error::QueryReturnedNoRows {
+                    Ok(None)
+                } else {
+                    Err(e)
+                }
+            })
     }
 
     /// INSERT OR REPLACE (not a bare INSERT): a stored falsy value would
@@ -577,7 +630,11 @@ impl HistoryDatabase {
             );
             "#,
         )?;
-        Ok(Self { conn, path, max_length: 100 })
+        Ok(Self {
+            conn,
+            path,
+            max_length: 100,
+        })
     }
 
     /// All rows, newest first.
@@ -627,8 +684,10 @@ impl HistoryDatabase {
     }
 
     pub fn delete(&self, history_id: &str) -> rusqlite::Result<()> {
-        self.conn
-            .execute("DELETE FROM history WHERE history_id = ?", params![history_id])?;
+        self.conn.execute(
+            "DELETE FROM history WHERE history_id = ?",
+            params![history_id],
+        )?;
         Ok(())
     }
 
@@ -639,7 +698,8 @@ impl HistoryDatabase {
 
     /// Row count (tests and callers that just need "how full is history").
     pub fn count(&self) -> rusqlite::Result<i64> {
-        self.conn.query_row("SELECT COUNT(*) FROM history", [], |r| r.get(0))
+        self.conn
+            .query_row("SELECT COUNT(*) FROM history", [], |r| r.get(0))
     }
 }
 

@@ -13,14 +13,18 @@ pub struct Lang {
 
 impl Default for Lang {
     fn default() -> Self {
-        Self { resolved: ResolvedLanguage::En }
+        Self {
+            resolved: ResolvedLanguage::En,
+        }
     }
 }
 
 impl Lang {
     /// Resolve from the `Interface.language` config value.
     pub fn from_config(value: &str) -> Self {
-        Self { resolved: i18n::Language::from_config(value).resolve() }
+        Self {
+            resolved: i18n::Language::from_config(value).resolve(),
+        }
     }
 
     /// Translate `(context, source)`; English source passes through.

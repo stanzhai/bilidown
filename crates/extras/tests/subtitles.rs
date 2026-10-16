@@ -28,7 +28,10 @@ fn lrc_format() {
 
 #[test]
 fn txt_format() {
-    assert_eq!(extras::subtitles::to_txt(&subtitle_body()), "你好 world\n第二行");
+    assert_eq!(
+        extras::subtitles::to_txt(&subtitle_body()),
+        "你好 world\n第二行"
+    );
 }
 
 #[test]
@@ -100,9 +103,13 @@ async fn language_filter_drops_unselected_entries() {
     ]}});
     let config = json!({"download_specified": true, "specified_language": ["zh"]});
 
-    let list =
-        extras::subtitles::get_subtitles_data_list(&client, &player, &config).await.unwrap();
-    assert_eq!(list.iter().map(|e| e.language.as_str()).collect::<Vec<_>>(), ["zh"]);
+    let list = extras::subtitles::get_subtitles_data_list(&client, &player, &config)
+        .await
+        .unwrap();
+    assert_eq!(
+        list.iter().map(|e| e.language.as_str()).collect::<Vec<_>>(),
+        ["zh"]
+    );
     // 只选 zh 时，en / ai-zh 都不该发请求
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }

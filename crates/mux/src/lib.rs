@@ -60,8 +60,7 @@ pub mod error_messages {
     pub const INSUFFICIENT_SPACE: &str =
         "Insufficient disk space, please free up enough space and try again.";
     pub const PERMISSION_DENIED: &str = "Permission denied: cannot write to file";
-    pub const CORRUPTED_FILE: &str =
-        "Downloaded file is corrupted, please try downloading again.";
+    pub const CORRUPTED_FILE: &str = "Downloaded file is corrupted, please try downloading again.";
     pub const COULD_NOT_OPEN: &str = "Failed to open file";
     pub const FILE_IS_BUSY: &str = "File is in use by another process";
     pub const CANNOT_CREATE: &str = "Could not create output file";
@@ -69,16 +68,25 @@ pub mod error_messages {
 
 /// stderr substring → message, first match wins (Python `on_merge_error`).
 const ERROR_MAP: [(&str, &str); 7] = [
-    ("No space left on device", error_messages::INSUFFICIENT_SPACE),
+    (
+        "No space left on device",
+        error_messages::INSUFFICIENT_SPACE,
+    ),
     ("Permission denied", error_messages::PERMISSION_DENIED),
     (
         "Invalid data found when processing input",
         error_messages::CORRUPTED_FILE,
     ),
-    ("No such file or directory", error_messages::FILE_NOT_FOUND_DETAIL),
+    (
+        "No such file or directory",
+        error_messages::FILE_NOT_FOUND_DETAIL,
+    ),
     ("Could not open file", error_messages::COULD_NOT_OPEN),
     ("Device or resource busy", error_messages::FILE_IS_BUSY),
-    ("Could not create output file", error_messages::CANNOT_CREATE),
+    (
+        "Could not create output file",
+        error_messages::CANNOT_CREATE,
+    ),
 ];
 
 /// Chapter sidecar name; the chapter parser (ticket 18) writes it, the
@@ -197,8 +205,7 @@ fn safe_rename(
         } else {
             match conflict {
                 FileConflictResolution::Overwrite => {
-                    std::fs::remove_file(&new_path)
-                        .map_err(|e| format!("{:?}: {e}", new_path))?;
+                    std::fs::remove_file(&new_path).map_err(|e| format!("{:?}: {e}", new_path))?;
                     new_path.clone()
                 }
                 FileConflictResolution::AutoRename => {
@@ -209,8 +216,7 @@ fn safe_rename(
                     };
                     let mut n = 1;
                     loop {
-                        let candidate =
-                            cwd.join(format!("{stem} ({n}){ext}"));
+                        let candidate = cwd.join(format!("{stem} ({n}){ext}"));
                         if !candidate.exists() {
                             break candidate;
                         }
@@ -330,9 +336,7 @@ impl<'a> Merger<'a> {
             self.merge_video_audio()
         } else if self.task.Download.video_parts_count > 0 {
             self.merge_video_parts()
-        } else if DASH_AUDIO_STREAM_EXTS
-            .contains(&self.task.File.audio_file_ext.as_str())
-        {
+        } else if DASH_AUDIO_STREAM_EXTS.contains(&self.task.File.audio_file_ext.as_str()) {
             if self.task.File.audio_file_ext == "m4a" && self.resolve_m4a_to_mp3() {
                 // Re-encoding rewrites the container; no remux needed.
                 self.m4a_to_mp3()
@@ -371,7 +375,11 @@ impl<'a> Merger<'a> {
     }
 
     fn temp_output_file_name(&self) -> String {
-        format!("output_{}.{}", self.task_id(), self.task.File.merge_file_ext)
+        format!(
+            "output_{}.{}",
+            self.task_id(),
+            self.task.File.merge_file_ext
+        )
     }
 
     fn output_audio_file_name(&self) -> String {
@@ -431,8 +439,7 @@ impl<'a> Merger<'a> {
 
     fn should_remux_kept_audio(&self) -> bool {
         self.task.Download.keep_original_files
-            && DASH_AUDIO_STREAM_EXTS
-                .contains(&self.task.File.audio_file_ext.as_str())
+            && DASH_AUDIO_STREAM_EXTS.contains(&self.task.File.audio_file_ext.as_str())
             && matches!(
                 self.keep_original_file_type(),
                 OriginalFileType::Both | OriginalFileType::Audio
@@ -781,12 +788,14 @@ impl<'a> Merger<'a> {
 
         // Stable sort: same-kind tracks keep parse order; subtitles first.
         embedded.sort_by_key(|(_, kind)| *kind != "subtitle");
-        let first_is_subtitle =
-            matches!(embedded.first(), Some((_, kind)) if kind == "subtitle");
+        let first_is_subtitle = matches!(embedded.first(), Some((_, kind)) if kind == "subtitle");
 
         let mut entries = Vec::with_capacity(embedded.len());
         for (index, (entry, kind)) in embedded.iter().enumerate() {
-            let file = entry.get("file").and_then(|v| v.as_str()).unwrap_or_default();
+            let file = entry
+                .get("file")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
             self.embedded_subtitles
                 .push((file.to_string(), kind.clone()));
             entries.push(SubtitleEntry {
@@ -822,7 +831,13 @@ impl<'a> Merger<'a> {
         let files: Vec<String> = self
             .embedded_subtitles
             .iter()
-            .filter(|(_, kind)| if kind == "danmaku" { delete_danmaku } else { delete_subtitle })
+            .filter(|(_, kind)| {
+                if kind == "danmaku" {
+                    delete_danmaku
+                } else {
+                    delete_subtitle
+                }
+            })
             .map(|(file, _)| file.clone())
             .collect();
         let cwd = self.cwd();
@@ -868,8 +883,14 @@ mod tests {
 
     #[test]
     fn conflict_resolution_codes_map() {
-        assert_eq!(FileConflictResolution::from_code(1), FileConflictResolution::AutoRename);
-        assert_eq!(FileConflictResolution::from_code(2), FileConflictResolution::Overwrite);
+        assert_eq!(
+            FileConflictResolution::from_code(1),
+            FileConflictResolution::AutoRename
+        );
+        assert_eq!(
+            FileConflictResolution::from_code(2),
+            FileConflictResolution::Overwrite
+        );
     }
 
     #[test]

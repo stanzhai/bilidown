@@ -84,5 +84,10 @@ pub fn local_date(timestamp: i64) -> String {
         .single()
         .map(|dt| dt.naive_local())
         .unwrap();
-    format!("{:04}-{:02}-{:02}", naive.year(), naive.month(), naive.day())
+    format!(
+        "{:04}-{:02}-{:02}",
+        naive.year(),
+        naive.month(),
+        naive.day()
+    )
 }

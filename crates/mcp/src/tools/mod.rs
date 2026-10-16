@@ -80,9 +80,11 @@ pub async fn preview_flow(state: &McpState) -> Option<PreviewSummary> {
         }
         let mut preview = Preview::new(Priorities::default());
         let outcome = match parsers::playurl::fetch_media_info(&client, &apis, item, None).await {
-            Ok(fetched) => preview
-                .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
-                .await,
+            Ok(fetched) => {
+                preview
+                    .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
+                    .await
+            }
             Err(error) => Err(error),
         };
         match outcome {

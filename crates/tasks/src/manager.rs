@@ -82,60 +82,64 @@ impl TaskManager {
             writer: Mutex::new(writer_tx),
         });
         let writer_state = writer.clone();
-        let writer_handle = std::thread::Builder::new()
-            .name("task-db".into())
-            .spawn(move || {
-                let mut db = writer_db;
-                let state = writer_state;
-                for op in writer_rx {
-                    match op {
-                        WriteOp::Flush(()) => {
-                            let drained: HashMap<String, String> = {
-                                let mut pending = state.pending_updates.lock();
-                                let drained = pending.drain().collect();
-                                *state.update_flush_scheduled.lock() = false;
-                                drained
-                            };
-                            write_updates(&mut db, &drained);
-                        }
-                        WriteOp::Block(rx) => {
-                            // Durability tests park the writer here.
-                            let _ = rx.recv();
-                        }
-                        WriteOp::Add(records) => {
-                            flush_pending(&mut db, &state);
-                            if let Err(e) = db.add_task_records(&records, false) {
-                                log_error(&format!("保存下载任务记录失败: {e}"));
+        let writer_handle =
+            std::thread::Builder::new()
+                .name("task-db".into())
+                .spawn(move || {
+                    let mut db = writer_db;
+                    let state = writer_state;
+                    for op in writer_rx {
+                        match op {
+                            WriteOp::Flush(()) => {
+                                let drained: HashMap<String, String> = {
+                                    let mut pending = state.pending_updates.lock();
+                                    let drained = pending.drain().collect();
+                                    *state.update_flush_scheduled.lock() = false;
+                                    drained
+                                };
+                                write_updates(&mut db, &drained);
                             }
-                        }
-                        WriteOp::Delete(ids, completed) => {
-                            flush_pending(&mut db, &state);
-                            if let Err(e) = db.delete_tasks(&ids, completed) {
-                                log_error(&format!("删除下载任务记录失败: {e}"));
+                            WriteOp::Block(rx) => {
+                                // Durability tests park the writer here.
+                                let _ = rx.recv();
                             }
-                        }
-                        WriteOp::MoveToCompleted(record) => {
-                            flush_pending(&mut db, &state);
-                            if let Err(e) = db.move_to_completed(&record) {
-                                log_error(&format!("标记下载任务为已完成失败: {}", record.task_id));
-                                let _ = e;
+                            WriteOp::Add(records) => {
+                                flush_pending(&mut db, &state);
+                                if let Err(e) = db.add_task_records(&records, false) {
+                                    log_error(&format!("保存下载任务记录失败: {e}"));
+                                }
                             }
-                        }
-                        WriteOp::Recreate(record) => {
-                            flush_pending(&mut db, &state);
-                            if let Err(e) = db.recreate_task(&record) {
-                                log_error(&format!("重建下载任务记录失败: {}", record.task_id));
-                                let _ = e;
+                            WriteOp::Delete(ids, completed) => {
+                                flush_pending(&mut db, &state);
+                                if let Err(e) = db.delete_tasks(&ids, completed) {
+                                    log_error(&format!("删除下载任务记录失败: {e}"));
+                                }
                             }
-                        }
-                        WriteOp::Sentinel(tx) => {
-                            // Ack after everything before it; keep looping
-                            // so shutdown can join cleanly.
-                            let _ = tx.send(());
+                            WriteOp::MoveToCompleted(record) => {
+                                flush_pending(&mut db, &state);
+                                if let Err(e) = db.move_to_completed(&record) {
+                                    log_error(&format!(
+                                        "标记下载任务为已完成失败: {}",
+                                        record.task_id
+                                    ));
+                                    let _ = e;
+                                }
+                            }
+                            WriteOp::Recreate(record) => {
+                                flush_pending(&mut db, &state);
+                                if let Err(e) = db.recreate_task(&record) {
+                                    log_error(&format!("重建下载任务记录失败: {}", record.task_id));
+                                    let _ = e;
+                                }
+                            }
+                            WriteOp::Sentinel(tx) => {
+                                // Ack after everything before it; keep looping
+                                // so shutdown can join cleanly.
+                                let _ = tx.send(());
+                            }
                         }
                     }
-                }
-            })?;
+                })?;
 
         let (cancel_tx, cancel_rx) = channel::<CancelOp>();
         let cancel_handle = std::thread::Builder::new()
@@ -225,7 +229,6 @@ impl TaskManager {
         let mut result = CreateResult::default();
 
         for episode in episodes {
-
             if info::needs_reparse(episode) {
                 result.need_reparse.push(episode.clone());
                 continue;
@@ -235,16 +238,23 @@ impl TaskManager {
             if duplicate::check_duplicate(&reader, config, episode, options, ask)
                 == DuplicateCheck::Skip
             {
-                result
-                    .skipped_duplicates
-                    .push(episode.get("title").and_then(Value::as_str).unwrap_or_default().to_string());
+                result.skipped_duplicates.push(
+                    episode
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                );
                 continue;
             }
 
             // Duplicate check first, then number: take + increment atomic.
             let (number, numbering_token) = {
                 let mut numbering = self.numbering_lock.lock();
-                let parse_number = episode.get("number").and_then(Value::as_str).map(str::to_owned);
+                let parse_number = episode
+                    .get("number")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
                 let taken = numbering.take(mode, parse_number.as_deref());
                 taken
             };
@@ -252,7 +262,11 @@ impl TaskManager {
             match info::episode_to_task_info(&inputs, episode, &number, options, &naming(episode)) {
                 Ok(task_info) => result.created.push(task_info),
                 Err(error) => {
-                    let title = episode.get("title").and_then(Value::as_str).unwrap_or_default().to_string();
+                    let title = episode
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string();
                     self.numbering_lock.lock().rollback(numbering_token);
                     result.failed.push((title, error.to_string()));
                 }
@@ -267,13 +281,25 @@ impl TaskManager {
                 .collect();
             // Channel error only after shutdown; not an anyhow-convertible
             // error (SendError carries a non-Sync Receiver), so log it.
-            if self.inner.writer.lock().send(WriteOp::Add(records)).is_err() {
+            if self
+                .inner
+                .writer
+                .lock()
+                .send(WriteOp::Add(records))
+                .is_err()
+            {
                 log_error("任务写入线程已关闭，丢弃新增任务");
             }
             // Tasks enter the queue; the scheduler picks them up.
             self.scheduler.auto_manage(self);
         }
         Ok(result)
+    }
+
+    /// `runtime.naming.current_starting_number = 1` (the multi-part
+    /// list dialog resets numbering before creating its tasks).
+    pub fn set_current_starting_number(&self, n: i64) {
+        self.numbering_lock.lock().state.current_starting_number = Some(n);
     }
 
     // ---- progress updates ----
@@ -312,14 +338,12 @@ impl TaskManager {
                 // Seed from the persisted row so the flush writes a full
                 // TaskInfo snapshot (Python: update_async on the whole
                 // task); a stub would corrupt the row's JSON.
-                let entry = pending
-                    .entry(self.task_id.clone())
-                    .or_insert_with(|| {
-                        TaskDatabase::open(&state.db_path)
-                            .ok()
-                            .and_then(|db| db.query_task_json(&self.task_id, false).ok().flatten())
-                            .unwrap_or_else(|| String::from("{}"))
-                    });
+                let entry = pending.entry(self.task_id.clone()).or_insert_with(|| {
+                    TaskDatabase::open(&state.db_path)
+                        .ok()
+                        .and_then(|db| db.query_task_json(&self.task_id, false).ok().flatten())
+                        .unwrap_or_else(|| String::from("{}"))
+                });
                 // Merge chunk_offsets into the serialized snapshot's
                 // Download.files[file_key]; offsets ride the next flush.
                 if let Ok(mut snapshot) = serde_json::from_str::<serde_json::Value>(entry) {
@@ -334,8 +358,7 @@ impl TaskManager {
                         if let Some(map) = file.as_object_mut() {
                             map.insert("chunk_offsets".into(), table.to_json());
                         }
-                        *entry = serde_json::to_string(&snapshot)
-                            .unwrap_or_else(|_| entry.clone());
+                        *entry = serde_json::to_string(&snapshot).unwrap_or_else(|_| entry.clone());
                     }
                 }
                 drop(pending);
@@ -356,7 +379,11 @@ impl TaskManager {
         }
         let ids: Vec<String> = task_infos.iter().map(|t| t.Basic.task_id.clone()).collect();
         self.discard_pending_updates(&ids);
-        let _ = self.inner.writer.lock().send(WriteOp::Delete(ids, completed));
+        let _ = self
+            .inner
+            .writer
+            .lock()
+            .send(WriteOp::Delete(ids, completed));
     }
 
     pub fn delete(&self, task_info: &TaskInfo, completed: bool) {
@@ -407,10 +434,9 @@ impl TaskManager {
                 let _ = writer.send(WriteOp::Sentinel(tx));
             }
         }
-        if wait
-            && !rx.recv_timeout(Duration::from_secs_f64(timeout)).is_ok() {
-                log_error("等待标记下载任务为已完成的写入落盘超时");
-            }
+        if wait && !rx.recv_timeout(Duration::from_secs_f64(timeout)).is_ok() {
+            log_error("等待标记下载任务为已完成的写入落盘超时");
+        }
     }
 
     /// `reset`: rewind a task to its initial state (caller persists).
@@ -440,11 +466,7 @@ impl TaskManager {
     pub fn recreate(&self, task_info: &TaskInfo) {
         self.discard_pending_updates(std::slice::from_ref(&task_info.Basic.task_id));
         let record = TaskDatabase::build_record(task_info, false);
-        let _ = self
-            .inner
-            .writer
-            .lock()
-            .send(WriteOp::Recreate(record));
+        let _ = self.inner.writer.lock().send(WriteOp::Recreate(record));
         self.scheduler.auto_manage(self);
     }
 

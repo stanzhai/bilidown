@@ -11,7 +11,7 @@ pub mod formatter;
 pub mod model;
 pub mod naming_rules;
 pub mod numbering;
-pub mod template;
 pub mod task_naming;
+pub mod template;
 
 pub use format::Value;

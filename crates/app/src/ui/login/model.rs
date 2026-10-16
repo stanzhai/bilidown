@@ -140,11 +140,7 @@ impl LoginModel {
     }
 
     /// `on_sms_login` gate: both fields non-empty.
-    pub fn start_sms_login(
-        &mut self,
-        tel_empty: String,
-        code_empty: String,
-    ) -> bool {
+    pub fn start_sms_login(&mut self, tel_empty: String, code_empty: String) -> bool {
         let tel = self.tel.clone();
         let code = self.code.clone();
         if !self.require(&tel, tel_empty) {

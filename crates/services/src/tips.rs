@@ -32,7 +32,9 @@ pub enum PendingTip {
 }
 
 fn flag(cfg: &ConfigStore, group: &str, item: &str) -> bool {
-    cfg.get(group, item).and_then(|v| v.as_bool()).unwrap_or(false)
+    cfg.get(group, item)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 /// Whether the tutorial dialog should show now (first launch only).
@@ -61,17 +63,29 @@ pub fn auto_parse_tip_pending(cfg: &ConfigStore, total_pages: u32) -> bool {
 
 /// Record that the tutorial dialog was shown.
 pub fn mark_tutorial_shown(cfg: &mut ConfigStore) {
-    cfg.set("Misc", "tutorial_dialog_shown", serde_json::Value::Bool(true));
+    cfg.set(
+        "Misc",
+        "tutorial_dialog_shown",
+        serde_json::Value::Bool(true),
+    );
 }
 
 /// Record that the area-selection dialog was shown.
 pub fn mark_area_dialog_shown(cfg: &mut ConfigStore) {
-    cfg.set("Misc", "select_area_dialog_shown", serde_json::Value::Bool(true));
+    cfg.set(
+        "Misc",
+        "select_area_dialog_shown",
+        serde_json::Value::Bool(true),
+    );
 }
 
 /// Record that the auto-parse teaching tip was shown.
 pub fn mark_auto_parse_tip_shown(cfg: &mut ConfigStore) {
-    cfg.set("Misc", "auto_parse_teaching_tip_shown_", serde_json::Value::Bool(true));
+    cfg.set(
+        "Misc",
+        "auto_parse_teaching_tip_shown_",
+        serde_json::Value::Bool(true),
+    );
 }
 
 /// The next flag-gated tip in the post-terms order, or `None`.

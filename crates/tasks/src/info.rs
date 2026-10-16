@@ -46,7 +46,6 @@ const CHEESE_BIT: i64 = 1 << 2;
 const NEED_PARSE_BIT: i64 = 1 << 7;
 const LESSON_BIT: i64 = 1 << 18;
 
-
 /// Filesystem-illegal characters replaced with `_` (Python
 /// `re.sub(r'[\/\\\:\*\?\"\<\>\|]', '_', ...)`). No regex needed: a
 /// char-set membership test.
@@ -203,8 +202,10 @@ pub fn determine_download_type(
 pub fn trim_download_type(task_info: &mut TaskInfo) {
     if task_info.Episode.attribute & LESSON_BIT != 0 {
         task_info.Episode.attribute &= !0; // no-op, keep attribute intact
-        task_info.Download.type_ &=
-            !(download_type::DANMAKU | download_type::SUBTITLE | download_type::CHAPTER | download_type::COVER);
+        task_info.Download.type_ &= !(download_type::DANMAKU
+            | download_type::SUBTITLE
+            | download_type::CHAPTER
+            | download_type::COVER);
     }
 }
 
@@ -257,7 +258,10 @@ pub fn episode_to_task_info(
     // BasicInfo
     task_info.Basic.task_id = uuid::Uuid::new_v4().to_string();
     task_info.Basic.cover_id = calc_cover_id(
-        episode.get("cover").and_then(Value::as_str).unwrap_or_default(),
+        episode
+            .get("cover")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
     );
     task_info.Basic.show_title = episode
         .get("title")

@@ -108,8 +108,7 @@ pub fn wrap_node(node: TreeItem) -> (String, TreeItem) {
     let mut title = node.title.clone();
     if title.is_empty() && node.count() > 0 {
         let child = node.child(0);
-        if child.has_attribute(Attribute::VIDEO_BIT) || child.has_attribute(Attribute::AUDIO_BIT)
-        {
+        if child.has_attribute(Attribute::VIDEO_BIT) || child.has_attribute(Attribute::AUDIO_BIT) {
             title = child.title.clone();
         }
         if child.has_attribute(Attribute::HISTORY_BIT)

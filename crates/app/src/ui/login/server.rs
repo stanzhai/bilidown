@@ -216,7 +216,9 @@ mod tests {
     use super::*;
 
     async fn raw(port: u16, request: &str) -> (String, Vec<u8>) {
-        let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+        let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
         use tokio::io::AsyncWriteExt;
         s.write_all(request.as_bytes()).await.unwrap();
         let mut buf = Vec::new();
@@ -241,7 +243,11 @@ mod tests {
     #[tokio::test]
     async fn options_preflight_returns_cors() {
         let server = CaptchaServer::bind(0).await.unwrap();
-        let (text, _) = raw(server.port, "OPTIONS * HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await;
+        let (text, _) = raw(
+            server.port,
+            "OPTIONS * HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+        )
+        .await;
         server.stop();
         assert!(text.starts_with("HTTP/1.1 200"), "{text}");
         assert!(text.contains("Access-Control-Allow-Origin: *"));
@@ -253,7 +259,11 @@ mod tests {
     async fn init_serves_pending_captcha() {
         let server = CaptchaServer::bind(0).await.unwrap();
         server.set_captcha(captcha());
-        let (text, body) = raw(server.port, "GET /geetest/captcha/init HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await;
+        let (text, body) = raw(
+            server.port,
+            "GET /geetest/captcha/init HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+        )
+        .await;
         server.stop();
         assert!(text.starts_with("HTTP/1.1 200"), "{text}");
         assert!(text.contains("Content-Type: application/json"));
@@ -265,7 +275,11 @@ mod tests {
     #[tokio::test]
     async fn init_without_pending_captcha_404s() {
         let server = CaptchaServer::bind(0).await.unwrap();
-        let (text, _) = raw(server.port, "GET /geetest/captcha/init HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await;
+        let (text, _) = raw(
+            server.port,
+            "GET /geetest/captcha/init HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+        )
+        .await;
         server.stop();
         assert!(text.starts_with("HTTP/1.1 404"), "{text}");
     }
@@ -306,7 +320,11 @@ mod tests {
     #[tokio::test]
     async fn unknown_path_404s() {
         let server = CaptchaServer::bind(0).await.unwrap();
-        let (text, _) = raw(server.port, "GET /nope HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").await;
+        let (text, _) = raw(
+            server.port,
+            "GET /nope HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+        )
+        .await;
         server.stop();
         assert!(text.starts_with("HTTP/1.1 404"), "{text}");
     }

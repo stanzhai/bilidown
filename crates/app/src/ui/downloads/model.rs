@@ -190,7 +190,11 @@ pub fn info_text(t: &TaskInfo) -> String {
 }
 
 /// `getStatusText` with TIP_MESSAGES / ERROR_MESSAGES fallbacks.
-pub fn status_text(t: &TaskInfo, tip: &dyn Fn(&str) -> Option<String>, error: &dyn Fn(&str) -> Option<String>) -> String {
+pub fn status_text(
+    t: &TaskInfo,
+    tip: &dyn Fn(&str) -> Option<String>,
+    error: &dyn Fn(&str) -> Option<String>,
+) -> String {
     let s = t.Download.status;
     match s {
         st::QUEUED => tip("QUEUED").unwrap_or_default(),
@@ -420,11 +424,7 @@ pub fn apply_exit_choice(cfg: &mut config::ConfigStore, exit: bool, never_ask: b
 /// DuplicateDownloadDialog accept/reject with "don't ask again" ticked:
 /// persist SKIP (1) or CONTINUE (0). Returns the persisted
 /// `duplicate_download_resolution`.
-pub fn apply_duplicate_choice(
-    cfg: &mut config::ConfigStore,
-    skip: bool,
-    never_ask: bool,
-) -> i64 {
+pub fn apply_duplicate_choice(cfg: &mut config::ConfigStore, skip: bool, never_ask: bool) -> i64 {
     let value = if never_ask {
         if skip {
             1
@@ -495,21 +495,37 @@ mod tests {
         ];
         list.sort_by = SortKey::Title;
         list.ascending = true;
-        let titles: Vec<&str> = list.visible().iter().map(|t| t.Basic.show_title.as_str()).collect();
+        let titles: Vec<&str> = list
+            .visible()
+            .iter()
+            .map(|t| t.Basic.show_title.as_str())
+            .collect();
         // casefold, like Python: beta sorts between Alpha and Gamma
         assert_eq!(titles, vec!["Alpha", "beta", "Gamma"]);
         list.ascending = false;
-        let titles: Vec<&str> = list.visible().iter().map(|t| t.Basic.show_title.as_str()).collect();
+        let titles: Vec<&str> = list
+            .visible()
+            .iter()
+            .map(|t| t.Basic.show_title.as_str())
+            .collect();
         assert_eq!(titles, vec!["Gamma", "beta", "Alpha"]);
 
         list.sort_by = SortKey::FileSize;
         list.ascending = true;
-        let ids: Vec<&str> = list.visible().iter().map(|t| t.Basic.task_id.as_str()).collect();
+        let ids: Vec<&str> = list
+            .visible()
+            .iter()
+            .map(|t| t.Basic.task_id.as_str())
+            .collect();
         assert_eq!(ids, vec!["a", "c", "b"]);
 
         list.sort_by = SortKey::Progress;
         list.ascending = false;
-        let ids: Vec<&str> = list.visible().iter().map(|t| t.Basic.task_id.as_str()).collect();
+        let ids: Vec<&str> = list
+            .visible()
+            .iter()
+            .map(|t| t.Basic.task_id.as_str())
+            .collect();
         assert_eq!(ids, vec!["a", "c", "b"]);
     }
 
@@ -592,13 +608,34 @@ mod tests {
 
     #[test]
     fn row_action_follows_status() {
-        assert_eq!(row_action(&task("a", st::COMPLETED, 100, 1, "T")), RowAction::Open);
-        assert_eq!(row_action(&task("a", st::QUEUED, 0, 1, "T")), RowAction::Start);
-        assert_eq!(row_action(&task("a", st::PAUSED, 0, 1, "T")), RowAction::Start);
-        assert_eq!(row_action(&task("a", st::FFMPEG_QUEUED, 0, 1, "T")), RowAction::Start);
-        assert_eq!(row_action(&task("a", st::FAILED, 0, 1, "T")), RowAction::Retry);
-        assert_eq!(row_action(&task("a", st::FFMPEG_FAILED, 0, 1, "T")), RowAction::Retry);
-        assert_eq!(row_action(&task("a", st::DOWNLOADING, 1, 1, "T")), RowAction::Pause);
+        assert_eq!(
+            row_action(&task("a", st::COMPLETED, 100, 1, "T")),
+            RowAction::Open
+        );
+        assert_eq!(
+            row_action(&task("a", st::QUEUED, 0, 1, "T")),
+            RowAction::Start
+        );
+        assert_eq!(
+            row_action(&task("a", st::PAUSED, 0, 1, "T")),
+            RowAction::Start
+        );
+        assert_eq!(
+            row_action(&task("a", st::FFMPEG_QUEUED, 0, 1, "T")),
+            RowAction::Start
+        );
+        assert_eq!(
+            row_action(&task("a", st::FAILED, 0, 1, "T")),
+            RowAction::Retry
+        );
+        assert_eq!(
+            row_action(&task("a", st::FFMPEG_FAILED, 0, 1, "T")),
+            RowAction::Retry
+        );
+        assert_eq!(
+            row_action(&task("a", st::DOWNLOADING, 1, 1, "T")),
+            RowAction::Pause
+        );
     }
 
     #[test]
@@ -616,9 +653,13 @@ mod tests {
         let mut cfg = config::ConfigStore::with_paths(dir.path(), dir.path());
         assert_eq!(apply_exit_choice(&mut cfg, true, false), WHEN_CLOSE_ASK);
         assert_eq!(apply_exit_choice(&mut cfg, true, true), WHEN_CLOSE_EXIT);
-        assert_eq!(apply_exit_choice(&mut cfg, false, true), WHEN_CLOSE_MINIMIZE);
         assert_eq!(
-            cfg.get("Behavior", "when_close_window").and_then(|v| v.as_i64()),
+            apply_exit_choice(&mut cfg, false, true),
+            WHEN_CLOSE_MINIMIZE
+        );
+        assert_eq!(
+            cfg.get("Behavior", "when_close_window")
+                .and_then(|v| v.as_i64()),
             Some(WHEN_CLOSE_MINIMIZE)
         );
     }
@@ -631,7 +672,8 @@ mod tests {
         assert_eq!(apply_duplicate_choice(&mut cfg, true, true), 1);
         assert_eq!(apply_duplicate_choice(&mut cfg, false, true), 0);
         assert_eq!(
-            cfg.get("Behavior", "duplicate_download_resolution").and_then(|v| v.as_i64()),
+            cfg.get("Behavior", "duplicate_download_resolution")
+                .and_then(|v| v.as_i64()),
             Some(0)
         );
     }
@@ -640,7 +682,13 @@ mod tests {
     fn batch_actions_transition_statuses() {
         // headless: statuses move; the manager write path is covered by the
         // tasks crate's integration tests.
-        let statuses = [st::PAUSED, st::FAILED, st::FFMPEG_FAILED, st::DOWNLOADING, st::QUEUED];
+        let statuses = [
+            st::PAUSED,
+            st::FAILED,
+            st::FFMPEG_FAILED,
+            st::DOWNLOADING,
+            st::QUEUED,
+        ];
         let paused: Vec<TaskInfo> = {
             let mut v: Vec<TaskInfo> = statuses.iter().map(|&s| task("x", s, 0, 1, "T")).collect();
             v[0].Basic.task_id = "0".into();
@@ -654,7 +702,10 @@ mod tests {
         let expect_start: Vec<bool> = vec![true, true, true, false, false];
         for (t, expect) in paused.iter().zip(expect_start) {
             assert_eq!(
-                matches!(t.Download.status, st::PAUSED | st::FAILED | st::FFMPEG_FAILED),
+                matches!(
+                    t.Download.status,
+                    st::PAUSED | st::FAILED | st::FFMPEG_FAILED
+                ),
                 expect
             );
         }
@@ -670,7 +721,10 @@ mod tests {
 
     #[test]
     fn redownload_refuses_ffmpeg_processing_rows() {
-        assert_eq!(row_action(&task("m", st::MERGING, 10, 1, "T")), RowAction::Pause);
+        assert_eq!(
+            row_action(&task("m", st::MERGING, 10, 1, "T")),
+            RowAction::Pause
+        );
         assert_eq!(
             row_action(&task("v", st::CONVERTING, 10, 1, "T")),
             RowAction::Pause
@@ -683,7 +737,10 @@ mod tests {
 
     #[test]
     fn sort_keys_round_trip_and_tab_sets() {
-        for key in SortKey::downloading_keys().iter().chain(SortKey::completed_keys()) {
+        for key in SortKey::downloading_keys()
+            .iter()
+            .chain(SortKey::completed_keys())
+        {
             assert_eq!(SortKey::from_config(key.as_config()), Some(*key));
         }
         assert!(SortKey::downloading_keys().contains(&SortKey::Progress));

@@ -93,7 +93,9 @@ impl Catalog {
 pub fn catalog(lang: ResolvedLanguage) -> &'static Catalog {
     static ZH_CN: LazyLock<Catalog> = LazyLock::new(|| build(|zh, _| zh));
     static ZH_TW: LazyLock<Catalog> = LazyLock::new(|| build(|_, tw| tw));
-    static EN: LazyLock<Catalog> = LazyLock::new(|| Catalog { entries: HashMap::new() });
+    static EN: LazyLock<Catalog> = LazyLock::new(|| Catalog {
+        entries: HashMap::new(),
+    });
     match lang {
         ResolvedLanguage::ZhCn => &ZH_CN,
         ResolvedLanguage::ZhTw => &ZH_TW,
@@ -101,7 +103,6 @@ pub fn catalog(lang: ResolvedLanguage) -> &'static Catalog {
         ResolvedLanguage::En => &EN,
     }
 }
-
 
 /// Number of live (non-vanished) catalog entries — completeness test uses
 /// this to pin the `.ts` extraction (125 contexts × 973 messages).

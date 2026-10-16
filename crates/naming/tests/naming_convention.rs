@@ -8,8 +8,8 @@ use naming::conventions::{
     all_variables, supported_shapes, variable_type, ConventionType, SampleShape,
     VariableListFactory, VARIABLE_DESCRIPTION,
 };
-use naming::formatter::{attribute, convention_type, FileNameFormatter};
 use naming::format::Value;
+use naming::formatter::{attribute, convention_type, FileNameFormatter};
 use naming::naming_rules::RuleStore;
 
 fn factory() -> VariableListFactory {
@@ -35,7 +35,8 @@ fn key_space_matches_runtime() {
         for shape in SampleShape::ALL {
             let data = factory().build_variable_data(type_, shape);
             let names: std::collections::HashSet<&str> = data.keys().map(|s| s.as_str()).collect();
-            let runtime: std::collections::HashSet<&str> = keys.keys().map(|s| s.as_str()).collect();
+            let runtime: std::collections::HashSet<&str> =
+                keys.keys().map(|s| s.as_str()).collect();
             assert_eq!(names, runtime, "{type_:?} {shape:?}");
         }
     }
@@ -46,8 +47,11 @@ fn full_list_covers_the_whole_key_space() {
     let keys = runtime_keys();
 
     for type_ in ConventionType::ALL {
-        let names: std::collections::HashSet<&str> =
-            factory().build(type_, true).iter().map(|e| e.name).collect();
+        let names: std::collections::HashSet<&str> = factory()
+            .build(type_, true)
+            .iter()
+            .map(|e| e.name)
+            .collect();
         let runtime: std::collections::HashSet<&str> = keys.keys().map(|s| s.as_str()).collect();
         assert_eq!(names, runtime, "{type_:?}");
     }
@@ -64,8 +68,11 @@ fn source_types_expose_structural_variables() {
         ConventionType::History,
         ConventionType::WatchLater,
     ] {
-        let names: std::collections::HashSet<&str> =
-            factory().build(type_, true).iter().map(|e| e.name).collect();
+        let names: std::collections::HashSet<&str> = factory()
+            .build(type_, true)
+            .iter()
+            .map(|e| e.name)
+            .collect();
 
         for structural in ["parent_title", "p", "collection_title", "section_title"] {
             assert!(names.contains(structural), "{type_:?} {structural}");
@@ -82,9 +89,22 @@ fn primary_list_is_unchanged() {
     assert_eq!(
         names,
         vec![
-            "pub_time", "pub_ts", "create_time", "create_ts", "number",
-            "uploader", "uploader_uid", "video_quality", "audio_quality", "video_codec",
-            "parent_title", "p", "leaf_title", "aid", "bvid", "cid",
+            "pub_time",
+            "pub_ts",
+            "create_time",
+            "create_ts",
+            "number",
+            "uploader",
+            "uploader_uid",
+            "video_quality",
+            "audio_quality",
+            "video_codec",
+            "parent_title",
+            "p",
+            "leaf_title",
+            "aid",
+            "bvid",
+            "cid",
         ]
     );
 }
@@ -110,13 +130,25 @@ fn every_entry_carries_a_type() {
 
 #[test]
 fn number_like_variables_typed_as_number() {
-    let types: HashMap<&str, _> =
-        factory().build(ConventionType::Bangumi, true).iter().map(|e| (e.name, e.type_)).collect();
+    let types: HashMap<&str, _> = factory()
+        .build(ConventionType::Bangumi, true)
+        .iter()
+        .map(|e| (e.name, e.type_))
+        .collect();
 
-    assert_eq!(types["episode_number"], naming::conventions::VariableType::Number);
-    assert_eq!(types["pub_time"], naming::conventions::VariableType::Datetime);
+    assert_eq!(
+        types["episode_number"],
+        naming::conventions::VariableType::Number
+    );
+    assert_eq!(
+        types["pub_time"],
+        naming::conventions::VariableType::Datetime
+    );
     assert_eq!(types["leaf_title"], naming::conventions::VariableType::Text);
-    assert_eq!(variable_type("episode_number"), naming::conventions::VariableType::Number);
+    assert_eq!(
+        variable_type("episode_number"),
+        naming::conventions::VariableType::Number
+    );
 }
 
 #[test]
@@ -174,15 +206,27 @@ fn source_title_survives_every_shape() {
     // 入口标签与条目形态无关
     for shape in SampleShape::ALL {
         let data = factory().build_variable_data(ConventionType::History, shape);
-        assert_eq!(data["source_title"], Value::Text("历史记录".into()), "{shape:?}");
+        assert_eq!(
+            data["source_title"],
+            Value::Text("历史记录".into()),
+            "{shape:?}"
+        );
     }
 }
 
 #[test]
 fn source_title_is_empty_outside_the_source_types() {
-    for type_ in [ConventionType::Normal, ConventionType::Favorite, ConventionType::Collection] {
+    for type_ in [
+        ConventionType::Normal,
+        ConventionType::Favorite,
+        ConventionType::Collection,
+    ] {
         let data = factory().build_variable_data(type_, SampleShape::Single);
-        assert_eq!(data["source_title"], Value::Text(String::new()), "{type_:?}");
+        assert_eq!(
+            data["source_title"],
+            Value::Text(String::new()),
+            "{type_:?}"
+        );
     }
 }
 

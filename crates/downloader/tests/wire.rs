@@ -71,8 +71,7 @@ fn range_cdn(data: Arc<Vec<u8>>) -> impl Fn(&Request) -> ResponseTemplate + Send
         match range {
             Some(range) if range.starts_with("bytes=") => {
                 let (s, e) = range[6..].split_once('-').unwrap();
-                let (start, end): (usize, usize) =
-                    (s.parse().unwrap(), e.parse().unwrap());
+                let (start, end): (usize, usize) = (s.parse().unwrap(), e.parse().unwrap());
                 ResponseTemplate::new(206)
                     .append_header(
                         "Content-Range",
@@ -147,7 +146,10 @@ async fn multi_chunk_download_reassembles_identical_file() {
     assert!(ranges.contains(&format!("bytes={}-{}", 3 * CHUNK_SIZE, size - 1)));
     // offset table records each chunk at its capacity
     let t = &engine.offset_tables()["video"];
-    assert_eq!(t.offset(3, chunk_capacity(3, 4, size)), size - 3 * CHUNK_SIZE);
+    assert_eq!(
+        t.offset(3, chunk_capacity(3, 4, size)),
+        size - 3 * CHUNK_SIZE
+    );
 }
 
 #[tokio::test]
@@ -197,7 +199,11 @@ async fn resume_downloads_only_remaining_ranges() {
     // Only the unfinished ranges were requested: chunk 2 from its offset,
     // chunk 3 whole.
     let ranges = ranges_of(&server).await;
-    assert_eq!(ranges.len(), 2, "must not re-request finished chunks: {ranges:?}");
+    assert_eq!(
+        ranges.len(),
+        2,
+        "must not re-request finished chunks: {ranges:?}"
+    );
     assert!(ranges.contains(&format!(
         "bytes={}-{}",
         CHUNK_SIZE * 2 + CHUNK_SIZE / 2,
@@ -400,12 +406,13 @@ async fn progress_resets_auto_retry_quota() {
                     .to_owned();
                 let (s, e) = range[6..].split_once('-').unwrap();
                 let (start, end): (usize, usize) = (s.parse().unwrap(), e.parse().unwrap());
-                let end = if n == 0 { start + (end - start) / 2 } else { end };
+                let end = if n == 0 {
+                    start + (end - start) / 2
+                } else {
+                    end
+                };
                 ResponseTemplate::new(206)
-                    .append_header(
-                        "Content-Range",
-                        format!("bytes {}-{}/{}", start, end, size),
-                    )
+                    .append_header("Content-Range", format!("bytes {}-{}/{}", start, end, size))
                     .set_body_bytes(data[start..=end].to_vec())
             }
         })
@@ -530,7 +537,9 @@ async fn preallocation_off_leaves_placeholder_then_grows() {
 
     assert_eq!(state.status, TaskStatus::Completed);
     assert_eq!(
-        std::fs::metadata(dir.path().join("video.m4s")).unwrap().len(),
+        std::fs::metadata(dir.path().join("video.m4s"))
+            .unwrap()
+            .len(),
         size
     );
     assert_eq!(std::fs::read(dir.path().join("video.m4s")).unwrap(), *data);
@@ -564,9 +573,7 @@ async fn pause_mid_download_then_resume_finishes_without_redownload() {
     // Wait until a flush has confirmed some bytes, then pause.
     loop {
         tokio::time::sleep(Duration::from_millis(50)).await;
-        if control.snapshot().downloaded_size > 0
-            || handle.is_finished()
-        {
+        if control.snapshot().downloaded_size > 0 || handle.is_finished() {
             break;
         }
     }
@@ -575,7 +582,9 @@ async fn pause_mid_download_then_resume_finishes_without_redownload() {
     assert_eq!(paused_state.status, TaskStatus::Paused);
     let tables = control.offset_tables();
     let t = &tables["video"];
-    let confirmed: u64 = (0..2).map(|i| t.offset(i, chunk_capacity(i, 2, size))).sum();
+    let confirmed: u64 = (0..2)
+        .map(|i| t.offset(i, chunk_capacity(i, 2, size)))
+        .sum();
     assert!(confirmed > 0, "pause must leave confirmed offsets");
 
     // Second engine resumes from the persisted table over the same file
@@ -640,7 +649,9 @@ async fn cancel_stops_and_leaves_resumable_offsets() {
     let state = handle.await.unwrap();
     assert_eq!(state.status, TaskStatus::Paused);
     let t = &control.offset_tables()["video"];
-    let confirmed: u64 = (0..3).map(|i| t.offset(i, chunk_capacity(i, 3, size))).sum();
+    let confirmed: u64 = (0..3)
+        .map(|i| t.offset(i, chunk_capacity(i, 3, size)))
+        .sum();
     assert!(confirmed > 0, "cancel must leave resumable offsets");
 
     // A fresh engine picks up from those offsets and completes.

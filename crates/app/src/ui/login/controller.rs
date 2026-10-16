@@ -7,7 +7,7 @@ use auth::session::{config_path, AuthState, Session};
 use auth::wbi::WbiKeyStore;
 use network::HttpClient;
 
-use super::server::{CaptchaSolved, CaptchaServer};
+use super::server::{CaptchaServer, CaptchaSolved};
 
 /// Default login endpoints = `auth::login` consts. Tests replace hosts.
 #[derive(Debug, Clone)]
@@ -107,7 +107,9 @@ pub async fn qr_poll_once(
 /// `init_geetest` — fetch captcha info, start the loopback server, open
 /// the page. Returns the server handle for the callback wait.
 pub async fn captcha_start(client: &HttpClient) -> Result<CaptchaServer, String> {
-    let info: CaptchaInfo = login::fetch_captcha(client).await.map_err(|e| e.to_string())?;
+    let info: CaptchaInfo = login::fetch_captcha(client)
+        .await
+        .map_err(|e| e.to_string())?;
     let server = CaptchaServer::start().await.map_err(|e| e.to_string())?;
     server.set_captcha(info);
     super::captcha_page::open_captcha_page().map_err(|e| e.to_string())?;
@@ -147,7 +149,10 @@ pub async fn sms_send_with_captcha(
         .await
         .map_err(|e| e.to_string())?;
     login_check(&response)?;
-    Ok(response["data"]["captcha_key"].as_str().unwrap_or_default().to_owned())
+    Ok(response["data"]["captcha_key"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned())
 }
 
 /// `on_login` — exchange the SMS code for login cookies. `cid/tel/code/
@@ -221,9 +226,16 @@ pub async fn cookie_verify(
         .get_json(&endpoints.nav, &[])
         .await
         .map_err(login::CookieLoginError::Http)?;
-    let data = response.get("data").cloned().unwrap_or(serde_json::Value::Null);
+    let data = response
+        .get("data")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     wbi.store_from_nav(&data);
-    if data.get("isLogin").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if data
+        .get("isLogin")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         let mut session = session_for(client, state, user_agent);
         session.capture_login_cookies();
         Ok(CookieLoginOutcome::Success)
@@ -254,7 +266,11 @@ fn login_check(response: &serde_json::Value) -> Result<(), String> {
     }
 }
 
-fn session_for<'a>(client: &'a HttpClient, state: &'a mut AuthState, user_agent: &str) -> Session<'a> {
+fn session_for<'a>(
+    client: &'a HttpClient,
+    state: &'a mut AuthState,
+    user_agent: &str,
+) -> Session<'a> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
@@ -287,7 +303,10 @@ mod tests {
     #[test]
     fn swap_host_keeps_path_and_query() {
         assert_eq!(
-            swap_host("https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=k", "http://localhost:1"),
+            swap_host(
+                "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=k",
+                "http://localhost:1"
+            ),
             "http://localhost:1/x/passport-login/web/qrcode/poll?qrcode_key=k"
         );
         assert_eq!(swap_host("https://a.b/c", ""), "https://a.b/c");
@@ -380,13 +399,15 @@ mod tests {
 
         let dir = tempfile::tempdir().expect("tempdir");
         persist(&state, dir.path()).expect("persist");
-        let reloaded =
-            AuthState::from_config_file(&config_path(dir.path())).expect("reload");
+        let reloaded = AuthState::from_config_file(&config_path(dir.path())).expect("reload");
         assert!(reloaded.is_login);
         assert_eq!(reloaded.sessdata, state.sessdata);
     }
 
-    async fn controller_qr_start(client: &HttpClient, endpoints: &LoginEndpoints) -> (Vec<u8>, String) {
+    async fn controller_qr_start(
+        client: &HttpClient,
+        endpoints: &LoginEndpoints,
+    ) -> (Vec<u8>, String) {
         qr_start(client, endpoints).await.expect("qr_start")
     }
 
@@ -395,7 +416,9 @@ mod tests {
         let server = wiremock::MockServer::start().await;
         let endpoints = endpoints_for(&server);
         wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .and(wiremock::matchers::path("/x/passport-login/web/qrcode/poll"))
+            .and(wiremock::matchers::path(
+                "/x/passport-login/web/qrcode/poll",
+            ))
             .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({
                 "code": 0, "data": {"code": 86090}
             })))
@@ -403,7 +426,9 @@ mod tests {
             .mount(&server)
             .await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .and(wiremock::matchers::path("/x/passport-login/web/qrcode/poll"))
+            .and(wiremock::matchers::path(
+                "/x/passport-login/web/qrcode/poll",
+            ))
             .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({
                 "code": 0, "data": {"code": 86038}
             })))
@@ -457,7 +482,8 @@ mod tests {
 
         // JSON dict → Success
         let mut state = AuthState::default();
-        let j = r#"{"SESSDATA":"sd2","bili_jct":"jct2","DedeUserID":"8","DedeUserID__ckMd5":"ck2"}"#;
+        let j =
+            r#"{"SESSDATA":"sd2","bili_jct":"jct2","DedeUserID":"8","DedeUserID__ckMd5":"ck2"}"#;
         let r = cookie_verify(&client, &endpoints, j, &wbi, &mut state, "ua")
             .await
             .unwrap();
@@ -466,10 +492,7 @@ mod tests {
         // missing SESSDATA
         let mut state = AuthState::default();
         let r = cookie_verify(&client, &endpoints, "bili_jct=x", &wbi, &mut state, "ua").await;
-        assert!(matches!(
-            r,
-            Err(login::CookieLoginError::MissingSessdata)
-        ));
+        assert!(matches!(r, Err(login::CookieLoginError::MissingSessdata)));
 
         // garbage format
         let mut state = AuthState::default();
@@ -531,16 +554,9 @@ mod tests {
             seccode: "val1".into(),
             validate: "val1".into(),
         };
-        let key = sms_send_with_captcha(
-            &client,
-            &endpoints,
-            "86",
-            "13800000000",
-            solved,
-            "tok1",
-        )
-        .await
-        .expect("send");
+        let key = sms_send_with_captcha(&client, &endpoints, "86", "13800000000", solved, "tok1")
+            .await
+            .expect("send");
         assert_eq!(key, "ck-1");
     }
 

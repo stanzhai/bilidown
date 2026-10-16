@@ -92,7 +92,12 @@ fn scan_field(rule: &[char], start: usize, strict: bool) -> Result<usize, RuleSy
 
 /// `_parse_nodes`: parse one level; returns `(nodes, index)` where index
 /// points at the closing `>` (or end of string).
-fn parse_nodes(rule: &[char], pos: usize, depth: usize, strict: bool) -> Result<(Vec<Node>, usize), RuleSyntaxError> {
+fn parse_nodes(
+    rule: &[char],
+    pos: usize,
+    depth: usize,
+    strict: bool,
+) -> Result<(Vec<Node>, usize), RuleSyntaxError> {
     let mut nodes: Vec<Node> = Vec::new();
     let mut buffer = String::new();
 
@@ -241,10 +246,20 @@ impl RuleTemplate {
             }
         }
 
-        Ok((pieces.concat(), state.blank_hit, state.field_count, nested_total, nested_kept))
+        Ok((
+            pieces.concat(),
+            state.blank_hit,
+            state.field_count,
+            nested_total,
+            nested_kept,
+        ))
     }
 
-    fn render_optional(&self, children: &[Node], data: &HashMap<String, Value>) -> Result<String, RenderError> {
+    fn render_optional(
+        &self,
+        children: &[Node],
+        data: &HashMap<String, Value>,
+    ) -> Result<String, RenderError> {
         let (text, blank_hit, field_count, nested_total, nested_kept) =
             self.render_nodes(children, data)?;
 
@@ -342,7 +357,11 @@ impl RuleTemplate {
 
 /// Counts fields and blank hits for a text node, mirroring the Python
 /// formatter's get_value hooks.
-fn track_fields(text: &str, data: &HashMap<String, Value>, state: &mut LevelState) -> Result<(), RenderError> {
+fn track_fields(
+    text: &str,
+    data: &HashMap<String, Value>,
+    state: &mut LevelState,
+) -> Result<(), RenderError> {
     for seg in crate::format::parse(text).map_err(FormatError::Syntax)? {
         if let crate::format::Segment::Field { name, spec, .. } = seg {
             let value = data
@@ -389,7 +408,8 @@ fn has_field(nodes: &[Node]) -> bool {
     nodes.iter().any(|node| match node {
         Node::Text(text) => crate::format::parse(text)
             .map(|segs| {
-                segs.iter().any(|s| matches!(s, crate::format::Segment::Field { .. }))
+                segs.iter()
+                    .any(|s| matches!(s, crate::format::Segment::Field { .. }))
             })
             .unwrap_or(false),
         Node::Optional(_) => false,

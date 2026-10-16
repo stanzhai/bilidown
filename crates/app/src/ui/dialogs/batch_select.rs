@@ -8,11 +8,11 @@
 use crate::ui::parse::model::parse_ranges;
 
 use gpui_kit::component::button::Button;
-use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::dialog::DialogFooter;
+use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::notification::Notification;
 use gpui_kit::component::WindowExt;
-use gpui_kit::{AppContext, ParentElement, Window, div, px, prelude::*};
+use gpui_kit::{div, prelude::*, px, AppContext, ParentElement, Window};
 
 use super::active_catalog;
 
@@ -30,11 +30,14 @@ pub enum BatchSelectError {
 impl BatchSelectError {
     /// Localized toast message.
     pub fn message(&self, c: &services::i18n::Catalog) -> String {
-        c.tr(CTX, match self {
-            Self::Empty => "Please enter line numbers",
-            Self::InvalidRange => "Invalid line number range",
-            Self::InvalidNumber => "Invalid line number",
-        })
+        c.tr(
+            CTX,
+            match self {
+                Self::Empty => "Please enter line numbers",
+                Self::InvalidRange => "Invalid line number range",
+                Self::InvalidNumber => "Invalid line number",
+            },
+        )
         .to_owned()
     }
 }
@@ -68,10 +71,7 @@ impl BatchSelectState {
                     if !ok {
                         return Err(BatchSelectError::InvalidRange);
                     }
-                    let (s, e): (i64, i64) = (
-                        start.parse().unwrap_or(0),
-                        end.parse().unwrap_or(0),
-                    );
+                    let (s, e): (i64, i64) = (start.parse().unwrap_or(0), end.parse().unwrap_or(0));
                     if s <= 0 || e <= 0 || s > e {
                         return Err(BatchSelectError::InvalidRange);
                     }
@@ -101,12 +101,10 @@ pub fn open_batch_select(
     let catalog = active_catalog(&cfg);
     let title = catalog.tr(CTX, "Batch Selection").to_owned();
     let ok = "OK".to_owned();
-    let input = cx.new(|cx| {
-        InputState::new(window, cx).placeholder("Enter line numbers (e.g. 1,3,5-10)")
-    });
+    let input =
+        cx.new(|cx| InputState::new(window, cx).placeholder("Enter line numbers (e.g. 1,3,5-10)"));
     let state = std::rc::Rc::new(std::cell::RefCell::new(BatchSelectState::default()));
-    let on_accept =
-        std::rc::Rc::new(std::cell::RefCell::new(Some(on_accept)));
+    let on_accept = std::rc::Rc::new(std::cell::RefCell::new(Some(on_accept)));
 
     window.open_dialog(cx, move |dialog, _, _| {
         let input_cell = input.clone();
@@ -123,34 +121,30 @@ pub fn open_batch_select(
                 )
             })
             .footer(
-                DialogFooter::new().child(
-                    Button::new("confirm").label(ok.clone()).on_click({
-                        let state = state.clone();
-                        let input = input.clone();
-                        let on_accept = on_accept.clone();
-                        move |_, window, cx| {
-                            let text = input.read(cx).value().to_string();
-                            let mut st = state.borrow_mut();
-                            st.text = text;
-                            match st.numbers() {
-                                Ok(nums) => {
-                                    drop(st);
-                                    window.close_dialog(cx);
-                                    if let Some(cb) = on_accept.borrow_mut().take() {
-                                        cb(nums, cx);
-                                    }
-                                }
-                                Err(e) => {
-                                    drop(st);
-                                    window.push_notification(
-                                        Notification::error(e.message(catalog)),
-                                        cx,
-                                    );
+                DialogFooter::new().child(Button::new("confirm").label(ok.clone()).on_click({
+                    let state = state.clone();
+                    let input = input.clone();
+                    let on_accept = on_accept.clone();
+                    move |_, window, cx| {
+                        let text = input.read(cx).value().to_string();
+                        let mut st = state.borrow_mut();
+                        st.text = text;
+                        match st.numbers() {
+                            Ok(nums) => {
+                                drop(st);
+                                window.close_dialog(cx);
+                                if let Some(cb) = on_accept.borrow_mut().take() {
+                                    cb(nums, cx);
                                 }
                             }
+                            Err(e) => {
+                                drop(st);
+                                window
+                                    .push_notification(Notification::error(e.message(catalog)), cx);
+                            }
                         }
-                    }),
-                ),
+                    }
+                })),
             )
     });
 }
@@ -161,7 +155,9 @@ mod tests {
     use services::i18n::{catalog, ResolvedLanguage};
 
     fn st(text: &str) -> BatchSelectState {
-        BatchSelectState { text: text.to_owned() }
+        BatchSelectState {
+            text: text.to_owned(),
+        }
     }
 
     #[test]
@@ -201,9 +197,6 @@ mod tests {
             BatchSelectError::InvalidRange.message(c),
             "行号范围格式错误"
         );
-        assert_eq!(
-            BatchSelectError::InvalidNumber.message(c),
-            "行号格式错误"
-        );
+        assert_eq!(BatchSelectError::InvalidNumber.message(c), "行号格式错误");
     }
 }

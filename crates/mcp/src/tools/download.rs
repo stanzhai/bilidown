@@ -19,10 +19,7 @@ const MAX_EPISODES_PER_CALL: usize = 200;
 /// Models do not copy enum spellings verbatim (hi_res / Hi-Res / HIRES all
 /// appear); fold before comparing so one underscore isn't an error.
 fn fold(value: &str) -> String {
-    value
-        .trim()
-        .to_uppercase()
-        .replace([' ', '-', '_'], "")
+    value.trim().to_uppercase().replace([' ', '-', '_'], "")
 }
 
 /// `AVC/H.264` → each half recognized separately (model writes one half).
@@ -46,11 +43,21 @@ static VIDEO_CODEC_LOOKUP: LazyLock<HashMap<String, i64>> = LazyLock::new(|| {
 /// The model-visible names for each table, in declaration order (error
 /// messages list them exactly).
 const VIDEO_QUALITY_NAMES: &[&str] = &[
-    "auto", "8K", "DOLBY_VISION", "HDR", "4K_SDR", "4K", "1080P60", "1080P+", "AI", "1080P",
-    "720P", "480P", "360P",
+    "auto",
+    "8K",
+    "DOLBY_VISION",
+    "HDR",
+    "4K_SDR",
+    "4K",
+    "1080P60",
+    "1080P+",
+    "AI",
+    "1080P",
+    "720P",
+    "480P",
+    "360P",
 ];
-const AUDIO_QUALITY_NAMES: &[&str] =
-    &["auto", "HI_RES", "DOLBY_ATMOS", "192K", "132K", "64K"];
+const AUDIO_QUALITY_NAMES: &[&str] = &["auto", "HI_RES", "DOLBY_ATMOS", "192K", "132K", "64K"];
 const VIDEO_CODEC_NAMES: &[&str] = &["auto", "AVC/H.264", "HEVC/H.265", "AV1"];
 const VIDEO_CONTAINERS: &[&str] = &["mp4", "mkv"];
 const DANMAKU_TYPES: &[&str] = &["xml", "ass", "json"];
@@ -117,14 +124,14 @@ fn normalize_options(
         ),
         ("video_codec", "video_codec_id", VIDEO_CODEC_NAMES, None),
     ] {
-        let Some(value) = raw_map.get(name) else { continue };
+        let Some(value) = raw_map.get(name) else {
+            continue;
+        };
         let Some(text) = value.as_str() else {
             return Err(format!("'{name}' must be a string."));
         };
-        let resolved = table.map_or_else(
-            || resolve_codec(text),
-            |table| resolve_quality(table, text),
-        );
+        let resolved =
+            table.map_or_else(|| resolve_codec(text), |table| resolve_quality(table, text));
         let Some(resolved) = resolved else {
             return Err(format!(
                 "'{text}' is not a valid {name}. Valid values are: {}.",
@@ -135,7 +142,9 @@ fn normalize_options(
     }
 
     for (name, key) in FLAG_OPTIONS {
-        let Some(value) = raw_map.get(*name) else { continue };
+        let Some(value) = raw_map.get(*name) else {
+            continue;
+        };
         let Some(flag) = value.as_bool() else {
             return Err(format!("'{name}' must be a boolean."));
         };
@@ -163,7 +172,9 @@ fn normalize_options(
         ("metadata_format", "metadata_type", METADATA_TYPES),
         ("container", "video_container", VIDEO_CONTAINERS),
     ] {
-        let Some(value) = raw_map.get(name) else { continue };
+        let Some(value) = raw_map.get(name) else {
+            continue;
+        };
         let Some(text) = value.as_str() else {
             return Err(format!("'{name}' must be a string."));
         };
@@ -240,9 +251,7 @@ fn embed_conflict(state: &McpState, options: &Map<String, Value>) -> Option<Stri
 
         // Unspecified options fall back to the user's current settings;
         // already ASS + MKV must not be an error.
-        let format_fallback = config
-            .get("Advanced", format_key)
-            .cloned();
+        let format_fallback = config.get("Advanced", format_key).cloned();
         let container_fallback = config.get("Advanced", "video_container").cloned();
 
         let file_format = pick_option(options, format_key, format_fallback.as_ref())
@@ -254,7 +263,9 @@ fn embed_conflict(state: &McpState, options: &Map<String, Value>) -> Option<Stri
 
         let mut missing = Vec::new();
         if file_format != ass_value {
-            missing.push(format!("{label}_format must be 'ass' (currently '{file_format}')"));
+            missing.push(format!(
+                "{label}_format must be 'ass' (currently '{file_format}')"
+            ));
         }
         if container != "mkv" {
             missing.push(format!("container must be 'mkv' (currently '{container}')"));
@@ -275,7 +286,12 @@ fn embed_conflict(state: &McpState, options: &Map<String, Value>) -> Option<Stri
 }
 
 /// (episodes, found ids, missing ids, needs-reparse ids).
-type EpisodeMatch = (Vec<Map<String, Value>>, Vec<String>, Vec<String>, Vec<String>);
+type EpisodeMatch = (
+    Vec<Map<String, Value>>,
+    Vec<String>,
+    Vec<String>,
+    Vec<String>,
+);
 
 /// Resolve position ids against the current parse list.
 fn collect_episode_info(state: &McpState, episode_ids: &[String]) -> EpisodeMatch {
@@ -319,7 +335,10 @@ fn collect_episode_info(state: &McpState, episode_ids: &[String]) -> EpisodeMatc
 }
 
 fn tool_create_download(state: &McpState, arguments: &Map<String, Value>) -> ToolOutput {
-    let Some(_guard) = state.create_guard.try_lock_for(std::time::Duration::from_secs(5)) else {
+    let Some(_guard) = state
+        .create_guard
+        .try_lock_for(std::time::Duration::from_secs(5))
+    else {
         return ToolOutput::error("Another download request is being processed. Retry shortly.");
     };
 
@@ -362,13 +381,15 @@ fn tool_create_download(state: &McpState, arguments: &Map<String, Value>) -> Too
 
     // Validate ids before the media-info gate: a wrong id that reports
     // "media unavailable" sends the model off to re-parse instead.
-    let (mut found, found_ids, missing, needs_reparse) =
-        collect_episode_info(state, &episode_ids);
+    let (mut found, found_ids, missing, needs_reparse) = collect_episode_info(state, &episode_ids);
 
     if found.is_empty() {
         let mut detail = Vec::new();
         if !missing.is_empty() {
-            detail.push(format!("{} id(s) were not found in the parse list", missing.len()));
+            detail.push(format!(
+                "{} id(s) were not found in the parse list",
+                missing.len()
+            ));
         }
         if !needs_reparse.is_empty() {
             detail.push(format!(
@@ -406,8 +427,13 @@ fn tool_create_download(state: &McpState, arguments: &Map<String, Value>) -> Too
         let mut fresh_ids = Vec::new();
         for (episode, episode_id) in found.into_iter().zip(found_ids.iter()) {
             match state.manager.is_duplicate(&episode) {
-                Ok(true) => duplicates
-                    .push(episode.get("title").and_then(Value::as_str).unwrap_or_default().to_owned()),
+                Ok(true) => duplicates.push(
+                    episode
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned(),
+                ),
                 Ok(false) => {
                     fresh.push(episode);
                     fresh_ids.push(episode_id.clone());
@@ -436,16 +462,16 @@ fn tool_create_download(state: &McpState, arguments: &Map<String, Value>) -> Too
 
     let created = {
         let config = state.config.lock();
-        state.manager.create(
-            &config,
-            &state.episode_data,
-            &found,
-            Some(&options),
-            |_| tasks::info::NamingInput::default(),
-        )
+        state
+            .manager
+            .create(&config, &state.episode_data, &found, Some(&options), |_| {
+                tasks::info::NamingInput::default()
+            })
     };
     let Ok(result) = created else {
-        return ToolOutput::error("Task creation failed; the parse data may be stale. Try parse_url again.");
+        return ToolOutput::error(
+            "Task creation failed; the parse data may be stale. Try parse_url again.",
+        );
     };
 
     // The "downloaded" badge — position-exact: multi-P parts share a bvid,
@@ -455,7 +481,11 @@ fn tool_create_download(state: &McpState, arguments: &Map<String, Value>) -> Too
     let mut notes = Vec::new();
     if !missing.is_empty() {
         let sample: Vec<&str> = missing.iter().take(5).map(String::as_str).collect();
-        notes.push(format!("{} id(s) were not found: {}", missing.len(), sample.join(", ")));
+        notes.push(format!(
+            "{} id(s) were not found: {}",
+            missing.len(),
+            sample.join(", ")
+        ));
     }
     if !needs_reparse.is_empty() {
         notes.push(format!(
@@ -571,10 +601,16 @@ fn status_label(value: i64) -> String {
 
 /// Past-tense for receipts — no `f"{action}d"` concatenation (that would
 /// produce "canceld").
-const ACTION_DONE: &[(&str, &str)] = &[("pause", "paused"), ("resume", "resumed"), ("cancel", "cancelled")];
+const ACTION_DONE: &[(&str, &str)] = &[
+    ("pause", "paused"),
+    ("resume", "resumed"),
+    ("cancel", "cancelled"),
+];
 
 fn control_handler(state: &McpState, arguments: &Map<String, Value>, action: &str) -> ToolOutput {
-    let task_id = tools::str_arg(arguments, "task_id").unwrap_or_default().trim();
+    let task_id = tools::str_arg(arguments, "task_id")
+        .unwrap_or_default()
+        .trim();
     if task_id.is_empty() {
         return ToolOutput::error("The 'task_id' argument is required.");
     }
