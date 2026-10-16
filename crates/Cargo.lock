@@ -6153,6 +6153,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "services"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "config",
+ "database",
+ "regex",
+ "serde_json",
+ "sys-locale",
+ "tempfile",
+ "urls",
+]
+
+[[package]]
 name = "sha1_smol"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
