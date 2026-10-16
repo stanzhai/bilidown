@@ -37,24 +37,9 @@ pub mod favorites {
     }
 }
 
-pub mod settings {
-    use gpui_kit::{div, prelude::*};
-
-    /// Settings screen stub (ticket 24).
-    #[derive(Default)]
-    pub struct SettingsScreen;
-
-    impl SettingsScreen {
-        pub fn render(&mut self) -> impl IntoElement {
-            div().p_6().child("Settings")
-        }
-    }
-}
-
 /// Screen states owned by the shell (rendering mutates them).
-#[derive(Default)]
 pub struct Screens {
     pub downloads: downloads::DownloadsScreen,
     pub favorites: favorites::FavoritesScreen,
-    pub settings: settings::SettingsScreen,
+    pub settings: super::settings::SettingsScreen,
 }

@@ -9,7 +9,7 @@ skip-version, prerelease). Reads/writes via the config store.
 
 **Blocked by:** 02, 19, 20.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Every Python settings group present with the same controls
 - [ ] Edits persist through the config store atomically and apply live where applicable

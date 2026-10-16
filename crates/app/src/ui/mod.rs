@@ -2,6 +2,7 @@
 
 pub mod parse;
 pub mod screens;
+pub mod settings;
 
 use gpui_kit::component::sidebar::{Sidebar, SidebarMenuItem};
 use gpui_kit::{Context, Render, Window, div, prelude::*};
@@ -28,16 +29,24 @@ pub struct Shell {
 
 impl Shell {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let settings = settings::SettingsScreen::new(window, cx);
+        // Settings writes notify their entity; observe it so the shell
+        // redraws (the subscription lives as long as the shell).
+        cx.observe(&settings.ui, |_, _, cx| cx.notify()).detach();
         Self {
             screen: Screen::Parse,
             parse: ParseScreen::new(window, cx),
-            screens: screens::Screens::default(),
+            screens: screens::Screens {
+                downloads: Default::default(),
+                favorites: Default::default(),
+                settings,
+            },
         }
     }
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use gpui_kit::assets::IconName;
 
         let screen = self.screen;
@@ -69,7 +78,7 @@ impl Render for Shell {
                 Screen::Downloads => self.screens.downloads.render().into_any_element(),
                 Screen::Favorites => self.screens.favorites.render().into_any_element(),
                 Screen::About => screens::about::render_about().into_any_element(),
-                Screen::Settings => self.screens.settings.render().into_any_element(),
+                Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
     }
 }

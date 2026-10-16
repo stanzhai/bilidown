@@ -195,11 +195,15 @@ dependencies = [
  "auth",
  "config",
  "gpui-kit",
+ "naming",
  "network",
  "parsers",
  "serde_json",
+ "services",
+ "tempfile",
  "tokio",
  "urls",
+ "uuid",
 ]
 
 [[package]]
