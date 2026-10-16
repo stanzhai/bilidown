@@ -6,6 +6,7 @@ pub mod fmt;
 pub mod login;
 pub mod parse;
 pub mod screens;
+pub mod settings;
 
 use gpui_kit::base::Disableable;
 use gpui_kit::component::sidebar::{Sidebar, SidebarMenuItem};
@@ -99,11 +100,18 @@ impl Shell {
             .and_then(|p| tasks::TaskManager::open(p, config.clone()).ok())
             .map(Arc::new);
         dialogs::update::run_startup_check(window, cx);
+        let settings = settings::SettingsScreen::new(window, cx);
+        // Settings writes notify their entity; observe it so the shell
+        // redraws (the subscription lives as long as the shell).
+        cx.observe(&settings.ui, |_, _, cx| cx.notify()).detach();
         Self {
             screen: Screen::Parse,
             parse: ParseScreen::new(window, cx),
             downloads: DownloadsScreen::new(config, manager, window, cx),
-            screens: screens::Screens::default(),
+            screens: screens::Screens {
+                favorites: Default::default(),
+                settings,
+            },
             login: LoginState::new(window, cx, is_login),
             auth_state,
             auth_client: client,

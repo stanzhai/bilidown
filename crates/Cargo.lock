@@ -199,6 +199,7 @@ dependencies = [
  "dirs 6.0.0",
  "gpui-kit",
  "image",
+ "naming",
  "network",
  "open",
  "parking_lot",
@@ -211,6 +212,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "urls",
+ "uuid",
  "wiremock",
 ]
 
