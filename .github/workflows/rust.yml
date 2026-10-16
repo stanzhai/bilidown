@@ -1,0 +1,59 @@
+name: Rust
+
+# Ticket 01: build + test the Rust workspace on the three supported
+# platforms. Three-platform green is a release gate (spec).
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "crates/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "crates/**"
+      - ".github/workflows/rust.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-test:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      # GPUI needs these X11/Wayland dev packages to link on headless Linux.
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libgtk-3-dev \
+            libasound2-dev libglib2.0-dev \
+            libcairo2-dev libpango1.0-dev \
+            libjpeg-turbo8-dev libpng-dev libz-dev
+
+      - name: Build
+        run: cargo build --workspace --manifest-path crates/Cargo.toml
+
+      - name: Test
+        run: cargo test --workspace --manifest-path crates/Cargo.toml

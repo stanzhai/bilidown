@@ -7,7 +7,7 @@ platforms. Python tree untouched.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] `crates/` cargo workspace with root Cargo.toml, exactly pinned gpui-kit / gpui-pre, builds on macOS locally
 - [ ] One crate (e.g. `app`) opens a native window and exits cleanly
