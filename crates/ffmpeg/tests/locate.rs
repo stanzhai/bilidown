@@ -1,25 +1,42 @@
 //! Locating the executable: resolution order and the surfaced
 //! missing-binary error, exercised with temp install roots and PATH.
+//!
+//! PATH is process-global: tests that mutate it serialize on a static
+//! mutex so a sibling's Drop (restoring the real PATH mid-test) can't
+//! leak the host's ffmpeg into `which_ffmpeg()`.
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
 
 use ffmpeg::locate::{
     bundled_ffmpeg_path, ffmpeg_executable, FFmpegSelection, FFmpegSource, MISSING_MESSAGE,
 };
 
-struct PathGuard(Vec<PathBuf>);
+static PATH_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+fn path_lock() -> std::sync::MutexGuard<'static, ()> {
+    PATH_LOCK.lock()
+}
+
+struct PathGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+    old: Vec<PathBuf>,
+}
 
 impl PathGuard {
+    /// Holds the serialization lock for the test's whole body, so the
+    /// guard's Drop restores PATH before the next test starts.
     fn set(paths: Vec<PathBuf>) -> Self {
+        let lock = path_lock();
         let old: Vec<PathBuf> = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
         let joined = std::env::join_paths(&paths).unwrap();
         std::env::set_var("PATH", &joined);
-        Self(old)
+        Self { _lock: lock, old }
     }
 }
 
 impl Drop for PathGuard {
     fn drop(&mut self) {
-        let joined = std::env::join_paths(&self.0).unwrap();
+        let joined = std::env::join_paths(&self.old).unwrap();
         std::env::set_var("PATH", joined);
     }
 }
