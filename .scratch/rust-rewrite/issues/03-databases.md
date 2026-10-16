@@ -24,4 +24,4 @@ against a Python-generated MD5 vector, and `TaskDatabase` /
 `CoverDatabase` / `HistoryDatabase` with the exact Python schemas, WAL,
 `PRAGMA user_version` upgrade+rehash migrations, thumbnail 150MiB cap, and
 history capped at 100. Golden fixtures under `tests/fixtures/` pin read
-compatibility; 8 tests green. Commit: 57f9e766
+compatibility; 8 tests green. Commit: f09d63da
