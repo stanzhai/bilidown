@@ -7,7 +7,7 @@ later Bilibili-facing tickets build on this.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] reqwest client builder: cookie jar, rustls, proxy config, UA from config
 - [ ] wiremock-based tests: given canned HTTP responses, client requests observable (headers/params/cookies)
