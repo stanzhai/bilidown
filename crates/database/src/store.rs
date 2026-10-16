@@ -309,6 +309,19 @@ impl TaskDatabase {
         }
     }
 
+    /// Raw `data` JSON of one row, by `task_id` (point query).
+    pub fn query_task_json(&self, task_id: &str, completed: bool) -> rusqlite::Result<Option<String>> {
+        let table = if completed { "completed_task" } else { "download_task" };
+        let mut stmt = self
+            .conn
+            .prepare(&format!(r#"SELECT data FROM "{table}" WHERE "task_id" = ?"#))?;
+        let mut rows = stmt.query(params![task_id])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(row.get(0)?)),
+            None => Ok(None),
+        }
+    }
+
     pub fn count_tasks(&self, completed: bool) -> rusqlite::Result<i64> {
         let table = if completed { "completed_task" } else { "download_task" };
         self.conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))

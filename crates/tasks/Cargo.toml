@@ -1,0 +1,27 @@
+[package]
+name = "tasks"
+description = "Download task manager: task lifecycle, duplicate detection, DB writer thread, 1-10 parallel scheduler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+database = { path = "../database" }
+downloader = { path = "../downloader" }
+mux = { path = "../mux" }
+parsers = { path = "../parsers" }
+config = { path = "../config" }
+network = { path = "../network" }
+ffmpeg = { path = "../ffmpeg" }
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
+anyhow = "1"
+parking_lot = "=0.12.5"
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+uuid = { version = "=1.28.0", features = ["v4"] }
+md-5 = "=0.10.6"
+regex = "=1.13.1"
+
+[dev-dependencies]
+tempfile = "=3.27.0"
+wiremock = "=0.6.5"
