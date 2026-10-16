@@ -3980,6 +3980,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "naming"
+version = "2.21.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "database",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "ndk-sys"
 version = "0.6.0+11769913"
 source = "registry+https://github.com/rust-lang/crates.io-index"
