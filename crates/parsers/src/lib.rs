@@ -27,8 +27,8 @@ pub use batch::{
     aid_to_bvid, bvid_of, build_video_items, fetch_video_data, parse_batch,
     validate_batch_input, video_episode_data, BatchError, BatchPage, VIDEO_VIEW_API,
 };
-pub use episode::{
-    episode_type, unformat_episode_duration, wrap_node, with_search_keyword,
+pub use episode::list_base::{
+    episode_type, unformat_episode_duration, with_search_keyword, wrap_node,
 };
 pub use list::{
     check_response, parse_favlist, parse_history, parse_list, parse_popular, parse_space,
