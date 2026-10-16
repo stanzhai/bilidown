@@ -13,7 +13,11 @@
 //! interface kept in the widget (search matches + cursor, category label,
 //! pagination flags), and rebuilds display rows on mutation.
 
-use parsers::tree::{CheckState, Number, TreeItem as EpisodeItem};
+use parsers::playurl::detect_media_type;
+use parsers::preview::{
+    audio_quality_choice_data, video_codec_choice_data, video_quality_choice_data, PreviewInfo,
+};
+use parsers::tree::{Attribute, CheckState, Number, TreeItem as EpisodeItem};
 use parsers::view::ParseListView;
 use serde_json::Value;
 
@@ -221,6 +225,49 @@ impl ParseViewModel {
                 .map(|i| i.to_dict()),
         );
         out
+    }
+
+    /// `PreviewInfo` for the dialog: episode identity + choice data derived
+    /// from the primary preview candidate (the previewer's async query
+    /// results fill `video_info`/`audio_info` later; the dialog starts on
+    /// the "auto-selected" descriptions).
+    pub fn preview_info(&self) -> PreviewInfo {
+        let candidates = self.preview_candidates(1);
+        let dict = candidates.first().cloned().unwrap_or_else(|| serde_json::json!({}));
+        let attribute = dict
+            .get("attribute")
+            .and_then(Value::as_i64)
+            .unwrap_or(0) as u32;
+        let info_data = dict.get("info_data").cloned().unwrap_or(serde_json::json!(null));
+        let media_type = detect_media_type(&info_data);
+        let quality_ids: Vec<i64> = dict
+            .get("quality_ids")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_i64).collect())
+            .unwrap_or_default();
+        let audio_ids: Vec<i64> = dict
+            .get("audio_quality_ids")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_i64).collect())
+            .unwrap_or_default();
+        PreviewInfo {
+            episode_title: dict
+                .get("title")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            episode_number: dict
+                .get("episode_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            attribute: Attribute(attribute),
+            media_type,
+            video_quality_choices: video_quality_choice_data(&quality_ids),
+            audio_quality_choices: audio_quality_choice_data(&audio_ids),
+            video_codec_choices: video_codec_choice_data(),
+            ..PreviewInfo::new()
+        }
     }
 
     /// In-page search: store the keyword, refresh matches as row indexes,

@@ -63,7 +63,7 @@ pub fn video_codec_choice_data() -> ChoiceData {
 // Preview state
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PreviewInfo {
     pub episode_title: String,
     pub episode_number: String,

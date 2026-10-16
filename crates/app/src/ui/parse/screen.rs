@@ -16,7 +16,10 @@ use gpui_kit::component::tree::{Tree, TreeItem as DisplayItem, TreeState};
 use gpui_kit::base::Disableable;
 use gpui_kit::{AppContext, Context, Entity, IntoElement, ScrollStrategy, Window, div, px, prelude::*};
 use super::model::ParseViewModel;
+use crate::ui::download_options;
 use crate::ui::Shell;
+use config::ConfigStore;
+use naming::naming_rules::RuleStore;
 
 pub struct ParseScreen {
     pub url: Entity<InputState>,
@@ -445,7 +448,21 @@ impl ParseScreen {
         );
     }
 
-    pub fn open_download_options_dialog(&mut self, _: &mut Context<Shell>) {
-        self.pending_dialog = Some("download_options");
+    pub fn open_download_options_dialog(&mut self, window: &mut Window, cx: &mut Context<Shell>) {
+        // `get_checked_type_ids` — one naming-rule selector per checked
+        // content type.
+        let attributes: Vec<i64> = self
+            .model
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|item| item.attribute.0 as i64)
+            .collect();
+        let type_ids = download_options::DownloadOptionsModel::checked_type_ids(&attributes);
+
+        let info = self.model.preview_info();
+        let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths("", ""));
+        let store = RuleStore::default();
+        download_options::open_download_options(window, cx, &cfg, &info, &type_ids, &store);
     }
 }

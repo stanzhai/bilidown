@@ -9,12 +9,18 @@ test_download_options vectors.
 
 **Blocked by:** 05, 12, 20.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Three pages render with the same controls/options as Python
-- [ ] Quality/codec priority editors; codec fallback warning surfaced
-- [ ] Rule Builder chip editor composes Naming Rules
-- [ ] Bottom preview updates live and equals the engine's output
-- [ ] Options model serialization matches Python shape
+- [x] Three pages render with the same controls/options as Python
+- [x] Quality/codec priority editors; codec fallback warning surfaced
+- [x] Rule Builder chip editor composes Naming Rules
+- [x] Bottom preview updates live and equals the engine's output
+- [x] Options model serialization matches Python shape
+
+## Answer
+
+Ported `src/gui/dialog/download_options/` to `crates/app/src/ui/download_options/`
+(model, view dialog, rule builder view-model, units, tests) hung off the
+`ParseScreen::open_download_options_dialog` seam; commit `93f41b5e`, merge `af0ba977`.
 
 ## Comments
