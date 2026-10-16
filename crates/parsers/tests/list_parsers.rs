@@ -4,15 +4,13 @@
 //! contract of the other families (params, page sizes, keyword param
 //! names, paging counts, server-search flags).
 
-use std::sync::Arc;
-
 use serde_json::{json, Value};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use parsers::list::{
     parse_favlist, parse_history, parse_list, parse_popular, parse_space, parse_watch_later,
-    swap_host, ListError, ListParseContext, ParseOutput,
+    swap_host, ListError, ListParseContext,
 };
 use parsers::tree::Attribute;
 
@@ -561,9 +559,7 @@ fn watch_later_response(count: i64) -> Value {
 }
 
 fn logged_in_auth() -> auth::AuthState {
-    let mut state = auth::AuthState::default();
-    state.is_login = true;
-    state
+    auth::AuthState { is_login: true, ..auth::AuthState::default() }
 }
 
 #[tokio::test]
