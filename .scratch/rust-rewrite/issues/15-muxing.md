@@ -7,12 +7,16 @@ delete-after; chapter info embedded via ffmetadata.
 
 **Blocked by:** 07, 13.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] DASH merge command correct for both containers (fixtures assert args, fake ffmpeg)
-- [ ] FLV concat path for multi-part legacy tasks
-- [ ] m4a→mp3 conversion; cover attached_pic; delete-after honored
-- [ ] Chapter metadata injected via ffmetadata when present
-- [ ] Progress + watchdog flow through the wrapper into task state
+- [x] DASH merge command correct for both containers (fixtures assert args, fake ffmpeg)
+- [x] FLV concat path for multi-part legacy tasks
+- [x] m4a→mp3 conversion; cover attached_pic; delete-after honored
+- [x] Chapter metadata injected via ffmetadata when present
+- [x] Progress + watchdog flow through the wrapper into task state
+
+## Answer
+
+`crates/mux`: synchronous port of `merger.py` as `Merger::run()` (commit e3b66a23); fake-ffmpeg integration tests in `crates/mux/tests/mux.rs` cover all five boxes.
 
 ## Comments

@@ -8,12 +8,14 @@ same Task Info + rule inputs.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Rule template compiler ports test_rule_template vectors verbatim
-- [ ] Rule model ports test_rule_model vectors
-- [ ] All 12 conventions match test_naming_convention expectations
-- [ ] Task naming snapshot tests (test_task_naming_snapshot, test_file_name) pass with identical expected filenames
-- [ ] Numbering modes produce the Python build's numbering for each mode
+- [x] Rule template compiler ports test_rule_template vectors verbatim
+- [x] Rule model ports test_rule_model vectors
+- [x] All 12 conventions match test_naming_convention expectations
+- [x] Task naming snapshot tests (test_task_naming_snapshot, test_file_name) pass with identical expected filenames
+- [x] Numbering modes produce the Python build's numbering for each mode
 
-## Comments
+## Answer
+
+`crates/naming`: format engine (str.format semantics), rule-template compiler with `<>` optional segments, visual-editor rule model, 12 convention types with sample data, filename formatter with path sanitization, rule store, numbering modes, and task-naming snapshot flow — 117 tests ported verbatim from the pytest corpus. Commit: `94dba540`

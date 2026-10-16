@@ -33,7 +33,7 @@ fn config(servers: Vec<CdnServer>) -> CdnConfig {
 }
 
 /// Same contract as the unit-suite helper: hold the serial lock for the
-/// whole test so a sibling's clear cannot wipe our cooldown mid-body.
+/// whole sync test so a sibling's clear cannot wipe our cooldown mid-body.
 fn clean() -> std::sync::MutexGuard<'static, ()> {
     static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let guard = SERIAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -41,9 +41,15 @@ fn clean() -> std::sync::MutexGuard<'static, ()> {
     guard
 }
 
+/// Async variant: a std MutexGuard cannot be held across an await point,
+/// so the lock covers only the clear itself.
+fn clean_async() {
+    drop(clean());
+}
+
 #[tokio::test]
 async fn probed_host_selection_ranks_by_candidate_order() {
-    let _guard = clean();
+    clean_async();
 
     let first = MockServer::start().await;
     let second = MockServer::start().await;
@@ -97,7 +103,7 @@ async fn probed_host_selection_ranks_by_candidate_order() {
 
 #[tokio::test]
 async fn first_mirror_down_second_answers() {
-    let _guard = clean();
+    clean_async();
 
     let bad = MockServer::start().await;
     let good = MockServer::start().await;
@@ -140,8 +146,8 @@ async fn first_mirror_down_second_answers() {
 
 }
 
-#[tokio::test]
-async fn host_failures_accumulate_to_cooldown() {
+#[test]
+fn host_failures_accumulate_to_cooldown() {
     let _guard = clean();
 
     // Two consecutive failures on one host cross HOST_FAILURE_THRESHOLD
@@ -157,7 +163,7 @@ async fn host_failures_accumulate_to_cooldown() {
 
 #[tokio::test]
 async fn same_host_candidates_skipped_after_host_failure() {
-    let _guard = clean();
+    clean_async();
 
     let bad = MockServer::start().await;
 
@@ -207,7 +213,7 @@ async fn same_host_candidates_skipped_after_host_failure() {
 
 #[tokio::test]
 async fn head_405_falls_back_to_range_get() {
-    let _guard = clean();
+    clean_async();
 
     let server = MockServer::start().await;
 
@@ -252,7 +258,7 @@ async fn head_405_falls_back_to_range_get() {
 
 #[tokio::test]
 async fn text_error_page_is_failure() {
-    let _guard = clean();
+    clean_async();
 
     let server = MockServer::start().await;
 
@@ -294,7 +300,7 @@ async fn text_error_page_is_failure() {
 
 #[tokio::test]
 async fn small_file_moves_on_to_next_candidate() {
-    let _guard = clean();
+    clean_async();
 
     let tiny = MockServer::start().await;
     let real = MockServer::start().await;
@@ -344,7 +350,7 @@ async fn small_file_moves_on_to_next_candidate() {
 
 #[tokio::test]
 async fn probe_timeout_is_bounded() {
-    let _guard = clean();
+    clean_async();
     // The probe client must carry the documented per-probe timeout; a
     // dead node must not stall a resolve indefinitely.
     assert_eq!(network::probe::PROBE_TIMEOUT, Duration::from_secs(5));
