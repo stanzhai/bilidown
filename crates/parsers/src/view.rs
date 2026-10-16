@@ -28,11 +28,17 @@ pub enum ViewError {
     UnknownField(String),
 }
 
-/// Field of [`TreeItem`] a locate key can address.
+/// Field of [`TreeItem`] a locate key can address. Python's
+/// `getattr(item, key)` accepts any field name; these are the keys the
+/// parsers actually emit (`parse_video` → cid, bangumi/cheese → ep_id,
+/// lesson → section_id, list → bvid).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LocateField {
     Bvid,
     EpisodeId,
+    Cid,
+    EpId,
+    SectionId,
 }
 
 impl LocateField {
@@ -40,6 +46,9 @@ impl LocateField {
         match self {
             LocateField::Bvid => item.bvid.clone(),
             LocateField::EpisodeId => item.episode_id.clone(),
+            LocateField::Cid => item.cid.to_string(),
+            LocateField::EpId => item.ep_id.to_string(),
+            LocateField::SectionId => item.section_id.to_string(),
         }
     }
 }
@@ -51,6 +60,9 @@ impl std::str::FromStr for LocateField {
         match s {
             "bvid" => Ok(LocateField::Bvid),
             "episode_id" => Ok(LocateField::EpisodeId),
+            "cid" => Ok(LocateField::Cid),
+            "ep_id" => Ok(LocateField::EpId),
+            "section_id" => Ok(LocateField::SectionId),
             other => Err(ViewError::UnknownField(other.to_owned())),
         }
     }
@@ -161,7 +173,10 @@ impl ParseListView {
                 if check {
                     item.checked = CheckState::Checked;
                 }
-                return Some(field.value_of(item));
+                // Identity for `current_episode_bvid` / preview dispatch:
+                // the located item's own bvid (multi-P parts share it, but
+                // preview fetch then uses the checked item directly).
+                return Some(item.bvid.clone());
             }
             if let Some(hit) = Self::find_and_check(item, field, value, check) {
                 return Some(hit);
