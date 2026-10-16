@@ -457,7 +457,8 @@ mod tests {
     fn same_host_in_both_layers_is_kept_once() {
         let _guard = clean();
         let original = format!("https://{}/video.m4s", NODES[0]);
-        let candidates = candidate_urls(&[original.clone()], &servers(), PreferProvider(true));
+        let original_refs = [original.clone()];
+        let candidates = candidate_urls(&original_refs, &servers(), PreferProvider(true));
 
         assert_eq!(candidates.iter().filter(|u| **u == original).count(), 1);
         assert_eq!(candidates.len(), NODES.len());
@@ -482,8 +483,9 @@ mod tests {
     fn mall_course_links_skip_node_replacement() {
         let _guard = clean();
         let original = "https://upos-origin.example.net/mallxcodeboss/video.m4s".to_owned();
+        let original_refs = [original.clone()];
         assert_eq!(
-            candidate_urls(&[original.clone()], &servers(), PreferProvider(true)),
+            candidate_urls(&original_refs, &servers(), PreferProvider(true)),
             vec![original]
         );
     }
@@ -492,7 +494,8 @@ mod tests {
     fn all_filtered_links_fall_back_to_raw_list() {
         let _guard = clean();
         let pcdn = "https://x.pcdn.example.net/video.m4s".to_owned();
-        let candidates = candidate_urls(&[pcdn.clone()], &servers(), PreferProvider(true));
+        let pcdn_refs = [pcdn.clone()];
+        let candidates = candidate_urls(&pcdn_refs, &servers(), PreferProvider(true));
 
         assert!(candidates.contains(&pcdn));
         let mut expected = NODES.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>();
@@ -613,7 +616,7 @@ mod tests {
         assert_eq!(parse_area(&serde_json::json!({"code": 0, "data": "1.2.3.4"})), None);
         // No implicit conversions.
         for code in [serde_json::json!("86"), serde_json::json!(86.0), serde_json::json!([86]), serde_json::json!({"v": 86})] {
-            assert_eq!(parse_area(&zone_response(Some(code.clone().into()))), None, "code {code:?}");
+            assert_eq!(parse_area(&zone_response(Some(code.clone()))), None, "code {code:?}");
         }
     }
 
