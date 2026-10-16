@@ -7,11 +7,18 @@ with the thumbnail DB as source cache.
 
 **Blocked by:** 08, 03.
 
-**Status:** ready-for-agent
+**Status:** resolved
+- [x] Subtitle list fetch + each format export tested against fixtures
+- [x] Language selection filters; ASS styling applied per config
+- [x] NFO variants and JSON sidecar match Python output shapes
+- [x] Cover export formats from thumbnail cache bytes
 
-- [ ] Subtitle list fetch + each format export tested against fixtures
-- [ ] Language selection filters; ASS styling applied per config
-- [ ] NFO variants and JSON sidecar match Python output shapes
-- [ ] Cover export formats from thumbnail cache bytes
+## Answer
+
+crates/extras: subtitles (srt/lrc/txt/ass/json + language filter + MKV
+embed w/ ISO 639-2 + AI track title), ASS renderer (Subtitle Style from
+config), NFO movie/tvshow/episodedetails + JSON sidecar, cover export via
+CoverDatabase original-quality cache, player info fetch, options
+resolve() fallbacks — see commit 9cd3d9f5.
 
 ## Comments
