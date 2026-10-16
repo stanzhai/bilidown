@@ -16,6 +16,6 @@ area choices.
 
 ## Answer
 
-`crates/parsers`: `tree.rs` (TreeItem/Attribute/EpisodeData port), `audio.rs` (au/am + menu expansion), `batch.rs` (dialog validation + view-API walk folding multi-line av/BV into one root, aid→bvid algorithm), `area.rs` (zone-fetch client over `network::cdn::parse_area`, which landed via the ticket-14 merge — the pure vectors live in T14's `network::cdn` tests; ticket 11's contribution is the detect client + wiremock zone tests with the real mainland/HK bodies). 23 wiremock tests. Commit: e697b521 (+ merge f8aef445, follow-ups e5ebb785/this).
+`crates/parsers`: `tree.rs` (TreeItem/Attribute/EpisodeData port), `audio.rs` (au/am + menu expansion), `batch.rs` (dialog validation + view-API walk folding multi-line av/BV into one root, aid→bvid algorithm), `area.rs` (zone-fetch client over `network::cdn::parse_area`, which landed via the ticket-14 merge — the pure vectors live in T14's `network::cdn` tests; ticket 11's contribution is the detect client + wiremock zone tests with the real mainland/HK bodies). 23 wiremock tests. Commit: e697b521; final docs closeout 83cc6c9f.
 
 ## Comments
