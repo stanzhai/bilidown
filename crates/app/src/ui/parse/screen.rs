@@ -78,7 +78,7 @@ impl ParseScreen {
                         Button::new("parse-button")
                             .label("Parse")
                             .on_click(cx.listener(|shell, _, _, cx| {
-                                shell.parse.start_parse(cx);
+                                shell.parse.start_parse(&shell.auth_state, cx);
                             })),
                     )
                     .child(
@@ -113,7 +113,7 @@ impl ParseScreen {
                         Button::new("download-button")
                             .label("Download Selected Items")
                             .on_click(cx.listener(|shell, _, window, cx| {
-                                shell.parse.on_download(window, cx);
+                                shell.parse.on_download(window, shell.manager.clone(), cx);
                             })),
                     ),
             )
@@ -221,6 +221,7 @@ impl ParseScreen {
                                                         shell.parse.download_as_single_video(
                                                             url.clone(),
                                                             window,
+                                                            shell.manager.clone(),
                                                             cx,
                                                         );
                                                     });
@@ -273,7 +274,7 @@ impl ParseScreen {
                     .label("‹")
                     .disabled(p.current_page <= 1)
                     .on_click(cx.listener(|shell, _, _, cx| {
-                        shell.parse.change_page(-1, cx);
+                        shell.parse.change_page(-1, shell.auth_state.clone(), cx);
                     })),
             )
             .child(
@@ -286,7 +287,7 @@ impl ParseScreen {
                     .label("›")
                     .disabled(p.current_page >= p.total_pages)
                     .on_click(cx.listener(|shell, _, _, cx| {
-                        shell.parse.change_page(1, cx);
+                        shell.parse.change_page(1, shell.auth_state.clone(), cx);
                     })),
             )
             .child(Button::new("page-jump").label("…").on_click(cx.listener(
@@ -312,19 +313,30 @@ impl ParseScreen {
 
     /// Parse button handler: reset state, spawn the real parse on the
     /// background runtime, drop stale results by generation token.
-    pub fn start_parse(&mut self, cx: &mut Context<Shell>) {
+    pub fn start_parse(&mut self, auth: &auth::AuthState, cx: &mut Context<Shell>) {
         let url = self.url.read(cx).value().to_string();
-        self.start_parse_with(url, 1, cx);
+        self.start_parse_with(url, 1, auth.clone(), cx);
     }
 
     /// Fill the input with a discovered URL (clipboard monitor) and parse.
     /// The input entity needs a window to redraw, which the poll lacks,
     /// so the URL is stored and applied on the next render click.
-    pub fn start_parse_from_clipboard(&mut self, url: String, cx: &mut Context<Shell>) {
-        self.start_parse_with(url, 1, cx);
+    pub fn start_parse_from_clipboard(
+        &mut self,
+        url: String,
+        auth: &auth::AuthState,
+        cx: &mut Context<Shell>,
+    ) {
+        self.start_parse_with(url, 1, auth.clone(), cx);
     }
 
-    fn start_parse_with(&mut self, url: String, pn: i64, cx: &mut Context<Shell>) {
+    fn start_parse_with(
+        &mut self,
+        url: String,
+        pn: i64,
+        auth: auth::AuthState,
+        cx: &mut Context<Shell>,
+    ) {
         if url.trim().is_empty() {
             return;
         }
@@ -334,8 +346,10 @@ impl ParseScreen {
         self.status = "Parsing…".to_string();
         self.refresh_tree(cx);
 
-        // Parity with Python's parse worker: watch-later/history/lesson families need the live login session.
-        let auth = cx.entity().read(cx).auth_state.clone();
+        // Parity with Python's parse worker: watch-later/history/lesson
+        // families need the live login session. `auth` is passed in
+        // because reading the Shell entity here would re-enter the
+        // update closure the caller is already inside (gpui panics).
         // One side-data table across parses: the screen keeps the handle
         // so task creation can read the parsed extras.
         let episode_data = self.episode_data.clone();
@@ -544,9 +558,9 @@ impl ParseScreen {
     pub fn start_auto_parse(
         &mut self,
         payload: crate::ui::dialogs::auto_parse::AutoParsePayload,
+        auth: auth::AuthState,
         cx: &mut Context<Shell>,
     ) {
-        let auth = cx.entity().read(cx).auth_state.clone();
         let episode_data = self.episode_data.clone();
         self.status = "Preparing…".to_string();
         cx.notify();
@@ -641,7 +655,9 @@ impl ParseScreen {
                             &shell.parse.url.read(cx).value(),
                             &keyword,
                         );
-                        shell.parse.start_parse_with(url, 1, cx);
+                        shell
+                            .parse
+                            .start_parse_with(url, 1, shell.auth_state.clone(), cx);
                     } else {
                         shell.parse.run_search(Some(keyword), cx);
                     }
@@ -677,7 +693,9 @@ impl ParseScreen {
             cfg,
             move |url, cx| {
                 shell.update(cx, |shell, cx| {
-                    shell.parse.start_parse_from_clipboard(url, cx);
+                    shell
+                        .parse
+                        .start_parse_from_clipboard(url, &shell.auth_state, cx);
                 });
             },
             window,
@@ -703,7 +721,9 @@ impl ParseScreen {
             total_pages,
             move |payload, cx| {
                 shell.update(cx, |shell, cx| {
-                    shell.parse.start_auto_parse(payload, cx);
+                    shell
+                        .parse
+                        .start_auto_parse(payload, shell.auth_state.clone(), cx);
                 });
             },
             window,
@@ -777,7 +797,12 @@ impl ParseScreen {
     /// `on_download` (F8 UI story): checked episodes → task rows via
     /// `TaskManager::create`; the bootstrap driver picks them up from
     /// QUEUED and runs the full pipeline.
-    pub fn on_download(&mut self, window: &mut Window, cx: &mut Context<Shell>) {
+    pub fn on_download(
+        &mut self,
+        window: &mut Window,
+        manager: Option<std::sync::Arc<tasks::TaskManager>>,
+        cx: &mut Context<Shell>,
+    ) {
         // Python `on_download`: the options dialog runs first when the
         // behavior flag is on; its OK handler commits settings, task
         // creation then proceeds for the still-checked rows.
@@ -790,7 +815,7 @@ impl ParseScreen {
                 self.open_download_options_dialog(window, cx);
             }
         }
-        let Some(manager) = cx.entity().read(cx).manager.clone() else {
+        let Some(manager) = manager else {
             self.status = "Downloads unavailable (no task database)".into();
             cx.notify();
             return;
@@ -839,7 +864,7 @@ impl ParseScreen {
     /// `on_change_page` via prev/next: clamp to 1..=total, then
     /// re-parse the current url at the new page (`pageChanged` →
     /// `on_parse(page)` reads `url_box.text()`).
-    pub fn change_page(&mut self, delta: i64, cx: &mut Context<Shell>) {
+    pub fn change_page(&mut self, delta: i64, auth: auth::AuthState, cx: &mut Context<Shell>) {
         let Some(p) = self.model.pagination.clone() else {
             return;
         };
@@ -847,12 +872,12 @@ impl ParseScreen {
         if page == p.current_page {
             return;
         }
-        self.go_to_page(page, cx);
+        self.go_to_page(page, auth, cx);
     }
 
     /// `on_jump_to_page`'s accept path: validate against the live
     /// bounds (out of range → warning notification) and re-parse.
-    pub fn go_to_page(&mut self, page: i64, cx: &mut Context<Shell>) {
+    pub fn go_to_page(&mut self, page: i64, auth: auth::AuthState, cx: &mut Context<Shell>) {
         let Some(p) = self.model.pagination.clone() else {
             return;
         };
@@ -866,7 +891,7 @@ impl ParseScreen {
             return;
         }
         let url = self.url.read(cx).value().to_string();
-        self.start_parse_with(url, page, cx);
+        self.start_parse_with(url, page, auth, cx);
     }
 
     /// Jump ("…") button: open the Jump To Page dialog and re-parse on
@@ -877,7 +902,9 @@ impl ParseScreen {
         crate::ui::dialogs::jump_to_page::open_jump_to_page(
             cfg,
             move |page, cx| {
-                shell.update(cx, |shell, cx| shell.parse.go_to_page(page, cx));
+                shell.update(cx, |shell, cx| {
+                    shell.parse.go_to_page(page, shell.auth_state.clone(), cx)
+                });
             },
             window,
             cx,
@@ -893,6 +920,7 @@ impl ParseScreen {
         &mut self,
         url: String,
         window: &mut Window,
+        manager: Option<std::sync::Arc<tasks::TaskManager>>,
         cx: &mut Context<Shell>,
     ) {
         let Some(item) = find_item_by_url(self.model.list.root_mut(), &url) else {
@@ -903,7 +931,7 @@ impl ParseScreen {
         if !item.bvid.is_empty() {
             self.model.downloaded.insert(item.bvid.clone());
         }
-        let manager = cx.entity().read(cx).manager.clone();
+        // manager passed in — no re-entrant Shell read
         let episode_data = self.episode_data.clone();
         // Queue the one episode (Python marks the item and emits
         // create_task([dict], True, None) regardless of dialog result).

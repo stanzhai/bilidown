@@ -110,9 +110,8 @@ impl Shell {
         let wbi = Arc::new(auth::WbiKeyStore::new());
 
         // config.json Cookie section (auth stack's persistence point)
-        let auth_state =
-            auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
-                .unwrap_or_default();
+        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
+            .unwrap_or_default();
         let is_login = auth_state.is_login;
 
         // TaskManager 不可用（无 DB / 只读目录）时下载页降级为空表；
@@ -222,7 +221,8 @@ impl Shell {
         if let services::clipboard::ClipboardDecision::Parse(url) =
             self.clipboard.check(&cfg, &mut source, &clock)
         {
-            self.parse.start_parse_from_clipboard(url, cx);
+            let auth = self.auth_state.clone();
+            self.parse.start_parse_from_clipboard(url, &auth, cx);
             cx.notify();
         }
     }
