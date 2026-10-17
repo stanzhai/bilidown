@@ -10,6 +10,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use regex::Regex;
+use std::sync::LazyLock;
 use serde_json::{json, Value};
 
 use crate::episode;
@@ -70,10 +71,8 @@ pub enum ParseOutcome {
     Episode(TreeItem, (String, Value)),
 }
 
-fn find_str(pattern: &str, url: &str) -> Option<String> {
-    Regex::new(pattern)
-        .ok()
-        .and_then(|re| re.find(url).map(|m| m.as_str().to_owned()))
+fn find_str(re: &Regex, url: &str) -> Option<String> {
+    re.find(url).map(|m| m.as_str().to_owned())
 }
 
 /// `VideoParser.parse` — av/BV dispatch, view fetch, page-number
@@ -105,18 +104,21 @@ pub async fn parse_video_url(
 
 /// `get_bvid`/`get_aid` combined: BV pass-through, av converted.
 pub fn video_bvid(url: &str) -> Option<String> {
-    if let Some(bv) = find_str(r"(?:BV|bv)\w+", url) {
+    static BV_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:BV|bv)\w+").unwrap());
+    static AV_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:av|AV)([0-9]+)").unwrap());
+    if let Some(bv) = find_str(&BV_RE, url) {
         return Some(bv);
     }
-    find_str(r"(?:av|AV)([0-9]+)", url)
+    find_str(&AV_RE, url)
         .and_then(|m| m[2..].parse::<i64>().ok())
         .map(aid_to_bvid)
 }
 
 /// `get_page_number`: the `?p=` page of a multi-part link.
 pub fn get_page_number(url: &str) -> Option<i64> {
-    Regex::new(r"p=(\d+)")
-        .unwrap()
+    static P_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"p=(\d+)").unwrap());
+    P_RE
         .captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
@@ -444,17 +446,18 @@ pub async fn bangumi_param(
     base: &str,
     url: &str,
 ) -> Result<((String, String), Option<i64>), MediaError> {
-    match find_str(r"ep|ss|md", url).as_deref() {
+    static EP_SS_MD_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep|ss|md").unwrap());
+    match find_str(&EP_SS_MD_RE, url).as_deref() {
         Some("ep") => {
-            let id = capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?;
+            let id = capture_id(&EP_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             Ok((("ep_id".to_owned(), id.to_string()), Some(id)))
         }
         Some("ss") => {
-            let id = capture_id(r"ss([0-9]+)", url).ok_or(MediaError::InvalidLink)?;
+            let id = capture_id(&SS_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             Ok((("season_id".to_owned(), id.to_string()), None))
         }
         Some("md") => {
-            let media_id = capture_id(r"md([0-9]+)", url).ok_or(MediaError::InvalidLink)?;
+            let media_id = capture_id(&MD_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             let response: Value = client
                 .get_json(
                     &swap_host(MEDIA_REVIEW_API, base),
@@ -471,10 +474,12 @@ pub async fn bangumi_param(
     }
 }
 
-fn capture_id(pattern: &str, url: &str) -> Option<i64> {
-    Regex::new(pattern)
-        .ok()
-        .and_then(|re| re.captures(url))
+static EP_ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep([0-9]+)").unwrap());
+static SS_ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ss([0-9]+)").unwrap());
+static MD_ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"md([0-9]+)").unwrap());
+
+fn capture_id(re: &Regex, url: &str) -> Option<i64> {
+    re.captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
 }
@@ -490,20 +495,21 @@ pub async fn parse_cheese_url(
     url: &str,
     episode_data: &EpisodeData,
 ) -> Result<(TreeItem, Option<(String, String)>), MediaError> {
-    let ((key, value), ep_id) = match find_str(r"ep|ss", url).as_deref() {
+    static EP_SS_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep|ss").unwrap());
+    let ((key, value), ep_id) = match find_str(&EP_SS_RE, url).as_deref() {
         Some("ep") => (
             (
                 "ep_id".to_owned(),
-                capture_id(r"ep([0-9]+)", url)
+                capture_id(&EP_ID_RE, url)
                     .ok_or(MediaError::InvalidLink)?
                     .to_string(),
             ),
-            Some(capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?),
+            Some(capture_id(&EP_ID_RE, url).ok_or(MediaError::InvalidLink)?),
         ),
         Some("ss") => (
             (
                 "season_id".to_owned(),
-                capture_id(r"ss([0-9]+)", url)
+                capture_id(&SS_ID_RE, url)
                     .ok_or(MediaError::InvalidLink)?
                     .to_string(),
             ),

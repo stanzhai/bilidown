@@ -65,7 +65,7 @@ const SUBTITLE_TYPES: &[&str] = &["srt", "lrc", "txt", "ass", "json"];
 const COVER_TYPES: &[&str] = &["jpg", "png", "avif", "webp"];
 const METADATA_TYPES: &[&str] = &["nfo", "json"];
 
-/// The media-stream取舍 (audio-only for listening/transcription is common).
+/// Media-stream choices (audio-only is common for listening/transcription).
 const MEDIA_CHOICES: &str = "video+audio, video, audio";
 
 /// Model-visible name → TaskManager key. This mapping is also the

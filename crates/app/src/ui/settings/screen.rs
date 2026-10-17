@@ -390,22 +390,6 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
         )
     };
 
-    let accent = {
-        let h = ui.clone();
-        let id = ui.entity_id();
-        SettingItem::render(move |_, _, cx| {
-            let text = h.update(cx, |ui, _| ui.tr("SettingInterface", "Choose accent color"));
-            let hh = h.clone();
-            Button::new("accent-color")
-                .label(text)
-                .outline()
-                .on_click(move |_, _, cx| {
-                    hh.update(cx, |ui, _| ui.pending_dialog = Some("accent_color"));
-                    kick(cx, id);
-                })
-                .into_any_element()
-        })
-    };
 
     let mica = SettingItem::new(
         t("Mica effect (Windows 11 only)"),
@@ -466,7 +450,6 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
             SettingGroup::new()
                 .title(t("Personalization"))
                 .item(SettingItem::new(t("Theme"), theme))
-                .item(accent)
                 .item(mica)
                 .item(SettingItem::new(t("Display scaling"), scaling))
                 .item(SettingItem::new(t("Language"), language)),
@@ -483,8 +466,6 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
         .group(SettingGroup::new().title(t("Parsing")).items([
             configure_button(ui, "parse_list"),
             configure_button(ui, "monitor_clipboard"),
-            configure_button(ui, "batch_parse"),
-            configure_button(ui, "auto_parse"),
             configure_button(ui, "auto_select"),
             SettingItem::new(
                 t("Save parse history"),

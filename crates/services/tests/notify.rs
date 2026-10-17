@@ -16,7 +16,7 @@ fn category_to_icon_mapping() {
 
 #[test]
 fn download_completed_notification_payload() {
-    let n = download_completed();
+    let n = download_completed(services::i18n::ResolvedLanguage::En);
     assert_eq!(
         n,
         Notification {
@@ -25,6 +25,10 @@ fn download_completed_notification_payload() {
             message: "All download tasks have been completed.".into(),
         }
     );
+    // Chinese catalog translates both strings.
+    let zh = download_completed(services::i18n::ResolvedLanguage::ZhCn);
+    assert_ne!(zh.title, n.title);
+    assert_ne!(zh.message, n.message);
 }
 
 #[test]

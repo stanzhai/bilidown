@@ -154,6 +154,20 @@ translator_map!(
 });
 
 translator_map!(
+    /// `Translator.ADDITIONAL_FILES_QUALIFIER`
+    additional_files_qualifier, "ADDITIONAL_FILES_QUALIFIER", {
+    "DANMAKU" => "Danmaku",
+    "SUBTITLES" => "Subtitles",
+    "METADATA" => "Metadata",
+});
+
+translator_map!(
+    /// `Translator.SUBTITLE_TRACK_TITLE`
+    subtitle_track_title, "SUBTITLE_TRACK_TITLE", {
+    "AI_GENERATED" => "{name} (AI Generated)",
+});
+
+translator_map!(
     /// `Translator.VIDEO_QUALITY`
     video_quality, "VIDEO_QUALITY", {
     "auto" => "Auto",

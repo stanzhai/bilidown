@@ -16,12 +16,29 @@ use extras::Labels;
 
 use tasks::status::download_type;
 
-/// Localized qualifier labels (Python `Translator.ADDITIONAL_FILES_QUALIFIER`).
-pub fn default_labels() -> Labels {
+/// Active i18n catalog from `Interface.language` (auto → system).
+fn catalog(cfg: &ConfigStore) -> &'static services::i18n::Catalog {
+    services::i18n::catalog(
+        services::i18n::Language::from_config(
+            cfg.get("Interface", "language")
+                .and_then(Value::as_str)
+                .unwrap_or("Auto"),
+        )
+        .resolve(),
+    )
+}
+
+/// Localized qualifier labels (Python `Translator.ADDITIONAL_FILES_QUALIFIER`
+/// / `SUBTITLE_TRACK_TITLE`), resolved from the config's UI language.
+pub fn default_labels(cfg: &ConfigStore) -> Labels {
+    let c = catalog(cfg);
     Labels {
-        subtitles_qualifier: "Subtitles".into(),
-        metadata_qualifier: "Metadata".into(),
-        ai_track_title: "AI".into(),
+        subtitles_qualifier: services::i18n::additional_files_qualifier(c, "SUBTITLES")
+            .unwrap_or_else(|| "Subtitles".into()),
+        metadata_qualifier: services::i18n::additional_files_qualifier(c, "METADATA")
+            .unwrap_or_else(|| "Metadata".into()),
+        ai_track_title: services::i18n::subtitle_track_title(c, "AI_GENERATED")
+            .unwrap_or_else(|| "{name} (AI Generated)".into()),
     }
 }
 
@@ -106,7 +123,7 @@ pub async fn run_additional(
     cfg: &ConfigStore,
     task: &mut TaskInfo,
 ) -> Result<(), String> {
-    let labels = default_labels();
+    let labels = default_labels(cfg);
     let attr = task.Download.type_;
 
     // Resume/retry re-runs this stage; clear first so an ASS file is not
@@ -141,12 +158,14 @@ pub async fn run_additional(
             DanmakuFormat::Ass => "ass",
             DanmakuFormat::Json => "json",
         };
+        let danmaku_qualifier = services::i18n::additional_files_qualifier(catalog(cfg), "DANMAKU")
+            .unwrap_or_else(|| "Danmaku".into());
         let name = writer::write(
             task,
             Contents::Text(&contents),
             suffix,
             Some(&task.File.name.clone()),
-            &["Danmaku"],
+            &[&danmaku_qualifier],
         )
         .map_err(|e| e.to_string())?;
 
@@ -157,7 +176,7 @@ pub async fn run_additional(
         {
             let mut track = serde_json::Map::new();
             track.insert("file".into(), serde_json::json!(name));
-            track.insert("title".into(), serde_json::json!("Danmaku"));
+            track.insert("title".into(), serde_json::json!(danmaku_qualifier));
             track.insert("kind".into(), serde_json::json!("danmaku"));
             task.File.subtitle_track_list.push(track);
         }

@@ -65,7 +65,7 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
         user_agent: config
             .get("Advanced", "user_agent")
             .and_then(|v| v.as_str())
-            .unwrap_or("Mozilla/5.0")
+            .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string(),
         proxy: network::ProxyConfig::none(),
         cookies_from_persistence: Vec::new(),
@@ -158,7 +158,15 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
                         })
                         .unwrap_or(1);
                     if services::notify::should_notify(&config, active) {
-                        let n = services::notify::download_completed();
+                        let n = services::notify::download_completed(
+                            services::i18n::Language::from_config(
+                                config
+                                    .get("Interface", "language")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("Auto"),
+                            )
+                            .resolve(),
+                        );
                         // ponytail: notification goes to stderr until a
                         // platform notifier lands; the decision logic is
                         // the tested part.

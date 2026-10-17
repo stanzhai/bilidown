@@ -6,18 +6,10 @@
 use serde_json::{json, Map, Value};
 
 use crate::episode::list_base::{
-    build_list_node, build_video_url, episode_duration, episode_type, patch_episode_data,
-    with_search_keyword, TIP_EXPIRED,
+    build_list_node, build_video_url, episode_duration, episode_type, int, patch_episode_data,
+    text, with_search_keyword, TIP_EXPIRED,
 };
 use crate::tree::{Attribute, EpisodeData, Number, TreeItem};
-
-fn text(v: &Value, key: &str) -> String {
-    v[key].as_str().unwrap_or_default().to_owned()
-}
-
-fn int(v: &Value, key: &str) -> i64 {
-    v[key].as_i64().unwrap_or(0)
-}
 
 /// `SpaceEpisodeParser`.
 pub fn parse_space(episode_data: &EpisodeData, info_data: &Value) -> TreeItem {

@@ -3,7 +3,7 @@
 
 use serde_json::{Map, Value};
 
-use crate::episode::list_base::episode_duration;
+use crate::episode::list_base::{episode_duration, int, text};
 use crate::episode::video::timestamp_from_string;
 use crate::tree::{Attribute, EpisodeData, Number, TreeItem};
 
@@ -21,13 +21,6 @@ pub fn bangumi_episode_type(category: &str) -> String {
     }
 }
 
-fn text(v: &Value, key: &str) -> String {
-    v[key].as_str().unwrap_or_default().to_owned()
-}
-
-fn int(v: &Value, key: &str) -> i64 {
-    v[key].as_i64().unwrap_or(0)
-}
 
 /// `update_info_data`: prepend the 正片 section built from `episodes`,
 /// then drop sections whose episodes lack bvid/cid (the "UP主陪你看"

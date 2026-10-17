@@ -3,15 +3,8 @@
 
 use serde_json::{Map, Value};
 
+use crate::episode::list_base::{int, text};
 use crate::tree::{Attribute, EpisodeData, Number, TreeItem};
-
-fn text(v: &Value, key: &str) -> String {
-    v[key].as_str().unwrap_or_default().to_owned()
-}
-
-fn int(v: &Value, key: &str) -> i64 {
-    v[key].as_i64().unwrap_or(0)
-}
 
 // ---------------------------------------------------------------------------
 // Cheese
@@ -112,9 +105,13 @@ fn cheese_episode_data(episode_data: &EpisodeData, episode_id: &str, info: &Valu
 /// JSON ints must not be confused with quoted ones, so match the raw
 /// text like Python does.
 fn cheese_premiered(info: &Value) -> i64 {
+    static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r#""release_date"\s*:\s*(\d+)"#).unwrap()
+    });
+    // ponytail: re-serializing the Value is O(payload); enough until
+    // profiles show it (int-vs-quoted needs the raw JSON text).
     let text = serde_json::to_string(info).unwrap_or_default();
-    let re = regex::Regex::new(r#""release_date"\s*:\s*(\d+)"#).unwrap();
-    re.captures(&text)
+    RE.captures(&text)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().parse().unwrap_or(0))
         .unwrap_or(0)
