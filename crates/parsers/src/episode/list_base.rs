@@ -70,6 +70,15 @@ pub fn unformat_episode_duration(text: &str) -> i64 {
     total
 }
 
+/// Shared JSON field readers: string key or "", integer key or 0.
+pub(crate) fn text(v: &Value, key: &str) -> String {
+    v[key].as_str().unwrap_or_default().to_owned()
+}
+
+pub(crate) fn int(v: &Value, key: &str) -> i64 {
+    v[key].as_i64().unwrap_or(0)
+}
+
 /// Result of one flat-list parse: the emitted node (pre-wrapper) plus the
 /// `(key, value)` locating info the parse list uses to find the linked
 /// entry.

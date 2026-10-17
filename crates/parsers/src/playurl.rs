@@ -860,6 +860,9 @@ pub async fn query_dash_url(
 
 /// MP4/FLV preview: re-query with the selected qn swapped into `query_url`,
 /// summing durl sizes/lengths. `data` vs `result` per parser type.
+static QN_RE: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"([?&])qn=\d+").unwrap());
+
 pub async fn query_mp4_info(
     client: &HttpClient,
     parser_type: &str,
@@ -870,8 +873,7 @@ pub async fn query_mp4_info(
         .get("query_url")
         .and_then(Value::as_str)
         .ok_or_else(|| PlayurlError::Api("missing query_url".into()))?;
-    let qn_re = regex::Regex::new(r"([?&])qn=\d+").unwrap();
-    let rewritten = qn_re.replace(query_url, format!("${{1}}qn={qid}"));
+    let rewritten = QN_RE.replace(query_url, format!("${{1}}qn={qid}"));
     let payload: Value = client.get_json(&rewritten, &[]).await?;
     check_response(&payload)?;
     let body = take_body(
