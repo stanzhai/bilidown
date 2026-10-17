@@ -129,7 +129,7 @@ impl Shell {
             // MCP tools hold their config as Arc<Mutex<ConfigStore>>;
             // re-open from the same file (writes land on disk, the
             // shell's copy keeps its in-memory view as before).
-            let mcp_cfg = config::ConfigStore::with_paths(cfg_dir, "");
+            let mcp_cfg = config::ConfigStore::with_paths(cfg_dir.clone(), "");
             crate::bootstrap::start_mcp_server(Arc::new(parking_lot::Mutex::new(mcp_cfg)), manager);
         }
 

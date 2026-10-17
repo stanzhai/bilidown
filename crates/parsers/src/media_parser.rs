@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use regex::Regex;
 use std::sync::LazyLock;
+use serde_json::{json, Value};
 
 use crate::episode;
 use crate::episode::bangumi::parse_bangumi;
@@ -448,15 +449,15 @@ pub async fn bangumi_param(
     static EP_SS_MD_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep|ss|md").unwrap());
     match find_str(&EP_SS_MD_RE, url).as_deref() {
         Some("ep") => {
-            let id = capture_id(EP_ID_RE, url).ok_or(MediaError::InvalidLink)?;
+            let id = capture_id(&EP_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             Ok((("ep_id".to_owned(), id.to_string()), Some(id)))
         }
         Some("ss") => {
-            let id = capture_id(SS_ID_RE, url).ok_or(MediaError::InvalidLink)?;
+            let id = capture_id(&SS_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             Ok((("season_id".to_owned(), id.to_string()), None))
         }
         Some("md") => {
-            let media_id = capture_id(MD_ID_RE, url).ok_or(MediaError::InvalidLink)?;
+            let media_id = capture_id(&MD_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             let response: Value = client
                 .get_json(
                     &swap_host(MEDIA_REVIEW_API, base),
@@ -499,16 +500,16 @@ pub async fn parse_cheese_url(
         Some("ep") => (
             (
                 "ep_id".to_owned(),
-                capture_id(EP_ID_RE, url)
+                capture_id(&EP_ID_RE, url)
                     .ok_or(MediaError::InvalidLink)?
                     .to_string(),
             ),
-            Some(capture_id(EP_ID_RE, url).ok_or(MediaError::InvalidLink)?),
+            Some(capture_id(&EP_ID_RE, url).ok_or(MediaError::InvalidLink)?),
         ),
         Some("ss") => (
             (
                 "season_id".to_owned(),
-                capture_id(SS_ID_RE, url)
+                capture_id(&SS_ID_RE, url)
                     .ok_or(MediaError::InvalidLink)?
                     .to_string(),
             ),
