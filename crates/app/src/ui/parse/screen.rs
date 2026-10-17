@@ -828,8 +828,11 @@ impl ParseScreen {
 
         let info = self.model.preview_info();
         let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths("", ""));
-        let store = RuleStore::default();
-        download_options::open_download_options(window, cx, &cfg, &info, &type_ids, &store);
+        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list"));
+        let candidates = self.model.preview_items(3);
+        download_options::open_download_options(
+            window, cx, &cfg, &info, &type_ids, &store, candidates,
+        );
     }
 
     /// `on_download` (F8 UI story): checked episodes → task rows via

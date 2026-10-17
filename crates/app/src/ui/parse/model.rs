@@ -269,6 +269,29 @@ impl ParseViewModel {
         out
     }
 
+    /// Preview candidates as owned items, for the options dialog's
+    /// media-info query (same walk order as [`Self::preview_candidates`]).
+    pub fn preview_items(&self, limit: usize) -> Vec<EpisodeItem> {
+        let all = self.list.get_all_items();
+        let Some(first) = all.first() else {
+            return Vec::new();
+        };
+        let current = self.list.current_episode_bvid();
+        let primary = match current {
+            Some(bvid) => all.iter().find(|i| i.bvid == bvid).unwrap_or(first),
+            None => first,
+        };
+        let mut backups: Vec<&EpisodeItem> = all
+            .iter()
+            .filter(|i| !std::ptr::eq(*i, primary))
+            .copied()
+            .collect();
+        backups.sort_by_key(|i| !i.badge.is_empty());
+        let mut out: Vec<EpisodeItem> = vec![(*primary).clone()];
+        out.extend(backups.into_iter().take(limit.saturating_sub(1)).cloned());
+        out
+    }
+
     /// `PreviewInfo` for the dialog: episode identity + choice data derived
     /// from the primary preview candidate (the previewer's async query
     /// results fill `video_info`/`audio_info` later; the dialog starts on
@@ -633,6 +656,21 @@ mod tests {
             .collect();
         // 无 current episode → 第一项为主选；无徽章的排前面
         assert_eq!(ids, ["BV1", "BV2", "BV3"]);
+    }
+
+    #[test]
+    fn preview_items_match_candidates_walk() {
+        let m = model_with(vec![
+            item("BV1", 1, "a", "会员"),
+            item("BV2", 2, "b", ""),
+            item("BV3", 3, "c", ""),
+        ]);
+        let items = m.preview_items(3);
+        assert_eq!(
+            items.iter().map(|i| i.bvid.as_str()).collect::<Vec<_>>(),
+            ["BV1", "BV2", "BV3"]
+        );
+        assert_eq!(items[0].number, Number::Int(1));
     }
 
     #[test]
