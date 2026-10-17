@@ -15,6 +15,7 @@ use crate::ui::Shell;
 use config::ConfigStore;
 use gpui_kit::base::Disableable;
 use gpui_kit::component::button::Button;
+use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::list::ListItem;
 use gpui_kit::component::tree::{Tree, TreeItem as DisplayItem, TreeState};
@@ -153,18 +154,20 @@ impl ParseScreen {
             .child(self.render_pager(cx))
     }
 
-    /// Episode tree with the Python hover-bar actions as per-row suffix
-    /// buttons: "View Multi-part Video List" (enabled only on
-    /// favorites items that themselves have multi-P videos) and
-    /// "Download as Single Video" (leaf rows only, mirroring the hover
-    /// bar hiding on parents).
+    /// Episode tree: one tri-state checkbox per row (the Python
+    /// `parse_list` checkbox column — without it nothing can ever be
+    /// checked, so Download Selected does nothing), plus the hover-bar
+    /// actions as per-row suffix buttons: "View Multi-part Video List"
+    /// (favorites items with multi-P videos) and "Download as Single
+    /// Video" (leaf rows only, mirroring the hover bar hiding on
+    /// parents).
     fn render_tree(&mut self, cx: &mut Context<Shell>) -> impl IntoElement {
         let tree = self.tree.clone();
         let shell = cx.weak_entity();
         // Row metadata in the same flatten order as `model.rows()`:
-        // (url, leaf?, has multi-P) per display row for the suffix
-        // buttons.
-        let mut row_meta: Vec<(String, bool, bool, String)> = Vec::new();
+        // (url, leaf?, has multi-P, cover, row-id, checked?) per
+        // display row.
+        let mut row_meta: Vec<RowMeta> = Vec::new();
         collect_row_meta(self.model.list.root(), &mut row_meta);
         // `Tree::new` takes an `Fn('static)` — the metadata table moves
         // in behind an `Rc` so every render call clones the handle.
@@ -174,9 +177,44 @@ impl ParseScreen {
             .min_h_0()
             .child(Tree::new(&tree, move |ix, entry, _, _, _| {
                 let meta = row_meta.get(ix).cloned();
+                let meta_suffix = meta.clone();
+                let checked = meta.as_ref().map(|m| m.checked).unwrap_or(false);
+                let row_id = meta.as_ref().map(|m| m.id.clone()).unwrap_or_default();
+                let shell_check = shell.clone();
                 ListItem::new(("episode", ix))
-                    .child(entry.item().label.clone())
-                    .when_some(meta, |item, (url, leaf, multi_part, cover)| {
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .when_some(meta, |el, m| {
+                                // Structural tree nodes (seasons/sections)
+                                // aggregate their children but have no
+                                // downloadable identity; only the row id
+                                // targets a real item.
+                                if m.id.is_empty() {
+                                    return el;
+                                }
+                                el.child(
+                                    Checkbox::new(("row-check", ix)).checked(checked).on_click({
+                                        let row_id = row_id.clone();
+                                        move |_, window, cx| {
+                                            if let Some(shell) = shell_check.upgrade() {
+                                                shell.update(cx, |shell, cx| {
+                                                    shell.parse.model.toggle_row(&row_id);
+                                                    shell.parse.refresh_tree(cx);
+                                                    let _ = window;
+                                                });
+                                            }
+                                        }
+                                    }),
+                                )
+                            })
+                            .child(entry.item().label.clone()),
+                    )
+                    .when_some(meta_suffix, |item, m| {
+                        let (url, leaf, multi_part, cover) =
+                            (m.url.clone(), m.leaf, m.multi_part, m.cover.clone());
                         if url.is_empty() {
                             return item;
                         }
@@ -1081,17 +1119,30 @@ impl ParseScreen {
     }
 }
 
-/// Python's hover-bar precondition: the multi-P action exists on
-/// favorites items that themselves have multi-part videos, the
-/// single-video action on non-parent rows. Snapshot `(url, leaf?,
-/// has-multi-P)` per flattened row in `model.rows()` order.
-fn collect_row_meta(item: &parsers::tree::TreeItem, out: &mut Vec<(String, bool, bool, String)>) {
-    out.push((
-        item.url.clone(),
-        item.children.is_empty(),
-        item.has_attribute(parsers::tree::Attribute::FAVORITE_WITH_MULTI_PART_VIDEO_BIT),
-        item.cover.clone(),
-    ));
+/// Per-row metadata snapshot for the tree render (same DFS order as
+/// `ParseViewModel::rows`): suffix-button config plus checkbox state.
+#[derive(Clone)]
+struct RowMeta {
+    url: String,
+    leaf: bool,
+    multi_part: bool,
+    cover: String,
+    /// Stable row id (`model::row_id`) — the toggle key.
+    id: String,
+    checked: bool,
+}
+
+fn collect_row_meta(item: &parsers::tree::TreeItem, out: &mut Vec<RowMeta>) {
+    let id = super::model::display_row_id(item);
+    out.push(RowMeta {
+        url: item.url.clone(),
+        leaf: item.children.is_empty(),
+        multi_part: item
+            .has_attribute(parsers::tree::Attribute::FAVORITE_WITH_MULTI_PART_VIDEO_BIT),
+        cover: item.cover.clone(),
+        checked: matches!(item.checked, parsers::tree::CheckState::Checked),
+        id,
+    });
     for child in &item.children {
         collect_row_meta(child, out);
     }

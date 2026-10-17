@@ -33,7 +33,11 @@ pub struct DisplayRow {
     pub is_leaf: bool,
 }
 
-/// Stable per-node row id.
+/// Stable per-node row id (pub for the screen's checkbox keying).
+pub fn display_row_id(item: &EpisodeItem) -> String {
+    row_id(item)
+}
+
 fn row_id(item: &EpisodeItem) -> String {
     let number = match &item.number {
         Number::Int(n) => n.to_string(),
@@ -161,6 +165,41 @@ impl ParseViewModel {
         let mut rows = Vec::new();
         flatten(self.list.root(), 0, &mut rows);
         self.rows = rows;
+    }
+
+    /// Toggle one row's check state by display-row id (the row
+    /// checkbox): checked → unchecked, anything else → checked.
+    /// `set_checked_state` also propagates down the subtree; ancestors
+    /// re-aggregate bottom-up (`refresh_check_state`).
+    pub fn toggle_row(&mut self, row_id: &str) {
+        let Some(next) = Self::node_state(self.list.root_mut(), row_id).map(|s| {
+            if matches!(s, CheckState::Checked) {
+                CheckState::Unchecked
+            } else {
+                CheckState::Checked
+            }
+        }) else {
+            return;
+        };
+        Self::set_node_state(self.list.root_mut(), row_id, next);
+    }
+
+    fn node_state(node: &EpisodeItem, id: &str) -> Option<CheckState> {
+        if row_id(node) == id {
+            return Some(node.checked);
+        }
+        node.children.iter().find_map(|c| Self::node_state(c, id))
+    }
+
+    fn set_node_state(node: &mut EpisodeItem, id: &str, state: CheckState) {
+        for child in node.children.iter_mut() {
+            if row_id(child) == id {
+                child.set_checked_state(state);
+            } else {
+                Self::set_node_state(child, id, state);
+            }
+        }
+        node.refresh_check_state();
     }
 
     /// Checked / total counts for the item-count label.
@@ -466,6 +505,32 @@ fn flatten(item: &EpisodeItem, depth: usize, out: &mut Vec<DisplayRow>) {
 mod tests {
     use super::*;
     use parsers::tree::{Attribute, CheckState, Number, TreeItem};
+
+    #[test]
+    fn toggle_row_checks_and_propagates() {
+        // Bangumi shape: root > season > episodes; toggling one episode
+        // checks it; toggling the season checks every child.
+        let mut root = TreeItem::empty();
+        let mut season = TreeItem::root(Number::Text("正片".into()), "正片");
+        season.add_child(item("BV1", 1, "EP1", ""));
+        season.add_child(item("BV2", 2, "EP2", ""));
+        root.add_child(season);
+
+        let mut m = ParseViewModel::new();
+        m.list.update_tree(root, None).unwrap();
+        m.refresh_rows();
+
+        let ep1 = m.rows[1].id.clone(); // rows[0] is the season row
+        m.toggle_row(&ep1);
+        assert_eq!(m.list.get_checked_items().len(), 1);
+
+        // season row is the parent (depth 0 among children of root)
+        let season_id = display_row_id(&m.list.root().children[0]);
+        m.toggle_row(&season_id);
+        assert_eq!(m.list.get_checked_items().len(), 2);
+        m.toggle_row(&season_id);
+        assert_eq!(m.list.get_checked_items().len(), 0);
+    }
 
     fn item(bvid: &str, number: i64, title: &str, badge: &str) -> TreeItem {
         let mut it = TreeItem::empty();
