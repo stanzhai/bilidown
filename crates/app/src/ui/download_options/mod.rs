@@ -10,8 +10,8 @@ pub mod units;
 
 use gpui_kit::base::Disableable;
 use gpui_kit::base::IndexPath;
-use gpui_kit::component::button::Button;
-use gpui_kit::component::dialog::{DialogButtonProps, DialogFooter};
+use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui_kit::component::dialog::DialogFooter;
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::searchable_list::SearchableVec;
 use gpui_kit::component::select::{Select, SelectState};
@@ -824,9 +824,10 @@ fn cx_of_catalog() -> &'static services::i18n::Catalog {
 /// Open the dialog on a window: builds the entity first (per the builder
 /// contract — entities made inside the builder are replaced on every rebuild,
 /// losing editing state), then hands the dialog shell title/content/footer.
-/// OK commits the model into the config store and saves (`accept()`);
-/// `Confirm*` results close without committing (the Python dialog asks
-/// first — the confirmation prompts land with the download queue ticket).
+/// The footer buttons are explicit: a plain `Dialog` never renders buttons
+/// from `button_props` (those only install the OK/Cancel callbacks), so the
+/// previous empty `DialogFooter::new()` left the dialog with no Download
+/// button at all.
 pub fn open_download_options(
     window: &mut Window,
     cx: &mut Context<crate::ui::Shell>,
@@ -840,12 +841,25 @@ pub fn open_download_options(
     window.open_dialog(cx, move |d, _w, _a| {
         let entity = for_content.clone();
         d.title("Download Options")
-            .button_props(DialogButtonProps::default().ok_text("Download").on_ok({
-                let entity = entity.clone();
-                move |_, _, cx| confirm_ok(&entity, cx)
-            }))
             .content(move |content, _w, _a| content.child((*entity).clone()))
-            .footer(DialogFooter::new())
+            .footer(
+                DialogFooter::new()
+                    .child(
+                        Button::new("cancel")
+                            .label("Cancel")
+                            .on_click(|_, window, cx| {
+                                window.close_dialog(cx);
+                            }),
+                    )
+                    .child(Button::new("ok").label("Download").primary().on_click({
+                        let entity = for_content.clone();
+                        move |_, window, cx| {
+                            if confirm_ok(&entity, cx) {
+                                window.close_dialog(cx);
+                            }
+                        }
+                    })),
+            )
     });
     dialog
 }
