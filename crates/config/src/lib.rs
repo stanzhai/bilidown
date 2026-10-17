@@ -22,6 +22,9 @@ pub const APP_CONFIG_VERSION: i64 = 2200;
 /// 应用名，也是 User Data Directory 下的目录名。
 pub const APP_NAME: &str = "Bili23 Downloader";
 
+/// `Advanced/user_agent` 缺省值（与 defaults.json / Python 端一致，Edge 变体）。
+pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0";
+
 /// defaults.json 由 Python 端真实保存路径生成：解析一次即得键序与全部默认值，
 /// 无需手抄约一百条默认项。
 const DEFAULTS: &str = include_str!("defaults.json");

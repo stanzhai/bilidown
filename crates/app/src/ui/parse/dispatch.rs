@@ -204,7 +204,7 @@ impl ParseService {
         let ua = cfg
             .get("Advanced", "user_agent")
             .and_then(Value::as_str)
-            .unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0")
+            .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
         let client = HttpClient::new(network::ClientOptions {
             user_agent: ua,
