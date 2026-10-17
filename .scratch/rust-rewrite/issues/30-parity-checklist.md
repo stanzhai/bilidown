@@ -82,7 +82,7 @@ Test names are `crate::file::name` abbreviated to file::name.
 | 53 | Exit dialog (minimize vs exit, remember) | ✅ | app downloads/model.rs exit_choice_persists_only_when_remembered, apply_exit_choice; Shell::ask_exit seam for ticket-26 |
 | 54 | Reads Python data dir without migration | ✅ | config/tests/golden.rs old_python_config_upgrades_in_place_v2120/v2160; database/tests/golden.rs golden_task/thumbnail/history_db_read_python_rows, wal_mode_on_and_user_version_migration_ports |
 | 55 | Same screens (parse/downloads/settings/login/options/misc) | ✅ | app ui/{parse,downloads,settings,login,download_options,dialogs} ports of src/gui/interface + dialog trees; settings `Configure…` rows drained to their real dialogs (screen.rs pending_dialog match, e305c310); dead batch/auto-parse + accent rows removed (review P1/P2) |
-| 56 | Per-task download options (3 pages + preview) | ✅ | app download_options/tests.rs 9 (stream gating, preview_tags, filename_preview_matches_engine, commit_writes_config_and_naming_state); mod.rs 3-page pivot + preview bar |
+| 56 | Per-task download options (3 pages + preview) | ✅ | app download_options/tests.rs 9 (stream gating, preview_tags, filename_preview_matches_engine, commit_writes_config_and_naming_state); mod.rs 3-page pivot + preview bar; footer buttons were missing (bare `DialogFooter::new()` renders nothing — gpui-kit props install callbacks only), fixed with explicit Cancel/Download buttons `7cb15caf`. Quality dropdowns only ever showed "auto" (no Previewer worker → `PreviewInfo.quality_ids` never filled); dialog open now runs the Python previewer walk (fetch playurl for the primary candidate, fall back to unbadged backups, adopt → real choice data + query descriptions) and dialog widened to 750px (Python QSize 750x500) — `05004cc2`; live-smoked against the real API (`preview_items` walk → choices `auto/480P/360P`) |
 | 57 | Log viewer dialog | ✅ | downloads/dialogs.rs open_log_viewer; log_view.rs missing_file_records_error_not_panic |
 | 58 | Domain tests ported before modules | ✅ | auth/tests/vectors.rs (enc_wbi verbatim), urls, naming (117 ported), config migration 20, danmaku, extras time/units equivalents |
 | 59 | wiremock HTTP fixtures | ✅ | 60+ wiremock tests across parsers/network/downloader/mcp/services/extras/auth (list_parsers 22, wire.rs cdn/downloader, playurl 29) |
@@ -111,7 +111,14 @@ Test names are `crate::file::name` abbreviated to file::name.
 | Download options | 3 pages + preview bar, rule builder page | Pass (9 model tests) |
 | Misc dialogs | about, batch parse/select, interactive, update | Pass |
 
-Interactive GUI driving was not possible in this environment (headless worktree, no display session asserted); every screen's logic is covered by the headless tests above and the binary builds and launches. Recording this honestly rather than claiming manual clicks.
+
+**Live end-to-end (2026-10-17, main worktree):** full download flow proven
+against the real bilibili network — task created from the parse screen
+row action, named `凡人修仙传/第1话 凡人风起天南1重制版.mp4` by the
+config's bangumi rule, 126,713,928 bytes merged, row moved to
+`completed_task`. Fixes: footer buttons `7cb15caf`; naming-at-create +
+orphan adoption + merge ext `7ddca9ac`; quality choices + dialog width
+`05004cc2`.
 
 ### Findings (structural — not fixed here, per ticket contract)
 

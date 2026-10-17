@@ -7416,6 +7416,7 @@ dependencies = [
  "ffmpeg",
  "md-5 0.10.6",
  "mux",
+ "naming",
  "network",
  "parking_lot",
  "parsers",

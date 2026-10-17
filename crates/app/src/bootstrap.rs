@@ -103,7 +103,11 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
 
     loop {
         // Scan → admit → run admitted tasks concurrently; the interval
-        // backstops external task creation (MCP tools, another window).
+        // backstops external task creation (MCP tools, another window)
+        // and re-adopts rows stranded in an active status with no
+        // pipeline owner (create/auto_manage flips QUEUED→DOWNLOADING
+        // without spawning anything; app restart does the same to
+        // previously running tasks).
         if let Ok(tasks) = manager.query(false, None) {
             let limit = config
                 .get("Download", "download_parallel")
@@ -114,26 +118,17 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
             let mut admitted: Vec<database::TaskInfo> = Vec::new();
             {
                 let mut running = running.lock();
-                let active = tasks
-                    .iter()
-                    .filter(|t| {
-                        matches!(
-                            t.Download.status,
-                            download_status::DOWNLOADING
-                                | download_status::PARSING
-                                | download_status::MERGING
-                                | download_status::CONVERTING
-                                | download_status::ADDITIONAL_PROCESSING
-                        ) || running.contains(&t.Basic.task_id)
-                    })
-                    .count();
+                let active = running.len();
                 for task in tasks {
                     if admitted.len() + active >= limit {
                         break;
                     }
-                    if task.Download.status == download_status::QUEUED
-                        && running.insert(task.Basic.task_id.clone())
-                    {
+                    let startable = task.Download.status == download_status::QUEUED
+                        || (matches!(
+                            task.Download.status,
+                            download_status::PARSING | download_status::DOWNLOADING
+                        ) && !running.contains(&task.Basic.task_id));
+                    if startable && running.insert(task.Basic.task_id.clone()) {
                         admitted.push(task);
                     }
                 }

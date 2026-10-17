@@ -28,6 +28,8 @@ use database::TaskInfo;
 use network::HttpClient;
 use serde_json::Value;
 
+use naming::naming_rules::RuleStore;
+use naming::task_naming::{freeze_naming_rule, update_file_name_info};
 use parsers::playurl::{self as playurl_mod, MediaType, PlayurlApis};
 use parsers::preview::{Preview, Priorities};
 use parsers::tree::Attribute;
@@ -190,6 +192,7 @@ async fn parse_download(
     apis: &PlayurlApis,
     cdn: &network::cdn::CdnConfig,
     priorities: &Priorities,
+    cfg: &ConfigStore,
     task: &mut TaskInfo,
 ) -> Result<Vec<FileEntry>, String> {
     use tasks::status::download_type;
@@ -278,12 +281,29 @@ async fn parse_download(
         }
     }
 
-    // `get_output_file_ext`: without both streams there is nothing to merge.
+    // `get_output_file_ext`: without both streams there is nothing to
+    // merge; with merging on (or video parts), the output extension is
+    // the resolved container.
     let got_video = entries.iter().any(|e| e.file_key.starts_with("video"));
     let got_audio = entries.iter().any(|e| e.file_key == "audio");
     if !got_video || !got_audio {
         task.Download.merge_video_audio = false;
         task.Download.keep_original_files = false;
+    }
+    if task.Download.merge_video_audio || task.Download.video_parts_count > 0 {
+        let container = tasks::options::resolve(cfg, task, "video_container");
+        task.File.merge_file_ext = container.as_str().unwrap_or("mp4").to_string();
+    }
+
+    // `_update_media_info`: re-render the frozen rule now that quality /
+    // codec variables are known — also re-names tasks resumed with an
+    // empty file name (rows created before the naming engine existed).
+    if task.File.name.is_empty() {
+        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list"));
+        if task.Naming.rule.as_deref().unwrap_or("").is_empty() {
+            freeze_naming_rule(task, None, &store, &Default::default());
+        }
+        let _ = update_file_name_info(task, &store);
     }
 
     // `filter_download_list`: on resume, only the queue's keys download.
@@ -345,7 +365,7 @@ pub async fn run_task(
     // ---- Stage 1: parse ----
     task.Download.status = download_status::PARSING;
     manager.update_async(&task);
-    let entries = match parse_download(client, apis, &cdn, &priorities, &mut task).await {
+    let entries = match parse_download(client, apis, &cdn, &priorities, cfg, &mut task).await {
         Ok(e) => e,
         Err(message) => {
             task.Download.status = download_status::FAILED;

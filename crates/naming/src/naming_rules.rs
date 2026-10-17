@@ -17,6 +17,27 @@ pub struct RuleEntry {
     pub default: bool,
 }
 
+/// Parse `naming_rule_list` from raw JSON; `None` when missing, empty,
+/// or malformed.
+fn parse_rule_list(value: Option<&serde_json::Value>) -> Option<Vec<RuleEntry>> {
+    let arr = value?.as_array()?;
+    if arr.is_empty() {
+        return None;
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for entry in arr {
+        let obj = entry.as_object()?;
+        out.push(RuleEntry {
+            id: obj.get("id")?.as_str()?.to_string(),
+            name: obj.get("name")?.as_str()?.to_string(),
+            type_: obj.get("type")?.as_i64()?,
+            rule: obj.get("rule")?.as_str()?.to_string(),
+            default: obj.get("default")?.as_bool()?,
+        });
+    }
+    Some(out)
+}
+
 /// Built-in default rules (Python `DefaultValue.naming_rule_list`), all
 /// `default = True`.
 pub const DEFAULT_RULES: &[(&str, &str, i64, &str)] = &[
@@ -110,6 +131,17 @@ impl Default for RuleStore {
 impl RuleStore {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Build from a config `naming_rule_list` value; falls back to the
+    /// built-ins when the value is missing or malformed (Python
+    /// `load_rules` semantics).
+    pub fn from_config_value(value: Option<&serde_json::Value>) -> Self {
+        let mut store = Self::new();
+        if let Some(entries) = parse_rule_list(value) {
+            store.save_rules(entries);
+        }
+        store
     }
 
     /// Independent copy of the active rule list.

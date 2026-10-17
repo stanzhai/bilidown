@@ -10,8 +10,8 @@ pub mod units;
 
 use gpui_kit::base::Disableable;
 use gpui_kit::base::IndexPath;
-use gpui_kit::component::button::Button;
-use gpui_kit::component::dialog::{DialogButtonProps, DialogFooter};
+use gpui_kit::component::button::{Button, ButtonVariants};
+use gpui_kit::component::dialog::DialogFooter;
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::searchable_list::SearchableVec;
 use gpui_kit::component::select::{Select, SelectState};
@@ -25,7 +25,7 @@ use gpui_kit::{
 use config::ConfigStore;
 use naming::naming_rules::RuleStore;
 use naming::task_naming::NamingState;
-use parsers::preview::PreviewInfo;
+use parsers::preview::{AudioQueryInfo, ChoiceData, PreviewInfo, VideoQueryInfo};
 
 pub use model::{AcceptCheck, DownloadOptionsModel, TAG_COLORS};
 
@@ -134,6 +134,60 @@ impl DownloadOptionsDialog {
         };
         subscribe_selects(&this, cx);
         this
+    }
+
+    /// Async media-info results landed (`init_media_info` +
+    /// `on_query_video_info`/`on_query_audio_info`): refresh the choice
+    /// lists, keep the current selection when still offered, and re-render
+    /// the descriptions.
+    pub fn apply_media_choices(
+        &mut self,
+        video_choices: ChoiceData,
+        audio_choices: ChoiceData,
+        video_info: Option<VideoQueryInfo>,
+        audio_info: Option<AudioQueryInfo>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let keep_selection = |select: &Entity<SelectState<SearchableVec<String>>>,
+                              choices: &ChoiceData,
+                              current_id: i64,
+                              window: &mut Window,
+                              cx: &mut Context<Self>| {
+            let label = choices
+                .iter()
+                .find(|(_, id)| *id == current_id)
+                .map(|(l, _)| l.clone());
+            select.update(cx, |s, cx| {
+                s.set_items(SearchableVec::new(choice_strings(choices)), window, cx);
+                if let Some(label) = &label {
+                    s.set_selected_value(label, window, cx);
+                }
+            });
+        };
+
+        let vq = self.video_quality.clone();
+        keep_selection(
+            &vq,
+            &video_choices,
+            self.model.media.video_quality_id,
+            window,
+            cx,
+        );
+        let aq = self.audio_quality.clone();
+        keep_selection(
+            &aq,
+            &audio_choices,
+            self.model.media.audio_quality_id,
+            window,
+            cx,
+        );
+
+        self.model.media.video_quality_choices = video_choices;
+        self.model.media.audio_quality_choices = audio_choices;
+        self.model.media.video_info = video_info;
+        self.model.media.audio_info = audio_info;
+        cx.notify();
     }
 }
 
@@ -824,9 +878,10 @@ fn cx_of_catalog() -> &'static services::i18n::Catalog {
 /// Open the dialog on a window: builds the entity first (per the builder
 /// contract — entities made inside the builder are replaced on every rebuild,
 /// losing editing state), then hands the dialog shell title/content/footer.
-/// OK commits the model into the config store and saves (`accept()`);
-/// `Confirm*` results close without committing (the Python dialog asks
-/// first — the confirmation prompts land with the download queue ticket).
+/// The footer buttons are explicit: a plain `Dialog` never renders buttons
+/// from `button_props` (those only install the OK/Cancel callbacks), so the
+/// previous empty `DialogFooter::new()` left the dialog with no Download
+/// button at all.
 pub fn open_download_options(
     window: &mut Window,
     cx: &mut Context<crate::ui::Shell>,
@@ -834,18 +889,108 @@ pub fn open_download_options(
     info: &PreviewInfo,
     type_ids: &[i64],
     store: &RuleStore,
+    candidates: Vec<parsers::tree::TreeItem>,
 ) -> Entity<DownloadOptionsDialog> {
     let dialog = cx.new(|cx| DownloadOptionsDialog::new(cfg, info, type_ids, store, window, cx));
+
+    // `preview_init` + the dialog's own `query_video_info`/`query_audio_info`:
+    // fill the choice lists from a real playurl query. The dialog opens on
+    // "auto"-only choices; this walk replaces them with the episode's
+    // available qualities as soon as the network answers.
+    if !candidates.is_empty() {
+        let user_agent = cfg
+            .get("Advanced", "user_agent")
+            .and_then(|v| v.as_str())
+            .unwrap_or(config::DEFAULT_USER_AGENT)
+            .to_string();
+        let priorities = crate::download_pipeline::priorities_from_config(cfg);
+        let spawn_dialog = dialog.clone();
+        window
+            .spawn(cx, async move |cx: &mut gpui_kit::AsyncWindowContext| {
+                let _tokio = crate::bootstrap::tokio_context();
+                let Ok(client) = network::HttpClient::new(network::ClientOptions {
+                    user_agent,
+                    proxy: network::ProxyConfig::none(),
+                    cookies_from_persistence: Vec::new(),
+                    signer: None,
+                }) else {
+                    return;
+                };
+                let apis = parsers::playurl::PlayurlApis::default();
+                let mut preview = parsers::preview::Preview::new(priorities);
+                let mut adopted = false;
+                for item in &candidates {
+                    if adopted {
+                        break;
+                    }
+                    let Ok(fetched) =
+                        parsers::playurl::fetch_media_info(&client, &apis, item, None).await
+                    else {
+                        continue;
+                    };
+                    if preview
+                        .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
+                        .await
+                        .is_ok()
+                        && !preview.info.error_occurred
+                    {
+                        adopted = true;
+                    }
+                }
+                if !adopted {
+                    return;
+                }
+                let Ok(m) = cx.update(|_, cx| spawn_dialog.read(cx).model.media.clone()) else {
+                    return;
+                };
+                let video = preview
+                    .query_video(&client, &apis, m.video_quality_id, m.video_codec_id)
+                    .await
+                    .ok()
+                    .flatten();
+                let audio = preview.query_audio(m.audio_quality_id);
+                let info = preview.info.clone();
+                _ = cx.update(|window, cx| {
+                    spawn_dialog.update(cx, |d, cx| {
+                        d.apply_media_choices(
+                            info.video_quality_choices.clone(),
+                            info.audio_quality_choices.clone(),
+                            video,
+                            audio,
+                            window,
+                            cx,
+                        );
+                    });
+                });
+            })
+            .detach();
+    }
     let for_content = std::rc::Rc::new(dialog.clone());
     window.open_dialog(cx, move |d, _w, _a| {
         let entity = for_content.clone();
         d.title("Download Options")
-            .button_props(DialogButtonProps::default().ok_text("Download").on_ok({
-                let entity = entity.clone();
-                move |_, _, cx| confirm_ok(&entity, cx)
-            }))
+            // Python dialog is 750x500 (dialog.py QSize) — the gpui default
+            // 448px cramps the label column and the selects.
+            .w(px(750.))
             .content(move |content, _w, _a| content.child((*entity).clone()))
-            .footer(DialogFooter::new())
+            .footer(
+                DialogFooter::new()
+                    .child(
+                        Button::new("cancel")
+                            .label("Cancel")
+                            .on_click(|_, window, cx| {
+                                window.close_dialog(cx);
+                            }),
+                    )
+                    .child(Button::new("ok").label("Download").primary().on_click({
+                        let entity = for_content.clone();
+                        move |_, window, cx| {
+                            if confirm_ok(&entity, cx) {
+                                window.close_dialog(cx);
+                            }
+                        }
+                    })),
+            )
     });
     dialog
 }

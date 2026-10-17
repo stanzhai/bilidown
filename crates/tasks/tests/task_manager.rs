@@ -501,6 +501,27 @@ fn assembly_needs_reparse_flag() {
     assert!(tasks::info::needs_reparse(&ep));
 }
 
+#[test]
+fn assembly_names_the_file_when_no_formatted_path() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = config(&tmp);
+    let episode_data = parsers::EpisodeData::new();
+
+    let ep = episode(1 << 1); // BANGUMI: default rule {season_title}/{episode_title}
+    let task = episode_to_task_info(
+        &make_inputs(&store, &episode_data),
+        &ep,
+        "1",
+        None,
+        &Default::default(),
+    )
+    .unwrap();
+
+    assert_eq!(task.Naming.type_id, Some(20));
+    assert_eq!(task.File.name, "第 1 话");
+    assert!(!task.File.folder.is_empty());
+}
+
 // ---- lifecycle: create → complete moves rows ----
 
 #[test]
