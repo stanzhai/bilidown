@@ -73,14 +73,19 @@ pub struct Shell {
 
 impl Shell {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // The config store used by the gate/tip pass needs ownership
-        // separate from the Arc shared with services.
-        let cfg_for_gate =
-            config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
-        // i18n global: `General.language` (auto → system)
+        // ONE file, opened once: the primary Arc feeds TaskManager, the
+        // download driver and every UI read; MCP gets its own Arc<Mutex>
+        // store re-opened from the same path (its tools take that shape,
+        // so their writes stay visible inside the MCP server).
         let cfg = Arc::new(
             config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", "")),
         );
+        let cfg_dir = cfg
+            .path()
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default();
+        // i18n global: `General.language` (auto → system)
         let lang = services::i18n::Language::from_config(
             cfg.get("General", "language")
                 .and_then(|v| v.as_str())
@@ -91,7 +96,7 @@ impl Shell {
         let user_agent = cfg
             .get("Advanced", "user_agent")
             .and_then(|v| v.as_str())
-            .unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
+            .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
         let client = Arc::new(
             network::HttpClient::new(network::ClientOptions {
@@ -105,13 +110,9 @@ impl Shell {
         let wbi = Arc::new(auth::WbiKeyStore::new());
 
         // config.json Cookie section (auth stack's persistence point)
-        let dir = cfg
-            .path()
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_default();
-        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&dir))
-            .unwrap_or_default();
+        let auth_state =
+            auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
+                .unwrap_or_default();
         let is_login = auth_state.is_login;
 
         // TaskManager 不可用（无 DB / 只读目录）时下载页降级为空表；
@@ -125,9 +126,10 @@ impl Shell {
         // a same-turn start is equivalent — neither touches the UI.
         if let Some(manager) = manager.clone() {
             crate::bootstrap::spawn_download_driver(config.clone(), manager.clone());
-            // MCP holds its own handle to the config store; the shell's
-            // copy is a plain Arc (gpui owns all UI reads).
-            let mcp_cfg = config::ConfigStore::with_paths(cfg.path(), "");
+            // MCP tools hold their config as Arc<Mutex<ConfigStore>>;
+            // re-open from the same file (writes land on disk, the
+            // shell's copy keeps its in-memory view as before).
+            let mcp_cfg = config::ConfigStore::with_paths(cfg_dir, "");
             crate::bootstrap::start_mcp_server(Arc::new(parking_lot::Mutex::new(mcp_cfg)), manager);
         }
 
@@ -135,7 +137,10 @@ impl Shell {
         // / `QTimer.singleShot(0, show_terms_of_use)`: the gate runs after
         // the first frame; tips follow only once accepted.
         let shell_for_gate = cx.entity();
-        let gate_cfg = cfg_for_gate;
+        // The gate takes an owned store (its accept re-opens + persists
+        // `Application/accepted_terms`); re-open from the same file.
+        let gate_cfg = config::ConfigStore::with_paths(cfg_dir, "");
+
         window.on_next_frame(move |window, cx| {
             if services::terms::gate(&gate_cfg) == services::terms::TermsGate::Pending {
                 dialogs::terms::open_terms_gate(
