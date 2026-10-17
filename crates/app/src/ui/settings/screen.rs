@@ -143,6 +143,7 @@ impl SettingsScreen {
                     let c = config::ConfigStore::open()
                         .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
                     cx.spawn(async move |shell, cx| {
+                        let _tokio = crate::bootstrap::tokio_context();
                         let (include_preview, locale) =
                             crate::ui::dialogs::update::check_params(&c);
                         let service = crate::ui::parse::dispatch::ParseService::new(&c);
@@ -389,7 +390,6 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
             },
         )
     };
-
 
     let mica = SettingItem::new(
         t("Mica effect (Windows 11 only)"),

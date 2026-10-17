@@ -101,6 +101,7 @@ impl LoginState {
         let endpoints = LoginEndpoints::default();
         let client = shell_client(cx);
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let Ok((png, key)) = controller::qr_start(&client, &endpoints).await else {
                 return;
             };
@@ -124,6 +125,7 @@ impl LoginState {
         let key = self.model.qr_key.clone();
         let endpoints = LoginEndpoints::default();
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             loop {
                 cx.background_executor()
                     .timer(std::time::Duration::from_secs(1))
@@ -193,8 +195,9 @@ impl LoginState {
             return;
         }
         let client = shell_client(cx);
-        cx.spawn(
-            async move |shell, cx| match controller::captcha_start(&client).await {
+        cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
+            match controller::captcha_start(&client).await {
                 Ok(server) => {
                     let _ = shell.update(cx, |shell, cx| {
                         if let Some(old) = shell.login.server.replace(server) {
@@ -210,8 +213,8 @@ impl LoginState {
                         cx.notify();
                     });
                 }
-            },
-        )
+            }
+        })
         .detach();
     }
 
@@ -225,6 +228,7 @@ impl LoginState {
         let tel = self.model.tel.clone();
         let captcha_key = self.captcha_key.clone();
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let Ok((client, has_server)) = shell.read_with(cx, |shell, _| {
                 (shell.auth_client.clone(), shell.login.server.is_some())
             }) else {
@@ -300,6 +304,7 @@ impl LoginState {
         let code = self.model.code.clone();
         let captcha_key = self.captcha_key.clone();
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let Ok((mut state, user_agent, client)) = shell.read_with(cx, |shell, _| {
                 (
                     shell.auth_state.clone(),
@@ -350,6 +355,7 @@ impl LoginState {
         let endpoints = LoginEndpoints::default();
         let text = self.cookie.text.clone();
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let Ok((mut state, user_agent, client, wbi)) = shell.read_with(cx, |shell, _| {
                 (
                     shell.auth_state.clone(),

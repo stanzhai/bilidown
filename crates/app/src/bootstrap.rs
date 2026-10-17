@@ -36,6 +36,24 @@ pub fn runtime() -> &'static tokio::runtime::Runtime {
     &RUNTIME
 }
 
+/// Enter [`RUNTIME`] for the remainder of the current async block.
+///
+/// gpui's `cx.spawn` executor is not a tokio context, so any reqwest
+/// future awaited directly in one panics ("no reactor running") the
+/// moment it arms its timeout timer. Wrap the async block: the entered
+/// guard makes `Handle::current()` resolve on the caller's thread, so
+/// timers/spawns inside the block register with our runtime.
+///
+/// ```ignore
+/// cx.spawn(async move |shell, cx| {
+///     let _rt = crate::bootstrap::tokio_context();
+///     network_call().await
+/// })
+/// ```
+pub fn tokio_context() -> tokio::runtime::EnterGuard<'static> {
+    runtime().enter()
+}
+
 /// Python `start_mcp_server` (post-first-frame, gated, non-fatal).
 pub fn start_mcp_server(config: Arc<Mutex<ConfigStore>>, manager: Arc<TaskManager>) {
     let enabled = config

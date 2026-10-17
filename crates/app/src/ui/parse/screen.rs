@@ -340,6 +340,7 @@ impl ParseScreen {
         // so task creation can read the parsed extras.
         let episode_data = self.episode_data.clone();
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let service = super::dispatch::ParseService::with_episode_data(
                 &config::ConfigStore::open()?,
                 episode_data,
@@ -504,6 +505,7 @@ impl ParseScreen {
         self.status = "Parsing…".to_string();
         self.refresh_tree(cx);
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let cfg = config::ConfigStore::open()
                 .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
             let service = super::dispatch::ParseService::new(&cfg);
@@ -549,6 +551,7 @@ impl ParseScreen {
         self.status = "Preparing…".to_string();
         cx.notify();
         cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
             let service = std::sync::Arc::new(super::dispatch::ParseService::with_episode_data(
                 &config::ConfigStore::open()
                     .unwrap_or_else(|_| config::ConfigStore::with_paths("", "")),
