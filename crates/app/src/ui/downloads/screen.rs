@@ -68,6 +68,25 @@ impl DownloadsScreen {
         .detach();
     }
 
+    /// Poll-refresh used while the downloads page is on screen: skip the
+    /// query when the active list has nothing in flight (idle cost ~0).
+    pub fn refresh_if_active(&mut self, cx: &mut gpui_kit::Context<Shell>) {
+        let busy = self.model.downloading.tasks.iter().any(|t| {
+            matches!(
+                t.Download.status,
+                st::DOWNLOADING
+                    | st::PARSING
+                    | st::MERGING
+                    | st::CONVERTING
+                    | st::FFMPEG_QUEUED
+                    | st::ADDITIONAL_PROCESSING
+            )
+        });
+        if busy {
+            self.refresh(cx);
+        }
+    }
+
     /// Persist a sort change (Python saved on every flyout change).
     pub fn set_sort(&mut self, tab: DownloadsTab, key: SortKey, ascending: bool) {
         let (item, asc_item) = tab.sort_items();

@@ -106,13 +106,18 @@ impl Scheduler {
     /// Build the engine, register its control slot, and spawn `run()` on
     /// the caller's runtime (ticket 31: the pipeline awaits the final
     /// state; `start_engine` alone drops the engine before it runs).
+    /// Returns the join handle plus the control surface so the caller
+    /// can sample live progress while awaiting.
     pub fn spawn_engine(
         &self,
         manager: &Arc<TaskManager>,
         task_id: &str,
         client: network::HttpClient,
         files: Vec<FileSpec>,
-    ) -> anyhow::Result<tokio::task::JoinHandle<downloader::TaskState>> {
+    ) -> anyhow::Result<(
+        tokio::task::JoinHandle<downloader::TaskState>,
+        EngineControl,
+    )> {
         let mut engine = DownloadEngine::new(
             client,
             self.engine_config(),
@@ -127,7 +132,7 @@ impl Scheduler {
                 control: control.clone(),
             },
         );
-        Ok(tokio::spawn(async move { engine.run().await }))
+        Ok((tokio::spawn(async move { engine.run().await }), control))
     }
 
     pub fn pause(&self, task_id: &str) {
