@@ -12,5 +12,5 @@ pub mod numbering;
 pub mod options;
 pub mod scheduler;
 pub mod status;
-pub use scheduler::Scheduler;
 pub use manager::{TaskManager, MANAGED_DOWNLOAD_PARALLEL_MAX, MANAGED_DOWNLOAD_PARALLEL_MIN};
+pub use scheduler::Scheduler;

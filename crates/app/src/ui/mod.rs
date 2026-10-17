@@ -1,10 +1,13 @@
 //! App UI modules: navigation shell + screens.
 
+pub mod dialogs;
+pub mod download_options;
 pub mod downloads;
 pub mod fmt;
 pub mod login;
 pub mod parse;
 pub mod screens;
+pub mod settings;
 
 use gpui_kit::base::Disableable;
 use gpui_kit::component::sidebar::{Sidebar, SidebarMenuItem};
@@ -33,6 +36,15 @@ pub struct ShellI18n {
 
 impl Global for ShellI18n {}
 
+/// One clipboard read handed to the monitor from a UI-thread poll.
+struct PolledClipboard(Option<String>);
+
+impl services::clipboard::ClipboardSource for PolledClipboard {
+    fn text(&mut self) -> Option<String> {
+        self.0.take()
+    }
+}
+
 /// The main window navigation shell: sidebar + current screen
 /// (port of `src/gui/interface/main_window.py`).
 pub struct Shell {
@@ -45,19 +57,35 @@ pub struct Shell {
     /// Auth state loaded from config.json; login flows capture into it
     /// and persist back (`UserManager`/`CookieManager` equivalent).
     pub auth_state: auth::AuthState,
-    /// The shared auth client: cookie jar survives across the login
-    /// dialogs so captured logins stick.
     pub auth_client: Arc<network::HttpClient>,
     pub auth_wbi: Arc<auth::WbiKeyStore>,
     pub user_agent: String,
+    /// Task manager handle (None when the DB is unavailable): task
+    /// creation from the parse screen routes through it.
+    pub manager: Option<Arc<tasks::TaskManager>>,
+    /// Clipboard monitor (F2): one per window; checked on interval.
+    pub clipboard: services::clipboard::ClipboardMonitor,
+    /// Tick counter driving the clipboard poll (see `Shell::render`).
+    pub clipboard_ticks: u32,
+    /// Transient shell-level note (tips, area result).
+    pub status_note: Option<String>,
 }
 
 impl Shell {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // i18n global: `General.language` (auto → system)
+        // ONE file, opened once: the primary Arc feeds TaskManager, the
+        // download driver and every UI read; MCP gets its own Arc<Mutex>
+        // store re-opened from the same path (its tools take that shape,
+        // so their writes stay visible inside the MCP server).
         let cfg = Arc::new(
             config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", "")),
         );
+        let cfg_dir = cfg
+            .path()
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default();
+        // i18n global: `General.language` (auto → system)
         let lang = services::i18n::Language::from_config(
             cfg.get("General", "language")
                 .and_then(|v| v.as_str())
@@ -68,7 +96,7 @@ impl Shell {
         let user_agent = cfg
             .get("Advanced", "user_agent")
             .and_then(|v| v.as_str())
-            .unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
+            .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
         let client = Arc::new(
             network::HttpClient::new(network::ClientOptions {
@@ -82,13 +110,9 @@ impl Shell {
         let wbi = Arc::new(auth::WbiKeyStore::new());
 
         // config.json Cookie section (auth stack's persistence point)
-        let dir = cfg
-            .path()
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_default();
-        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&dir))
-            .unwrap_or_default();
+        let auth_state =
+            auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
+                .unwrap_or_default();
         let is_login = auth_state.is_login;
 
         // TaskManager 不可用（无 DB / 只读目录）时下载页降级为空表；
@@ -97,16 +121,174 @@ impl Shell {
         let manager = task_db_path()
             .and_then(|p| tasks::TaskManager::open(p, config.clone()).ok())
             .map(Arc::new);
+        // Bootstrap pass (ticket 31 F8/F2): download driver + MCP server
+        // start with the shell. Python runs these after the first frame;
+        // a same-turn start is equivalent — neither touches the UI.
+        if let Some(manager) = manager.clone() {
+            crate::bootstrap::spawn_download_driver(config.clone(), manager.clone());
+            // MCP tools hold their config as Arc<Mutex<ConfigStore>>;
+            // re-open from the same file (writes land on disk, the
+            // shell's copy keeps its in-memory view as before).
+            let mcp_cfg = config::ConfigStore::with_paths(cfg_dir.clone(), "");
+            crate::bootstrap::start_mcp_server(Arc::new(parking_lot::Mutex::new(mcp_cfg)), manager);
+        }
+
+        // Post-terms pass (F2), mirroring Python's `run_post_terms_checks`
+        // / `QTimer.singleShot(0, show_terms_of_use)`: the gate runs after
+        // the first frame; tips follow only once accepted.
+        let shell_for_gate = cx.entity();
+        // The gate takes an owned store (its accept re-opens + persists
+        // `Application/accepted_terms`); re-open from the same file.
+        let gate_cfg = config::ConfigStore::with_paths(cfg_dir, "");
+
+        window.on_next_frame(move |window, cx| {
+            if services::terms::gate(&gate_cfg) == services::terms::TermsGate::Pending {
+                dialogs::terms::open_terms_gate(
+                    gate_cfg,
+                    // accepted → run the tip pass
+                    {
+                        let shell = shell_for_gate.clone();
+                        move |window, cx| {
+                            shell.update(cx, |shell, cx| shell.run_tip_pass(window, cx));
+                        }
+                    },
+                    // rejected → close the app (Python `self.close()`)
+                    {
+                        let shell = shell_for_gate.clone();
+                        move |_, cx| {
+                            shell.update(cx, |_, cx| cx.quit());
+                        }
+                    },
+                    window,
+                    cx,
+                );
+            } else {
+                shell_for_gate.update(cx, |shell, cx| shell.run_tip_pass(window, cx));
+            }
+        });
+
+        // Clipboard monitor (F2): poll on the foreground executor; the
+        // startup check mirrors Python's `check_clipboard_on_startup`.
+        cx.spawn(async move |shell, cx| {
+            shell
+                .update(cx, |shell, cx| {
+                    shell.check_clipboard_once(cx);
+                })
+                .ok();
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(500))
+                    .await;
+                let Ok(()) = shell.update(cx, |shell, cx| shell.check_clipboard_once(cx)) else {
+                    return; // shell dropped; stop polling
+                };
+            }
+        })
+        .detach();
+        dialogs::update::run_startup_check(window, cx);
+        let settings = settings::SettingsScreen::new(window, cx);
+        // Settings writes notify their entity; observe it so the shell
+        // redraws (the subscription lives as long as the shell).
+        cx.observe(&settings.ui, |_, _, cx| cx.notify()).detach();
         Self {
             screen: Screen::Parse,
             parse: ParseScreen::new(window, cx),
-            downloads: DownloadsScreen::new(config, manager, window, cx),
-            screens: screens::Screens::default(),
+            downloads: DownloadsScreen::new(config, manager.clone(), window, cx),
+            screens: screens::Screens {
+                favorites: Default::default(),
+                settings,
+            },
             login: LoginState::new(window, cx, is_login),
             auth_state,
             auth_client: client,
             auth_wbi: wbi,
+            manager,
             user_agent,
+            clipboard: services::clipboard::ClipboardMonitor::new(),
+            clipboard_ticks: 0,
+            status_note: None,
+        }
+    }
+
+    /// One clipboard poll (Python `_parse_clipboard_url`). A parseable URL
+    /// fills the parse input and starts the parse.
+    pub fn check_clipboard_once(&mut self, cx: &mut Context<Self>) {
+        let Ok(cfg) = config::ConfigStore::open() else {
+            return;
+        };
+        let text = cx.read_from_clipboard().and_then(|item| item.text());
+        let mut source = PolledClipboard(text);
+        let clock = services::clipboard::SystemClock::new();
+        if let services::clipboard::ClipboardDecision::Parse(url) =
+            self.clipboard.check(&cfg, &mut source, &clock)
+        {
+            self.parse.start_parse_from_clipboard(url, cx);
+            cx.notify();
+        }
+    }
+
+    /// Post-terms tip pass (Python `run_post_terms_checks`): tutorial
+    /// dialog, area selection, login teaching tip — in that order, each
+    /// gated by its once-flag.
+    pub fn run_tip_pass(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let mut cfg =
+            config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        match services::tips::next_tip(&cfg) {
+            services::tips::PendingTip::TutorialDialog => {
+                services::tips::mark_tutorial_shown(&mut cfg);
+                let _ = cfg.save();
+                // The dialog itself is the doc link; the shell has no
+                // browser abstraction, so mark-and-continue keeps the
+                // once-flag behavior identical.
+                self.status_note = Some(
+                    "Welcome! See https://bili23.scott-sloan.cn/doc/introduction.html".to_owned(),
+                );
+            }
+            services::tips::PendingTip::SelectAreaDialog => {
+                services::tips::mark_area_dialog_shown(&mut cfg);
+                let _ = cfg.save();
+                // Python then shows the select-area dialog; its detected
+                // default pre-selects the radio row.
+                dialogs::select_area::open_select_area(cfg, window, cx);
+                // Area auto-detection (Python `detect_area` worker): zone
+                // probe on the detection client; failure keeps the
+                // default `cn` list, matching the silent fallback.
+                let user_agent = self.user_agent.clone();
+                std::thread::spawn(move || {
+                    let area = parsers::area::detection_client(parsers::area::DetectOptions {
+                        user_agent,
+                        ..Default::default()
+                    })
+                    .ok()
+                    .and_then(|client| {
+                        crate::bootstrap::runtime()
+                            .block_on(parsers::area::detect_area(&client, ""))
+                            .ok()
+                    });
+                    if let Some(area) = area {
+                        if let Ok(mut cfg) = config::ConfigStore::open() {
+                            cfg.set(
+                                "Advanced",
+                                "area",
+                                serde_json::json!(if area == network::cdn::Area::Cn {
+                                    "cn"
+                                } else {
+                                    "ov"
+                                }),
+                            );
+                            let _ = cfg.save();
+                        }
+                    }
+                });
+            }
+            services::tips::PendingTip::LoginTeachingTip => {
+                // The login tip repeats while logged out (no flag), so
+                // surface it as a shell note instead of a modal.
+                self.status_note =
+                    Some("Click the avatar to log in for full functionality.".to_owned());
+                cx.notify();
+            }
+            _ => {}
         }
     }
 
@@ -152,7 +334,7 @@ fn task_db_path() -> Option<std::path::PathBuf> {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use gpui_kit::assets::IconName;
 
         let screen = self.screen;
@@ -187,8 +369,8 @@ impl Render for Shell {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
                 Screen::Downloads => self.downloads.render(cx).into_any_element(),
                 Screen::Favorites => self.screens.favorites.render().into_any_element(),
-                Screen::About => screens::about::render_about().into_any_element(),
-                Screen::Settings => self.screens.settings.render().into_any_element(),
+                Screen::About => screens::about::render_about(cx).into_any_element(),
+                Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
             .child(
                 // login entry (Python: the avatar button on the main page)

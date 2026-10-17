@@ -87,7 +87,10 @@ mod tests {
 
     #[test]
     fn qr_png_is_square_with_quiet_zone() {
-        let png = qr_png("https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=abc").unwrap();
+        let png = qr_png(
+            "https://passport.bilibili.com/h5-app/passport/login/scan?navhide=1&qrcode_key=abc",
+        )
+        .unwrap();
         // PNG magic + IHDR dimensions
         assert_eq!(&png[..8], &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]);
         let w = u32::from_be_bytes(png[16..20].try_into().unwrap());
@@ -106,8 +109,14 @@ mod tests {
         // out of scope; assert both variants render the same dimensions.
         let a = qr_png("hello").unwrap();
         let b = qr_png_rgba("hello").unwrap();
-        let (wa, ha) = (u32::from_be_bytes(a[16..20].try_into().unwrap()), u32::from_be_bytes(a[20..24].try_into().unwrap()));
-        let (wb, hb) = (u32::from_be_bytes(b[16..20].try_into().unwrap()), u32::from_be_bytes(b[20..24].try_into().unwrap()));
+        let (wa, ha) = (
+            u32::from_be_bytes(a[16..20].try_into().unwrap()),
+            u32::from_be_bytes(a[20..24].try_into().unwrap()),
+        );
+        let (wb, hb) = (
+            u32::from_be_bytes(b[16..20].try_into().unwrap()),
+            u32::from_be_bytes(b[20..24].try_into().unwrap()),
+        );
         assert_eq!((wa, ha), (wb, hb));
     }
 

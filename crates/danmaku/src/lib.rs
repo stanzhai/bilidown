@@ -7,7 +7,10 @@
 pub mod proto {
     //! prost-generated segment messages (subset of Bilibili `dm.proto`
     //! with field names/numbers verbatim).
-    include!(concat!(env!("OUT_DIR"), "/bilibili.community.service.dm.v1.rs"));
+    include!(concat!(
+        env!("OUT_DIR"),
+        "/bilibili.community.service.dm.v1.rs"
+    ));
 }
 
 mod ass;

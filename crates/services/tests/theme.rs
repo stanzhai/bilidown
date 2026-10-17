@@ -1,27 +1,54 @@
 //! Theme token tests: mode resolution, accent parsing, scaling, skin consts.
 
 use services::theme::{
-    accent_rgba, theme_from_config, ThemeModeSetting, ResolvedThemeMode, LIGHT_SKIN, DARK_SKIN,
-    DEFAULT_ACCENT, DisplayScaling,
+    accent_rgba, theme_from_config, DisplayScaling, ResolvedThemeMode, ThemeModeSetting, DARK_SKIN,
+    DEFAULT_ACCENT, LIGHT_SKIN,
 };
 
 #[test]
 fn theme_mode_config_parsing() {
-    assert_eq!(ThemeModeSetting::from_config("Light"), ThemeModeSetting::Light);
-    assert_eq!(ThemeModeSetting::from_config("Dark"), ThemeModeSetting::Dark);
-    assert_eq!(ThemeModeSetting::from_config("Auto"), ThemeModeSetting::Auto);
+    assert_eq!(
+        ThemeModeSetting::from_config("Light"),
+        ThemeModeSetting::Light
+    );
+    assert_eq!(
+        ThemeModeSetting::from_config("Dark"),
+        ThemeModeSetting::Dark
+    );
+    assert_eq!(
+        ThemeModeSetting::from_config("Auto"),
+        ThemeModeSetting::Auto
+    );
     // Python default when the value is missing/invalid
-    assert_eq!(ThemeModeSetting::from_config("garbage"), ThemeModeSetting::Auto);
+    assert_eq!(
+        ThemeModeSetting::from_config("garbage"),
+        ThemeModeSetting::Auto
+    );
 }
 
 #[test]
 fn auto_resolves_against_system_appearance() {
-    assert_eq!(ThemeModeSetting::Light.resolve(Some(true)), ResolvedThemeMode::Light);
-    assert_eq!(ThemeModeSetting::Dark.resolve(Some(false)), ResolvedThemeMode::Dark);
-    assert_eq!(ThemeModeSetting::Auto.resolve(Some(true)), ResolvedThemeMode::Dark);
-    assert_eq!(ThemeModeSetting::Auto.resolve(Some(false)), ResolvedThemeMode::Light);
+    assert_eq!(
+        ThemeModeSetting::Light.resolve(Some(true)),
+        ResolvedThemeMode::Light
+    );
+    assert_eq!(
+        ThemeModeSetting::Dark.resolve(Some(false)),
+        ResolvedThemeMode::Dark
+    );
+    assert_eq!(
+        ThemeModeSetting::Auto.resolve(Some(true)),
+        ResolvedThemeMode::Dark
+    );
+    assert_eq!(
+        ThemeModeSetting::Auto.resolve(Some(false)),
+        ResolvedThemeMode::Light
+    );
     // unknown system appearance → light (QPalette default)
-    assert_eq!(ThemeModeSetting::Auto.resolve(None), ResolvedThemeMode::Light);
+    assert_eq!(
+        ThemeModeSetting::Auto.resolve(None),
+        ResolvedThemeMode::Light
+    );
     assert!(ResolvedThemeMode::Dark.is_dark());
     assert!(!ResolvedThemeMode::Light.is_dark());
 }
@@ -42,9 +69,18 @@ fn accent_parsing_qfluentwidgets_formats() {
 
 #[test]
 fn display_scaling_parsing() {
-    assert_eq!(DisplayScaling::from_config("1"), DisplayScaling::Factor(1.0));
-    assert_eq!(DisplayScaling::from_config("1.25"), DisplayScaling::Factor(1.25));
-    assert_eq!(DisplayScaling::from_config("2"), DisplayScaling::Factor(2.0));
+    assert_eq!(
+        DisplayScaling::from_config("1"),
+        DisplayScaling::Factor(1.0)
+    );
+    assert_eq!(
+        DisplayScaling::from_config("1.25"),
+        DisplayScaling::Factor(1.25)
+    );
+    assert_eq!(
+        DisplayScaling::from_config("2"),
+        DisplayScaling::Factor(2.0)
+    );
     assert_eq!(DisplayScaling::from_config("Auto"), DisplayScaling::Auto);
     assert_eq!(DisplayScaling::from_config("garbage"), DisplayScaling::Auto);
     assert_eq!(DisplayScaling::Factor(1.5).resolve(None), 1.5);

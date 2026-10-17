@@ -143,9 +143,15 @@ pub enum EngineEvent {
     FileCompleted(String),
     DownloadCompleted,
     /// Task failed; `retry_in_secs` is 0 when terminal.
-    Failed { retry_in_secs: u64, error: DownloadError },
+    Failed {
+        retry_in_secs: u64,
+        error: DownloadError,
+    },
     /// Chunk-level retry with its backoff (diagnostics).
-    ChunkRetry { chunk: usize, backoff: Duration },
+    ChunkRetry {
+        chunk: usize,
+        backoff: Duration,
+    },
 }
 
 /// Per-file chunk plan and offset table.
@@ -276,7 +282,6 @@ impl DownloadEngine {
     /// offset tables seeded via [`Self::resume_from`]. Auto-retry loops
     /// internally (30s doubling, capped) while quota lasts.
     pub async fn run(&mut self) -> TaskState {
-
         let mut attempt: u64 = 0;
         let mut baseline = self.state.lock().downloaded_size;
         loop {
@@ -325,27 +330,35 @@ impl DownloadEngine {
                     // retry countdown and next pass run.
                     self.stop.store(false, Ordering::SeqCst);
                     let downloaded = self.state.lock().downloaded_size;
-                    let wait = match self.schedule_auto_retry(&reason, downloaded, baseline, &mut attempt) {
-                        Some(secs) => secs,
-                        None => {
-                            {
-                                let mut s = self.state.lock();
-                                s.status = TaskStatus::Failed;
-                                s.last_error = Some(reason.clone());
+                    let wait =
+                        match self.schedule_auto_retry(&reason, downloaded, baseline, &mut attempt)
+                        {
+                            Some(secs) => secs,
+                            None => {
+                                {
+                                    let mut s = self.state.lock();
+                                    s.status = TaskStatus::Failed;
+                                    s.last_error = Some(reason.clone());
+                                }
+                                let _ = self.events.send(Some(EngineEvent::Failed {
+                                    retry_in_secs: 0,
+                                    error: reason,
+                                }));
+                                return self.snapshot();
                             }
-                            let _ = self.events.send(Some(EngineEvent::Failed {
-                                retry_in_secs: 0,
-                                error: reason,
-                            }));
-                            return self.snapshot();
-                        }
-                    };
+                        };
                     baseline = self.state.lock().downloaded_size;
                     let _ = self.events.send(Some(EngineEvent::Failed {
                         retry_in_secs: wait,
                         error: reason,
                     }));
-                    if self.sleep_interruptible(self.config.task_retry_unit.mul_f64(wait as f64 / 30.0), &*self).await {
+                    if self
+                        .sleep_interruptible(
+                            self.config.task_retry_unit.mul_f64(wait as f64 / 30.0),
+                            &*self,
+                        )
+                        .await
+                    {
                         // paused/cancelled during the countdown: Python
                         // cancels the pending retry and stays FAILED/PAUSED
                         let mut s = self.state.lock();
@@ -500,11 +513,15 @@ impl DownloadEngine {
             .map(|f| (f.file_key.clone(), f.file_size))
             .collect();
         let progress = self.progress.lock();
-        let total: u64 = progress.iter().map(|(key, file)| {
-            let size = sizes.get(key).copied().unwrap_or(0);
-            let total_chunks = file.total_chunks;
-            file.offsets.total_written(|i| chunk_capacity(i, total_chunks, size))
-        }).sum();
+        let total: u64 = progress
+            .iter()
+            .map(|(key, file)| {
+                let size = sizes.get(key).copied().unwrap_or(0);
+                let total_chunks = file.total_chunks;
+                file.offsets
+                    .total_written(|i| chunk_capacity(i, total_chunks, size))
+            })
+            .sum();
         drop(progress);
         let mut s = self.state.lock();
         s.downloaded_size = total;
@@ -546,28 +563,30 @@ impl DownloadEngine {
     /// vanished since the last run.
     fn prepare_file(&self, spec: &FileSpec) -> Result<(), DownloadError> {
         if let Some(parent) = spec.path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                DownloadError::Permanent(format!("cannot create directory: {e}"))
-            })?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| DownloadError::Permanent(format!("cannot create directory: {e}")))?;
         }
         // A vanished file invalidates every recorded offset: without this
         // check the engine would "finish" chunks into a file of holes.
         if !spec.path.exists() {
             if self.config.preallocate && spec.file_size > 0 {
-                preallocate(&spec.path, spec.file_size).map_err(|e| {
-                    DownloadError::Permanent(format!("preallocation failed: {e}"))
-                })?;
+                preallocate(&spec.path, spec.file_size)
+                    .map_err(|e| DownloadError::Permanent(format!("preallocation failed: {e}")))?;
             } else {
-                std::fs::File::create(&spec.path).map_err(|e| {
-                    DownloadError::Permanent(format!("cannot create file: {e}"))
-                })?;
+                std::fs::File::create(&spec.path)
+                    .map_err(|e| DownloadError::Permanent(format!("cannot create file: {e}")))?;
             }
             self.reset_file_progress(&spec.file_key);
         }
         Ok(())
     }
 
-    async fn spawn_chunks(&self, spec: &FileSpec, chunks: Vec<usize>, gen: u64) -> Result<(), DownloadError> {
+    async fn spawn_chunks(
+        &self,
+        spec: &FileSpec,
+        chunks: Vec<usize>,
+        gen: u64,
+    ) -> Result<(), DownloadError> {
         let semaphore = Arc::new(tokio::sync::Semaphore::new(
             self.config.parallel_chunks.clamp(1, 10),
         ));
@@ -659,8 +678,6 @@ impl DownloadEngine {
         self.events.subscribe()
     }
 }
-
-
 
 /// Everything one chunk task owns; spawned onto the runtime.
 struct ChunkTask {
@@ -835,10 +852,14 @@ impl ChunkTask {
             .write(true)
             .open(&self.path)
             .await
-            .map_err(|e| RoundError::Fatal(DownloadError::Permanent(format!("open failed: {e}"))))?;
+            .map_err(|e| {
+                RoundError::Fatal(DownloadError::Permanent(format!("open failed: {e}")))
+            })?;
         file.seek(std::io::SeekFrom::Start(self.chunk_start + written))
             .await
-            .map_err(|e| RoundError::Fatal(DownloadError::Permanent(format!("seek failed: {e}"))))?;
+            .map_err(|e| {
+                RoundError::Fatal(DownloadError::Permanent(format!("seek failed: {e}")))
+            })?;
 
         let mut confirmed = written;
         let mut pending: u64 = 0;
@@ -848,8 +869,8 @@ impl ChunkTask {
             if !self.active() {
                 break;
             }
-            let mut bytes = item
-                .map_err(|e| RoundError::Retryable(DownloadError::Retryable(e.to_string())))?;
+            let mut bytes =
+                item.map_err(|e| RoundError::Retryable(DownloadError::Retryable(e.to_string())))?;
             let allowed = (self.chunk_size - confirmed - pending) as usize;
             if allowed == 0 {
                 break;

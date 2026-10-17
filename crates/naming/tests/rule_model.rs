@@ -40,12 +40,38 @@ fn default_rules_are_all_representable() {
 fn serialized_output_is_always_valid() {
     let model = RuleModel {
         levels: vec![
-            Level { fragments: vec![Fragment { variable: Some("a".into()), spec: String::new(), prefix: String::new(), suffix: String::new(), text: String::new() }] },
+            Level {
+                fragments: vec![Fragment {
+                    variable: Some("a".into()),
+                    spec: String::new(),
+                    prefix: String::new(),
+                    suffix: String::new(),
+                    text: String::new(),
+                }],
+            },
             Level {
                 fragments: vec![
-                    Fragment { variable: Some("p".into()), spec: "02d".into(), prefix: "P".into(), suffix: "-".into(), text: String::new() },
-                    Fragment { variable: None, spec: String::new(), prefix: String::new(), suffix: String::new(), text: "【x】".into() },
-                    Fragment { variable: Some("b".into()), spec: String::new(), prefix: String::new(), suffix: String::new(), text: String::new() },
+                    Fragment {
+                        variable: Some("p".into()),
+                        spec: "02d".into(),
+                        prefix: "P".into(),
+                        suffix: "-".into(),
+                        text: String::new(),
+                    },
+                    Fragment {
+                        variable: None,
+                        spec: String::new(),
+                        prefix: String::new(),
+                        suffix: String::new(),
+                        text: "【x】".into(),
+                    },
+                    Fragment {
+                        variable: Some("b".into()),
+                        spec: String::new(),
+                        prefix: String::new(),
+                        suffix: String::new(),
+                        text: String::new(),
+                    },
                 ],
             },
         ],
@@ -67,7 +93,10 @@ fn optional_directory_level_is_flattened() {
 
 #[test]
 fn no_optional_segment_spans_a_separator() {
-    assert!(!parse_rule("{a}/<{b}/>{c}").unwrap().to_rule().contains("/>"));
+    assert!(!parse_rule("{a}/<{b}/>{c}")
+        .unwrap()
+        .to_rule()
+        .contains("/>"));
 }
 
 // class TestStructure:
@@ -85,8 +114,18 @@ fn prefix_and_suffix_captured() {
     let fragment = &parse_rule("<P{p:02d}->{t}").unwrap().levels[0].fragments[0];
 
     assert_eq!(
-        (&fragment.prefix, fragment.variable.as_deref(), &fragment.spec, &fragment.suffix),
-        (&"P".to_string(), Some("p"), &"02d".to_string(), &"-".to_string())
+        (
+            &fragment.prefix,
+            fragment.variable.as_deref(),
+            &fragment.spec,
+            &fragment.suffix
+        ),
+        (
+            &"P".to_string(),
+            Some("p"),
+            &"02d".to_string(),
+            &"-".to_string()
+        )
     );
     assert!(fragment.is_optional());
 }
@@ -119,14 +158,14 @@ fn adjacent_text_is_merged() {
 #[test]
 fn returns_reason_instead_of_raising() {
     for rule in [
-        "<{a}-{b}>",   // 段内多个变量
-        "<{a}<{b}>>",  // 嵌套可选段
-        "<abc>",       // 不含变量的可选段
-        "{a!r}",       // 转换符
-        "{a:{w}}",     // 嵌套格式串
-        "<x{a}/y>",    // 跨目录层级的可选段
-        "<{a}",        // 语法错误
-        "{a.b}",       // 属性穿透
+        "<{a}-{b}>",  // 段内多个变量
+        "<{a}<{b}>>", // 嵌套可选段
+        "<abc>",      // 不含变量的可选段
+        "{a!r}",      // 转换符
+        "{a:{w}}",    // 嵌套格式串
+        "<x{a}/y>",   // 跨目录层级的可选段
+        "<{a}",       // 语法错误
+        "{a.b}",      // 属性穿透
     ] {
         let result = parse_rule(rule);
 

@@ -2,10 +2,40 @@
 //! favorites, settings, about.
 
 pub mod about {
-    use gpui_kit::{div, prelude::*};
+    use gpui_kit::component::button::Button;
+    use gpui_kit::{div, prelude::*, Context, ParentElement};
 
-    pub fn render_about() -> impl IntoElement {
-        div().p_6().child(crate::version_line())
+    use crate::ui::dialogs::about;
+
+    /// About screen (port of `gui/dialog/main_window/about.py`).
+    /// Content and i18n live in `ui::dialogs::about`; this renders it.
+    pub fn render_about(cx: &mut Context<crate::ui::Shell>) -> impl IntoElement {
+        let cfg =
+            config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let catalog = crate::ui::dialogs::active_catalog(&cfg);
+        let title = about::title(catalog);
+        let body = about::body_lines(catalog);
+        let links: Vec<(String, &'static str)> = about::links()
+            .iter()
+            .map(|l| (about::link_label(catalog, l), l.url))
+            .collect();
+
+        let mut col = div().flex().flex_col().gap_3().p_6().child(title);
+        for line in body {
+            col = col.child(div().child(line));
+        }
+        let mut row = div().flex().gap_2();
+        for (i, (label, url)) in links.iter().enumerate() {
+            let url = *url;
+            row = row.child(
+                Button::new(("about-link", i))
+                    .label(label.clone())
+                    .on_click(cx.listener(move |_, _, _, cx| {
+                        cx.open_url(url);
+                    })),
+            );
+        }
+        col.child(row)
     }
 }
 
@@ -23,23 +53,8 @@ pub mod favorites {
     }
 }
 
-pub mod settings {
-    use gpui_kit::{div, prelude::*};
-
-    /// Settings screen stub (ticket 24).
-    #[derive(Default)]
-    pub struct SettingsScreen;
-
-    impl SettingsScreen {
-        pub fn render(&mut self) -> impl IntoElement {
-            div().p_6().child("Settings")
-        }
-    }
-}
-
 /// Screen states owned by the shell (rendering mutates them).
-#[derive(Default)]
 pub struct Screens {
     pub favorites: favorites::FavoritesScreen,
-    pub settings: settings::SettingsScreen,
+    pub settings: super::settings::SettingsScreen,
 }

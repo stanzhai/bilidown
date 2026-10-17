@@ -197,10 +197,7 @@ fn concurrent_parses_do_not_erase_each_other() {
         handle.join().unwrap();
     }
 
-    let owners: Vec<String> = ["A", "B"]
-        .into_iter()
-        .map(|o| o.to_owned())
-        .collect();
+    let owners: Vec<String> = ["A", "B"].into_iter().map(|o| o.to_owned()).collect();
     let mut seen = Vec::new();
     for id in data.episode_ids() {
         if let Some(Value::Object(map)) = data.try_get_episode_data(&id) {
@@ -214,4 +211,3 @@ fn concurrent_parses_do_not_erase_each_other() {
     seen.sort();
     assert_eq!(seen, vec!["A".to_owned(), "B".to_owned()]);
 }
-

@@ -140,7 +140,11 @@ async fn handle(
     let Some(map) = message.as_object() else {
         return error_response(
             StatusCode::BAD_REQUEST,
-            protocol::make_error(None, protocol::INVALID_REQUEST, "Invalid JSON-RPC 2.0 message"),
+            protocol::make_error(
+                None,
+                protocol::INVALID_REQUEST,
+                "Invalid JSON-RPC 2.0 message",
+            ),
         );
     };
 
@@ -184,7 +188,7 @@ fn is_local_origin(origin: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{Tool, ToolSchema, ToolOutput};
+    use crate::protocol::{Tool, ToolOutput, ToolSchema};
     use axum::body::Body as AxumBody;
     use axum::http::Request as HttpRequest;
     use serde_json::json;
@@ -200,7 +204,10 @@ mod tests {
             },
             handler: Box::new(|_| ToolOutput::text("ok")),
         }]);
-        Arc::new(McpServer { dispatcher: Arc::new(dispatcher), token: token.to_owned() })
+        Arc::new(McpServer {
+            dispatcher: Arc::new(dispatcher),
+            token: token.to_owned(),
+        })
     }
 
     async fn post_json(
@@ -209,7 +216,8 @@ mod tests {
         body: Value,
         extra: &[(&str, &str)],
     ) -> (StatusCode, HeaderMap, Option<Value>) {
-        let mut builder = HttpRequest::post("/mcp").header(header::CONTENT_TYPE, "application/json");
+        let mut builder =
+            HttpRequest::post("/mcp").header(header::CONTENT_TYPE, "application/json");
         if let Some(token) = token {
             builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
         }
@@ -272,16 +280,33 @@ mod tests {
             "http://127.0.0.1:5173",
             "http://[::1]:9000",
         ] {
-            let (status, _, _) =
-                post_json(&app, Some("secret"), ping(), &[(header::ORIGIN.as_str(), origin)])
-                    .await;
+            let (status, _, _) = post_json(
+                &app,
+                Some("secret"),
+                ping(),
+                &[(header::ORIGIN.as_str(), origin)],
+            )
+            .await;
             assert_eq!(status, StatusCode::OK, "origin {origin} should pass");
         }
-        for origin in ["null", "https://evil.example", "http://evil.example:80", "http://[::2]:1"] {
-            let (status, _, _) =
-                post_json(&app, Some("secret"), ping(), &[(header::ORIGIN.as_str(), origin)])
-                    .await;
-            assert_eq!(status, StatusCode::FORBIDDEN, "origin {origin} should be rejected");
+        for origin in [
+            "null",
+            "https://evil.example",
+            "http://evil.example:80",
+            "http://[::2]:1",
+        ] {
+            let (status, _, _) = post_json(
+                &app,
+                Some("secret"),
+                ping(),
+                &[(header::ORIGIN.as_str(), origin)],
+            )
+            .await;
+            assert_eq!(
+                status,
+                StatusCode::FORBIDDEN,
+                "origin {origin} should be rejected"
+            );
         }
     }
 
@@ -334,7 +359,9 @@ mod tests {
             .unwrap();
         let response = app.clone().oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let value: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(value["error"]["code"], json!(-32700));
 
@@ -368,8 +395,13 @@ mod tests {
                 "_meta": {"io.modelcontextprotocol/protocolVersion": protocol::MODERN_VERSION}
             }
         });
-        let (status, _, value) =
-            post_json(&app, Some("secret"), body.clone(), &[("Mcp-Method", "tools/call")]).await;
+        let (status, _, value) = post_json(
+            &app,
+            Some("secret"),
+            body.clone(),
+            &[("Mcp-Method", "tools/call")],
+        )
+        .await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(value.unwrap()["error"]["code"], json!(-32020));
 

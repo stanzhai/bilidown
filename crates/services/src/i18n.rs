@@ -93,7 +93,9 @@ impl Catalog {
 pub fn catalog(lang: ResolvedLanguage) -> &'static Catalog {
     static ZH_CN: LazyLock<Catalog> = LazyLock::new(|| build(|zh, _| zh));
     static ZH_TW: LazyLock<Catalog> = LazyLock::new(|| build(|_, tw| tw));
-    static EN: LazyLock<Catalog> = LazyLock::new(|| Catalog { entries: HashMap::new() });
+    static EN: LazyLock<Catalog> = LazyLock::new(|| Catalog {
+        entries: HashMap::new(),
+    });
     match lang {
         ResolvedLanguage::ZhCn => &ZH_CN,
         ResolvedLanguage::ZhTw => &ZH_TW,
@@ -101,7 +103,6 @@ pub fn catalog(lang: ResolvedLanguage) -> &'static Catalog {
         ResolvedLanguage::En => &EN,
     }
 }
-
 
 /// Number of live (non-vanished) catalog entries — completeness test uses
 /// this to pin the `.ts` extraction (125 contexts × 973 messages).
@@ -150,6 +151,20 @@ translator_map!(
     "TENCENT" => "Tencent Cloud",
     "HUAWEI" => "Huawei Cloud",
     "CUSTOM" => "Custom",
+});
+
+translator_map!(
+    /// `Translator.ADDITIONAL_FILES_QUALIFIER`
+    additional_files_qualifier, "ADDITIONAL_FILES_QUALIFIER", {
+    "DANMAKU" => "Danmaku",
+    "SUBTITLES" => "Subtitles",
+    "METADATA" => "Metadata",
+});
+
+translator_map!(
+    /// `Translator.SUBTITLE_TRACK_TITLE`
+    subtitle_track_title, "SUBTITLE_TRACK_TITLE", {
+    "AI_GENERATED" => "{name} (AI Generated)",
 });
 
 translator_map!(
@@ -271,7 +286,8 @@ translator_map!(
     "PARSING_INTERACTIVE_VIDEO_NODE" => "Parsing node: {title}",
     "PARSING_PAGE" => "Parsing page {page}, total {total_page} pages, progress: {progress}%",
     "PARSING_LINK" => "Parsing link {link}, total {total_links} links, progress: {progress}%",
-    "MEDIA_INFO_UPDATED" => "Media info updated",
+    "VIDEO_CODEC_FALLBACK" => "This video has no {requested}",
+    "VIDEO_CODEC_FALLBACK_MESSAGE" => "This video has no {requested}, using {actual}",
     "ADDED_TO_DOWNLOAD_QUEUE" => "Added to download queue",
 });
 
@@ -306,3 +322,105 @@ pub fn privacy_policy(c: &Catalog) -> String {
         .expect("PRIVACY_POLICY entry exists");
     c.tr("PRIVACY_POLICY", source).to_owned()
 }
+
+translator_map!(
+    /// `Translator.CONVENTION_TYPE` — the 12 naming-convention types.
+    convention_type, "CONVENTION_TYPE", {
+    "NORMAL" => "Single Video",
+    "PART" => "Multi-part Series",
+    "COLLECTION" => "Collection",
+    "INTERACTIVE_VIDEO" => "Interactive Video",
+    "BANGUMI" => "Film & TV",
+    "CHEESE" => "Courses",
+    "FAVORITE" => "Favorites",
+    "SPACE" => "Profile",
+    "HISTORY" => "History",
+    "WATCH_LATER" => "Watch Later",
+    "WEEKLY" => "Weekly Picks",
+    "AUDIO" => "Music",
+});
+
+translator_map!(
+    /// `Translator.DEFAULT_RULE_NAMES` — built-in rule display names, plus
+    /// the default name for newly created rules (stored under the same map
+    /// in Python to share the key-vs-translation persistence mechanism).
+    default_rule_names, "DEFAULT_RULE_NAMES", {
+    "DEFAULT_FOR_NORMAL" => "Preset: Single Video",
+    "DEFAULT_FOR_PART" => "Preset: Multi-part Series",
+    "DEFAULT_FOR_COLLECTION" => "Preset: Collection",
+    "DEFAULT_FOR_INTERACTIVE_VIDEO" => "Preset: Interactive Video",
+    "DEFAULT_FOR_BANGUMI" => "Preset: Film & TV",
+    "DEFAULT_FOR_CHEESE" => "Preset: Courses",
+    "DEFAULT_FOR_FAVORITE" => "Preset: Favorites",
+    "DEFAULT_FOR_SPACE" => "Preset: Profile",
+    "DEFAULT_FOR_AUDIO" => "Preset: Music",
+    "DEFAULT_FOR_HISTORY" => "Preset: History",
+    "DEFAULT_FOR_WEEKLY" => "Preset: Weekly Picks",
+    "DEFAULT_FOR_WATCH_LATER" => "Preset: Watch Later",
+    "NEW_RULE" => "New rule",
+});
+
+translator_map!(
+    /// `Translator.VARIABLE_DESCRIPTION` — naming-variable descriptions
+    /// (generic and per-type variants; keys are Python's verbatim).
+    variable_description, "VARIABLE_DESCRIPTION", {
+    "PUB_TIME" => "Video publish time",
+    "PUB_TS" => "Video publish timestamp",
+    "CREATE_TIME" => "Download task creation time",
+    "CREATE_TS" => "Download task creation timestamp",
+    "FAV_TIME" => "Favorite time",
+    "FAV_TS" => "Favorite timestamp",
+    "LAST_WATCHED_TIME" => "Last watched time",
+    "LAST_WATCHED_TS" => "Last watched timestamp",
+    "NUMBER" => "Sequence number",
+    "UPLOADER" => "Uploader name",
+    "UPLOADER_FOR_AUDIO" => "Author of the song",
+    "UPLOADER_UID" => "Uploader id",
+    "VIDEO_QUALITY" => "Video quality",
+    "AUDIO_QUALITY" => "Audio quality",
+    "VIDEO_CODEC" => "Video codec",
+    "AID" => "av number",
+    "BVID" => "BV number",
+    "CID" => "cid",
+    "EP_ID" => "Episode id",
+    "SEASON_ID" => "Season id",
+    "LEAF_TITLE_GENERIC" => "Item title",
+    "PARENT_TITLE_GENERIC" => "Parent title",
+    "PART_NUMBER_GENERIC" => "Part number",
+    "SECTION_TITLE_GENERIC" => "Section title (empty if not divided into sections)",
+    "SERIES_TITLE_GENERIC" => "Series title",
+    "EPISODE_TITLE_GENERIC" => "Episode title",
+    "LEAF_TITLE_FOR_NORMAL" => "Full video title",
+    "LEAF_TITLE_FOR_PART" => "Current part's title",
+    "LEAF_TITLE_FOR_COLLECTION" => "Content title (video title for single videos, part title for multi-part)",
+    "LEAF_TITLE_FOR_INTERACTIVE_VIDEO" => "Node title",
+    "LEAF_TITLE_FOR_AUDIO" => "Song title",
+    "PARENT_TITLE_FOR_PART" => "Multi-part video main title",
+    "PARENT_TITLE_FOR_COLLECTION" => "Main title if video has multiple parts; otherwise empty",
+    "PARENT_TITLE_FOR_INTERACTIVE_VIDEO" => "Interactive video title",
+    "PARENT_TITLE_FOR_HISTORY" => "Title of the video; only set for multi-part or collection entries",
+    "PARENT_TITLE_FOR_WATCH_LATER" => "Title of the video; only set for multi-part or collection entries",
+    "PARENT_TITLE_FOR_FAVORITE" => "Multi-part video main title (if exists)",
+    "SOURCE_TITLE" => "Name of the source list",
+    "PART_NUMBER_FOR_PART" => "Part number",
+    "PART_NUMBER_FOR_COLLECTION" => "Part number (only for multi-part videos)",
+    "COLLECTION_TITLE" => "Collection title",
+    "SECTION_TITLE_FOR_COLLECTION" => "Section title (empty if not divided into sections)",
+    "SECTION_TITLE_FOR_BANGUMI_CHEESE" => "Section title",
+    "SERIES_TITLE_FOR_BANGUMI" => "Series title",
+    "SERIES_TITLE_FOR_CHEESE" => "Courses title",
+    "COURSE_ID" => "Mall courses id",
+    "LESSON_ID" => "Mall lesson id",
+    "ITEM_ID" => "Mall item id",
+    "SECTION_ID" => "Mall section id",
+    "SEASON_TITLE" => "Season title",
+    "EPISODE_TITLE" => "Episode title",
+    "SEASON_NUMBER" => "Season number",
+    "EPISODE_NUMBER" => "Episode number",
+    "FAVORITES_NAME" => "Favorites name",
+    "FAVORITES_ID" => "Favorites id",
+    "FAVORITES_OWNER" => "Favorites owner",
+    "FAVORITES_OWNER_ID" => "Favorites owner id",
+    "SPACE_OWNER" => "User name",
+    "SPACE_OWNER_ID" => "User id",
+});

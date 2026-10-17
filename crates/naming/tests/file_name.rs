@@ -8,7 +8,10 @@ use naming::formatter::{attribute, convention_type, FileNameFormatter};
 use naming::naming_rules::RuleStore;
 
 fn d(pairs: &[(&str, Value)]) -> std::collections::HashMap<String, Value> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 
 fn t(s: &str) -> Value {
@@ -25,7 +28,10 @@ fn render(rule: &str, data: &[(&str, Value)]) -> Option<String> {
 
 #[test]
 fn plain_title_untouched() {
-    assert_eq!(render("{title}", &[("title", t("正常标题"))]), Some("正常标题".into()));
+    assert_eq!(
+        render("{title}", &[("title", t("正常标题"))]),
+        Some("正常标题".into())
+    );
 }
 
 #[test]
@@ -130,15 +136,30 @@ fn empty_rule_without_type_id_returns_none() {
 fn attribute_maps_to_convention_type() {
     use naming::formatter::get_type_id_from_attribute;
 
-    assert_eq!(get_type_id_from_attribute(attribute::FAVLIST), Some(convention_type::FAVORITE));
-    assert_eq!(get_type_id_from_attribute(attribute::SPACE), Some(convention_type::SPACE));
-    assert_eq!(get_type_id_from_attribute(attribute::BANGUMI), Some(convention_type::BANGUMI));
+    assert_eq!(
+        get_type_id_from_attribute(attribute::FAVLIST),
+        Some(convention_type::FAVORITE)
+    );
+    assert_eq!(
+        get_type_id_from_attribute(attribute::SPACE),
+        Some(convention_type::SPACE)
+    );
+    assert_eq!(
+        get_type_id_from_attribute(attribute::BANGUMI),
+        Some(convention_type::BANGUMI)
+    );
 
     // 会员购商城课程并入课程，属性位还在但命名类型跟着并了过去
-    assert_eq!(get_type_id_from_attribute(attribute::LESSON), Some(convention_type::CHEESE));
+    assert_eq!(
+        get_type_id_from_attribute(attribute::LESSON),
+        Some(convention_type::CHEESE)
+    );
 
     // 没有结构形态位也没有来源位的纯投稿视频按单个视频处理
-    assert_eq!(get_type_id_from_attribute(attribute::VIDEO), Some(convention_type::NORMAL));
+    assert_eq!(
+        get_type_id_from_attribute(attribute::VIDEO),
+        Some(convention_type::NORMAL)
+    );
     assert_eq!(
         get_type_id_from_attribute(attribute::VIDEO | attribute::PART),
         Some(convention_type::PART)
@@ -156,7 +177,9 @@ fn media_kind_outranks_the_source() {
         Some(convention_type::BANGUMI)
     );
     assert_eq!(
-        get_type_id_from_attribute(attribute::WATCH_LATER | attribute::BANGUMI | attribute::NEED_PARSE),
+        get_type_id_from_attribute(
+            attribute::WATCH_LATER | attribute::BANGUMI | attribute::NEED_PARSE
+        ),
         Some(convention_type::BANGUMI)
     );
     assert_eq!(
@@ -248,7 +271,13 @@ fn everything_dropped_falls_back() {
 #[test]
 fn unknown_variable_in_a_dropped_segment_still_fails() {
     // 错误优先于丢弃
-    assert_eq!(render("<{parent_title}{typo}>{title}", &[("parent_title", t("")), ("title", t("x"))]), None);
+    assert_eq!(
+        render(
+            "<{parent_title}{typo}>{title}",
+            &[("parent_title", t("")), ("title", t("x"))]
+        ),
+        None
+    );
 }
 
 // class TestIssue461EndToEnd:
@@ -257,24 +286,32 @@ const ISSUE461_RULE: &str = "{space_owner}/{parent_title}/<P{p:02d}->{leaf_title
 
 #[test]
 fn issue461_end_to_end_single_part() {
-    let result = render(ISSUE461_RULE, &[
-        ("space_owner", t("UP主")),
-        ("parent_title", t("")),
-        ("p", Value::Int(0)),
-        ("leaf_title", t("单P标题")),
-    ]).unwrap();
+    let result = render(
+        ISSUE461_RULE,
+        &[
+            ("space_owner", t("UP主")),
+            ("parent_title", t("")),
+            ("p", Value::Int(0)),
+            ("leaf_title", t("单P标题")),
+        ],
+    )
+    .unwrap();
 
     assert_eq!(result, "UP主/单P标题");
 }
 
 #[test]
 fn issue461_end_to_end_multi_part() {
-    let result = render(ISSUE461_RULE, &[
-        ("space_owner", t("UP主")),
-        ("parent_title", t("分P稿件")),
-        ("p", Value::Int(1)),
-        ("leaf_title", t("第一段")),
-    ]).unwrap();
+    let result = render(
+        ISSUE461_RULE,
+        &[
+            ("space_owner", t("UP主")),
+            ("parent_title", t("分P稿件")),
+            ("p", Value::Int(1)),
+            ("leaf_title", t("第一段")),
+        ],
+    )
+    .unwrap();
 
     assert_eq!(result, "UP主/分P稿件/P01-第一段");
 }

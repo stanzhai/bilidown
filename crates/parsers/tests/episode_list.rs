@@ -31,7 +31,10 @@ fn space_parser_basic() {
     let info = space_data();
     let node = parse_space(&data, &info);
 
-    assert_eq!(node.number, parsers::tree::Number::Text("User Uploads".into()));
+    assert_eq!(
+        node.number,
+        parsers::tree::Number::Text("User Uploads".into())
+    );
     assert_eq!(node.title, "某UP主");
     assert!(node.has_attribute(Attribute::TREE_NODE_BIT));
     assert_eq!(node.count(), 2);
@@ -44,10 +47,7 @@ fn space_parser_basic() {
     assert!(first.has_attribute(Attribute::VIDEO_BIT));
     assert!(first.has_attribute(Attribute::SPACE_BIT));
     assert!(first.has_attribute(Attribute::NEED_PARSE_BIT));
-    assert_eq!(
-        first.number,
-        parsers::tree::Number::Int(1)
-    );
+    assert_eq!(first.number, parsers::tree::Number::Int(1));
     let second = node.child(1);
     assert_eq!(second.badge, "充电专属");
 
@@ -270,6 +270,9 @@ fn list_parser_numbering() {
     let info = json!({"meta": {"season_id": 1, "name": "合集"}, "archives": archives});
     let node = parse_list(&data, &info);
     for i in 0..3 {
-        assert_eq!(node.child(i).number, parsers::tree::Number::Int(i as i64 + 1));
+        assert_eq!(
+            node.child(i).number,
+            parsers::tree::Number::Int(i as i64 + 1)
+        );
     }
 }

@@ -8,7 +8,9 @@ use config::ConfigStore;
 use database::HistoryDatabase;
 /// `Behavior/parse_history` (default true, `config.py:335`).
 pub fn enabled(cfg: &ConfigStore) -> bool {
-    cfg.get("Behavior", "parse_history").and_then(|v| v.as_bool()).unwrap_or(true)
+    cfg.get("Behavior", "parse_history")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
 }
 
 /// Record a parsed URL if history is enabled. Dedupe + cap-100 behavior

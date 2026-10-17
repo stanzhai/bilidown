@@ -17,8 +17,8 @@ path = "src/bin/mcp_stdio.rs"
 [dependencies]
 axum = "=0.8.9"
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time", "sync", "net", "io-util"] }
-anyhow = "1"
-parking_lot = "=0.12.5"
+anyhow.workspace = true
+parking_lot.workspace = true
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 subtle = "=2.6.1"
 base64 = "=0.22.1"

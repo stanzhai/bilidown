@@ -19,10 +19,7 @@ fn write(dir: &std::path::Path, text: &str) {
 /// v2120/v2160 输入里的分组合并由 golden 测试覆盖；这里用合成文件逐条验迁移门禁。
 fn full(version: i64, extra: Value) -> String {
     let mut doc = serde_json::Map::new();
-    doc.insert(
-        "Application".into(),
-        json!({ "config_version": version }),
-    );
+    doc.insert("Application".into(), json!({ "config_version": version }));
     for (g, v) in extra.as_object().unwrap() {
         doc.insert(g.clone(), v.clone());
     }
@@ -93,7 +90,10 @@ fn quality_122_inserted_before_120() {
     let tmp = tempfile::tempdir().unwrap();
     write(
         tmp.path(),
-        &full(2130, json!({ "Download": { "video_quality_priority": [127, 126, 125, 120, 116, 80] } })),
+        &full(
+            2130,
+            json!({ "Download": { "video_quality_priority": [127, 126, 125, 120, 116, 80] } }),
+        ),
     );
     let store = opened(tmp.path());
     assert_eq!(
@@ -107,7 +107,10 @@ fn quality_122_appended_when_no_120() {
     let tmp = tempfile::tempdir().unwrap();
     write(
         tmp.path(),
-        &full(2130, json!({ "Download": { "video_quality_priority": [116, 80] } })),
+        &full(
+            2130,
+            json!({ "Download": { "video_quality_priority": [116, 80] } }),
+        ),
     );
     let store = opened(tmp.path());
     assert_eq!(
@@ -121,7 +124,10 @@ fn existing_122_not_duplicated() {
     let tmp = tempfile::tempdir().unwrap();
     write(
         tmp.path(),
-        &full(2130, json!({ "Download": { "video_quality_priority": [127, 122, 120] } })),
+        &full(
+            2130,
+            json!({ "Download": { "video_quality_priority": [127, 122, 120] } }),
+        ),
     );
     let store = opened(tmp.path());
     assert_eq!(
@@ -135,7 +141,10 @@ fn user_quality_order_preserved() {
     let tmp = tempfile::tempdir().unwrap();
     write(
         tmp.path(),
-        &full(2130, json!({ "Download": { "video_quality_priority": [80, 120, 127] } })),
+        &full(
+            2130,
+            json!({ "Download": { "video_quality_priority": [80, 120, 127] } }),
+        ),
     );
     let store = opened(tmp.path());
     assert_eq!(
@@ -149,7 +158,10 @@ fn version_2140_skips_quality_gate() {
     let tmp = tempfile::tempdir().unwrap();
     write(
         tmp.path(),
-        &full(2140, json!({ "Download": { "video_quality_priority": [127, 120] } })),
+        &full(
+            2140,
+            json!({ "Download": { "video_quality_priority": [127, 120] } }),
+        ),
     );
     let store = opened(tmp.path());
     assert_eq!(
@@ -174,7 +186,9 @@ fn naming_rule_list_reset_to_defaults_for_any_below_2200() {
     let list = store.get("File Naming", "naming_rule_list").unwrap();
     let arr = list.as_array().unwrap();
     assert!(arr.len() >= 10, "默认命名规则表被恢复");
-    assert!(arr.iter().all(|r| r.get("name").and_then(Value::as_str) != Some("custom")));
+    assert!(arr
+        .iter()
+        .all(|r| r.get("name").and_then(Value::as_str) != Some("custom")));
     assert!(store.naming_rules_reset());
 }
 
@@ -205,7 +219,10 @@ fn version_2000_runs_whole_chain() {
         store.get("Download", "video_quality_priority"),
         Some(&json!([127, 122, 120]))
     );
-    assert_eq!(store.get("Application", "config_version"), Some(&json!(APP_CONFIG_VERSION)));
+    assert_eq!(
+        store.get("Application", "config_version"),
+        Some(&json!(APP_CONFIG_VERSION))
+    );
     assert!(store.naming_rules_reset());
 }
 
@@ -221,7 +238,10 @@ fn written_version_is_2200() {
 // ---------- ov_cdn_server_list ----------
 
 fn cdn_doc(version: i64, list: Value) -> String {
-    full(version, json!({ "Advanced": { "ov_cdn_server_list": list } }))
+    full(
+        version,
+        json!({ "Advanced": { "ov_cdn_server_list": list } }),
+    )
 }
 
 fn cdn_list(store: &ConfigStore) -> Vec<String> {
@@ -231,7 +251,12 @@ fn cdn_list(store: &ConfigStore) -> Vec<String> {
         .as_array()
         .unwrap()
         .iter()
-        .map(|e| e.get("host").and_then(Value::as_str).unwrap_or("").to_string())
+        .map(|e| {
+            e.get("host")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string()
+        })
         .collect()
 }
 
@@ -266,7 +291,10 @@ fn user_added_nodes_untouched() {
         ),
     );
     let store = opened(tmp.path());
-    assert_eq!(cdn_list(&store), ["my.example.com", "upos-sz-mirrorcoso1.bilivideo.com"]);
+    assert_eq!(
+        cdn_list(&store),
+        ["my.example.com", "upos-sz-mirrorcoso1.bilivideo.com"]
+    );
 }
 
 #[test]
@@ -307,7 +335,12 @@ fn malformed_entries_survive() {
         ),
     );
     let store = opened(tmp.path());
-    let list = store.get("Advanced", "ov_cdn_server_list").unwrap().as_array().unwrap().len();
+    let list = store
+        .get("Advanced", "ov_cdn_server_list")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .len();
     assert_eq!(list, 2, "缺 host 的畸形项在过滤后原样保留");
 }
 
@@ -316,12 +349,19 @@ fn empty_cdn_list_is_safe() {
     let tmp = tempfile::tempdir().unwrap();
     write(tmp.path(), &cdn_doc(2160, json!([])));
     let store = opened(tmp.path());
-    assert!(store.get("Advanced", "ov_cdn_server_list").unwrap().as_array().unwrap().is_empty());
+    assert!(store
+        .get("Advanced", "ov_cdn_server_list")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
 fn defaults_contain_no_akamai() {
     let tmp = tempfile::tempdir().unwrap();
     let store = opened(tmp.path());
-    assert!(!cdn_list(&store).iter().any(|h| h == "upos-hz-mirrorakam.akamaized.net"));
+    assert!(!cdn_list(&store)
+        .iter()
+        .any(|h| h == "upos-hz-mirrorakam.akamaized.net"));
 }

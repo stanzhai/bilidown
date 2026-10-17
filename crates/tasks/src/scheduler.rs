@@ -94,10 +94,40 @@ impl Scheduler {
             files,
         );
         let control = engine.control();
-        self.slots
-            .lock()
-            .insert(task_id.to_string(), Slot { control: control.clone() });
+        self.slots.lock().insert(
+            task_id.to_string(),
+            Slot {
+                control: control.clone(),
+            },
+        );
         Ok(control)
+    }
+
+    /// Build the engine, register its control slot, and spawn `run()` on
+    /// the caller's runtime (ticket 31: the pipeline awaits the final
+    /// state; `start_engine` alone drops the engine before it runs).
+    pub fn spawn_engine(
+        &self,
+        manager: &Arc<TaskManager>,
+        task_id: &str,
+        client: network::HttpClient,
+        files: Vec<FileSpec>,
+    ) -> anyhow::Result<tokio::task::JoinHandle<downloader::TaskState>> {
+        let mut engine = DownloadEngine::new(
+            client,
+            self.engine_config(),
+            downloader::TokenBucketHandle::unlimited(),
+            Arc::new(manager.offset_store(task_id)),
+            files,
+        );
+        let control = engine.control();
+        self.slots.lock().insert(
+            task_id.to_string(),
+            Slot {
+                control: control.clone(),
+            },
+        );
+        Ok(tokio::spawn(async move { engine.run().await }))
     }
 
     pub fn pause(&self, task_id: &str) {
@@ -105,7 +135,6 @@ impl Scheduler {
             slot.control.pause();
         }
     }
-
 
     pub fn release(&self, task_id: &str) {
         self.slots.lock().remove(task_id);

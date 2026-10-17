@@ -8,7 +8,10 @@ use naming::format::Value;
 use naming::template::{compile_rule, is_blank, RenderError, RuleSyntaxError};
 
 fn d(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 
 fn render(rule: &str, data: &HashMap<String, Value>) -> Result<String, RenderError> {
@@ -20,13 +23,22 @@ fn render(rule: &str, data: &HashMap<String, Value>) -> Result<String, RenderErr
 /// `{t:>6}` 的 `>` 是对齐符不是可选段定界符
 #[test]
 fn alignment_spec_is_not_a_segment() {
-    assert_eq!(render("{t:>6}", &d(&[("t", Value::Text("ab".into()))])).unwrap(), "    ab");
-    assert_eq!(render("{t:<6}", &d(&[("t", Value::Text("ab".into()))])).unwrap(), "ab    ");
+    assert_eq!(
+        render("{t:>6}", &d(&[("t", Value::Text("ab".into()))])).unwrap(),
+        "    ab"
+    );
+    assert_eq!(
+        render("{t:<6}", &d(&[("t", Value::Text("ab".into()))])).unwrap(),
+        "ab    "
+    );
 }
 
 #[test]
 fn strftime_spec_untouched() {
-    let dt = chrono::NaiveDate::from_ymd_opt(2026, 3, 7).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let dt = chrono::NaiveDate::from_ymd_opt(2026, 3, 7)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
     assert_eq!(
         render("{d:%Y-%m-%d}", &d(&[("d", Value::DateTime(dt))])).unwrap(),
         "2026-03-07"
@@ -36,7 +48,14 @@ fn strftime_spec_untouched() {
 #[test]
 fn nested_format_spec() {
     assert_eq!(
-        render("{t:{w}}", &d(&[("t", Value::Text("ab".into())), ("w", Value::Text(">6".into()))])).unwrap(),
+        render(
+            "{t:{w}}",
+            &d(&[
+                ("t", Value::Text("ab".into())),
+                ("w", Value::Text(">6".into()))
+            ])
+        )
+        .unwrap(),
         "    ab"
     );
 }
@@ -118,10 +137,14 @@ fn not_blank_values() {
 fn part_number_zero_drops_the_whole_segment() {
     // 单P视频的 p 是 0，整段必须消失，而不是渲染成 P00-
     assert_eq!(
-        render("<P{p:02d}->{leaf_title}", &d(&[
-            ("p", Value::Int(0)),
-            ("leaf_title", Value::Text("标题".into())),
-        ])).unwrap(),
+        render(
+            "<P{p:02d}->{leaf_title}",
+            &d(&[
+                ("p", Value::Int(0)),
+                ("leaf_title", Value::Text("标题".into())),
+            ])
+        )
+        .unwrap(),
         "标题"
     );
 }
@@ -129,10 +152,14 @@ fn part_number_zero_drops_the_whole_segment() {
 #[test]
 fn part_number_present_keeps_the_segment() {
     assert_eq!(
-        render("<P{p:02d}->{leaf_title}", &d(&[
-            ("p", Value::Int(1)),
-            ("leaf_title", Value::Text("标题".into())),
-        ])).unwrap(),
+        render(
+            "<P{p:02d}->{leaf_title}",
+            &d(&[
+                ("p", Value::Int(1)),
+                ("leaf_title", Value::Text("标题".into())),
+            ])
+        )
+        .unwrap(),
         "P01-标题"
     );
 }
@@ -141,27 +168,50 @@ fn part_number_present_keeps_the_segment() {
 fn any_semantics() {
     // 取「任一为空即丢弃」而非「全部为空」，否则缺集号时会产出 S01E
     assert_eq!(
-        render("<S{a:02d}E{b:02d}>", &d(&[("a", Value::Int(1)), ("b", Value::Int(0))])).unwrap(),
+        render(
+            "<S{a:02d}E{b:02d}>",
+            &d(&[("a", Value::Int(1)), ("b", Value::Int(0))])
+        )
+        .unwrap(),
         ""
     );
     assert_eq!(
-        render("<S{a:02d}E{b:02d}>", &d(&[("a", Value::Int(1)), ("b", Value::Int(8))])).unwrap(),
+        render(
+            "<S{a:02d}E{b:02d}>",
+            &d(&[("a", Value::Int(1)), ("b", Value::Int(8))])
+        )
+        .unwrap(),
         "S01E08"
     );
 }
 
 #[test]
 fn literal_prefix_and_suffix_go_with_it() {
-    assert_eq!(render("【<{a}>】", &d(&[("a", Value::Text(String::new()))])).unwrap(), "【】");
-    assert_eq!(render("<【{a}】>", &d(&[("a", Value::Text(String::new()))])).unwrap(), "");
+    assert_eq!(
+        render("【<{a}>】", &d(&[("a", Value::Text(String::new()))])).unwrap(),
+        "【】"
+    );
+    assert_eq!(
+        render("<【{a}】>", &d(&[("a", Value::Text(String::new()))])).unwrap(),
+        ""
+    );
 }
 
 #[test]
 fn nested_segments() {
     let template = "<{a}/<{b}>>";
-    assert_eq!(render(template, &d(&[("a", vtext("A")), ("b", vtext("B"))])).unwrap(), "A/B");
-    assert_eq!(render(template, &d(&[("a", vtext("A")), ("b", vtext(""))])).unwrap(), "A/");
-    assert_eq!(render(template, &d(&[("a", vtext("")), ("b", vtext("B"))])).unwrap(), "");
+    assert_eq!(
+        render(template, &d(&[("a", vtext("A")), ("b", vtext("B"))])).unwrap(),
+        "A/B"
+    );
+    assert_eq!(
+        render(template, &d(&[("a", vtext("A")), ("b", vtext(""))])).unwrap(),
+        "A/"
+    );
+    assert_eq!(
+        render(template, &d(&[("a", vtext("")), ("b", vtext("B"))])).unwrap(),
+        ""
+    );
 }
 
 fn vtext(s: &str) -> Value {
@@ -172,7 +222,10 @@ fn vtext(s: &str) -> Value {
 fn literal_only_outer_segment_collapses() {
     // 外层自己没有变量，嵌套子段又全被丢弃，只剩字面量，没有存在意义
     assert_eq!(render("x<-<{b}>>y", &d(&[("b", vtext(""))])).unwrap(), "xy");
-    assert_eq!(render("x<-<{b}>>y", &d(&[("b", vtext("B"))])).unwrap(), "x-By");
+    assert_eq!(
+        render("x<-<{b}>>y", &d(&[("b", vtext("B"))])).unwrap(),
+        "x-By"
+    );
 }
 
 // class TestFailureContract:
@@ -199,7 +252,10 @@ fn field_injection_rejected() {
     // 属性穿透与位置参数一律按未知变量处理
     for rule in ["{a.__class__}", "{a[0]}", "{}", "{0}"] {
         assert!(
-            matches!(render(rule, &d(&[("a", vtext("x"))])), Err(RenderError::UnknownVariable(_))),
+            matches!(
+                render(rule, &d(&[("a", vtext("x"))])),
+                Err(RenderError::UnknownVariable(_))
+            ),
             "{rule}"
         );
     }
@@ -226,16 +282,24 @@ fn field_names_include_nested_spec() {
 #[test]
 fn literal_texts_exclude_delimiters() {
     assert_eq!(
-        compile_rule("【{a}】/<P{b}->", false).unwrap().literal_texts(),
+        compile_rule("【{a}】/<P{b}->", false)
+            .unwrap()
+            .literal_texts(),
         vec!["【", "】/", "P", "-"]
     );
 }
 
 #[test]
 fn empty_optional_segment_detected() {
-    assert!(compile_rule("<abc>{a}", false).unwrap().has_empty_optional_segment());
-    assert!(!compile_rule("<P{b}>", false).unwrap().has_empty_optional_segment());
-    assert!(compile_rule("<{a}<abc>>", false).unwrap().has_empty_optional_segment());
+    assert!(compile_rule("<abc>{a}", false)
+        .unwrap()
+        .has_empty_optional_segment());
+    assert!(!compile_rule("<P{b}>", false)
+        .unwrap()
+        .has_empty_optional_segment());
+    assert!(compile_rule("<{a}<abc>>", false)
+        .unwrap()
+        .has_empty_optional_segment());
 }
 
 // class TestIssue461:
@@ -244,12 +308,16 @@ const ISSUE461_RULE: &str = "{space_owner}/{parent_title}/<P{p:02d}->{leaf_title
 
 #[test]
 fn issue461_single_part() {
-    let result = render(ISSUE461_RULE, &d(&[
-        ("space_owner", vtext("UP主")),
-        ("parent_title", vtext("")),
-        ("p", Value::Int(0)),
-        ("leaf_title", vtext("单P标题")),
-    ])).unwrap();
+    let result = render(
+        ISSUE461_RULE,
+        &d(&[
+            ("space_owner", vtext("UP主")),
+            ("parent_title", vtext("")),
+            ("p", Value::Int(0)),
+            ("leaf_title", vtext("单P标题")),
+        ]),
+    )
+    .unwrap();
 
     // 空的目录层留下一个空路径段，由 normalize_path 收敛
     assert_eq!(result, "UP主//单P标题");
@@ -257,12 +325,16 @@ fn issue461_single_part() {
 
 #[test]
 fn issue461_multi_part() {
-    let result = render(ISSUE461_RULE, &d(&[
-        ("space_owner", vtext("UP主")),
-        ("parent_title", vtext("分P稿件")),
-        ("p", Value::Int(1)),
-        ("leaf_title", vtext("第一段")),
-    ])).unwrap();
+    let result = render(
+        ISSUE461_RULE,
+        &d(&[
+            ("space_owner", vtext("UP主")),
+            ("parent_title", vtext("分P稿件")),
+            ("p", Value::Int(1)),
+            ("leaf_title", vtext("第一段")),
+        ]),
+    )
+    .unwrap();
 
     assert_eq!(result, "UP主/分P稿件/P01-第一段");
 }

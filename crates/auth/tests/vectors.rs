@@ -19,10 +19,16 @@ fn mixin_key_permutation() {
 fn enc_wbi_reference_vector() {
     let img = "7cd084941338484aae1ad9425b84077c";
     let sub = "4932caff0ff746eab6f01bf08b70ac45";
-    let params = vec![("foo".to_owned(), "bar'b(a)z!*".to_owned()), ("n".to_owned(), "12".to_owned())];
+    let params = vec![
+        ("foo".to_owned(), "bar'b(a)z!*".to_owned()),
+        ("n".to_owned(), "12".to_owned()),
+    ];
     let signed = wbi::enc_wbi(&params, img, sub, 1_772_841_600).expect("sign ok");
     assert_eq!(signed.w_rid, "ee8d391467694942682caea256bab88d");
-    assert_eq!(signed.query(), "foo=barbaz&n=12&wts=1772841600&w_rid=ee8d391467694942682caea256bab88d");
+    assert_eq!(
+        signed.query(),
+        "foo=barbaz&n=12&wts=1772841600&w_rid=ee8d391467694942682caea256bab88d"
+    );
 }
 
 #[test]
@@ -43,13 +49,16 @@ fn enc_wbi_second_vector() {
 
 #[test]
 fn wbi_key_length_matches_table() {
-    assert_eq!(wbi::WBI_KEY_LENGTH, *wbi::MIXIN_KEY_ENC_TAB.iter().max().unwrap() + 1);
+    assert_eq!(
+        wbi::WBI_KEY_LENGTH,
+        *wbi::MIXIN_KEY_ENC_TAB.iter().max().unwrap() + 1
+    );
 }
 
 #[test]
 fn keys_unavailable_message() {
-    let e = wbi::enc_wbi(&[], &"a".repeat(31), &"b".repeat(31), 0)
-        .expect_err("short keys must fail");
+    let e =
+        wbi::enc_wbi(&[], &"a".repeat(31), &"b".repeat(31), 0).expect_err("short keys must fail");
     assert!(e.to_string().contains("signature key"), "got: {e}");
 }
 
@@ -73,13 +82,22 @@ fn murmur3_buvid_fp_reference() {
         murmur3::buvid_fp_hex(TESTUA, 31),
         "7fe1916b46b7235c95fda0c2387f3114"
     );
-    assert_eq!(murmur3::buvid_fp_hex("abc", 31), "f04961ae49bab9266bb906b7e9ce9afb");
+    assert_eq!(
+        murmur3::buvid_fp_hex("abc", 31),
+        "f04961ae49bab9266bb906b7e9ce9afb"
+    );
     assert_eq!(
         murmur3::buvid_fp_hex("0123456789ABCDEFG", 31),
         "db11b32c20e335317dbed7bc3b71dcc"
     );
-    assert_eq!(murmur3::buvid_fp_hex(&"x".repeat(16), 31), "fc32dee9448418daceebbc07908613b4");
-    assert_eq!(murmur3::buvid_fp_hex(&"y".repeat(33), 31), "f35db14c4b35b8c38f16293e0ea29463");
+    assert_eq!(
+        murmur3::buvid_fp_hex(&"x".repeat(16), 31),
+        "fc32dee9448418daceebbc07908613b4"
+    );
+    assert_eq!(
+        murmur3::buvid_fp_hex(&"y".repeat(33), 31),
+        "f35db14c4b35b8c38f16293e0ea29463"
+    );
 }
 
 #[test]
@@ -110,7 +128,10 @@ fn exclimbwuzhi_payload_structure() {
     assert_eq!(inner["3c43"].as_object().map(|m| m.len()), Some(30));
     // stdlib separators: ", " and ": " inside the payload string
     let payload_str = outer["payload"].as_str().unwrap();
-    assert!(payload_str.contains("\": \""), "stdlib ': ' separator missing");
+    assert!(
+        payload_str.contains("\": \""),
+        "stdlib ': ' separator missing"
+    );
 }
 
 #[test]
@@ -158,9 +179,24 @@ fn timestamp_next_day_boundary() {
 
 #[test]
 fn qr_status_codes() {
-    assert_eq!(login::QRCodeScanStatus::from_code(86101), login::QRCodeScanStatus::WaitingForScan);
-    assert_eq!(login::QRCodeScanStatus::from_code(86090), login::QRCodeScanStatus::WaitingForConfirmation);
-    assert_eq!(login::QRCodeScanStatus::from_code(0), login::QRCodeScanStatus::Success);
-    assert_eq!(login::QRCodeScanStatus::from_code(86038), login::QRCodeScanStatus::Expired);
-    assert_eq!(login::QRCodeScanStatus::from_code(9999), login::QRCodeScanStatus::Expired);
+    assert_eq!(
+        login::QRCodeScanStatus::from_code(86101),
+        login::QRCodeScanStatus::WaitingForScan
+    );
+    assert_eq!(
+        login::QRCodeScanStatus::from_code(86090),
+        login::QRCodeScanStatus::WaitingForConfirmation
+    );
+    assert_eq!(
+        login::QRCodeScanStatus::from_code(0),
+        login::QRCodeScanStatus::Success
+    );
+    assert_eq!(
+        login::QRCodeScanStatus::from_code(86038),
+        login::QRCodeScanStatus::Expired
+    );
+    assert_eq!(
+        login::QRCodeScanStatus::from_code(9999),
+        login::QRCodeScanStatus::Expired
+    );
 }

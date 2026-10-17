@@ -100,7 +100,13 @@ async fn mount_json(server: &MockServer, path_pattern: &str, body: Value, times:
 async fn play_page_takes_season_from_video() {
     let server = MockServer::start().await;
     mount_json(&server, "/x/web-interface/wbi/view", view(), 1).await;
-    mount_json(&server, "/x/polymer/web-space/seasons_archives_list", season_archives(), 1).await;
+    mount_json(
+        &server,
+        "/x/polymer/web-space/seasons_archives_list",
+        season_archives(),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
@@ -121,7 +127,10 @@ async fn play_page_takes_season_from_video() {
     let season_req = &server.received_requests().await.unwrap()[1];
     let season_url = season_req.url.to_string();
     assert!(season_url.contains("season_id=789"), "{season_url}");
-    assert!(season_url.contains("mid=99999"), "mid 应取接口返回的 {season_url}");
+    assert!(
+        season_url.contains("mid=99999"),
+        "mid 应取接口返回的 {season_url}"
+    );
 
     // 节点结构：wrapper → 合集节点 → 条目；链接指向的视频交给定位
     assert_eq!(output.category, "合集");
@@ -132,23 +141,40 @@ async fn play_page_takes_season_from_video() {
         "链接指向的视频应交给解析列表定位"
     );
     assert_eq!(
-        output.node.child(0).child(0).bvid, BVID,
+        output.node.child(0).child(0).bvid,
+        BVID,
         "定位用的字段必须真的存在于条目上"
     );
-    assert!(output.node.child(0).child(0).has_attribute(Attribute::NEED_PARSE_BIT));
+    assert!(output
+        .node
+        .child(0)
+        .child(0)
+        .has_attribute(Attribute::NEED_PARSE_BIT));
 }
 
 #[tokio::test]
 async fn play_page_by_oid_only() {
     let server = MockServer::start().await;
     mount_json(&server, "/x/web-interface/wbi/view", view(), 1).await;
-    mount_json(&server, "/x/polymer/web-space/seasons_archives_list", season_archives(), 1).await;
+    mount_json(
+        &server,
+        "/x/polymer/web-space/seasons_archives_list",
+        season_archives(),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    parse_list(&client, &server.uri(), &ctx, "https://www.bilibili.com/list/12345?oid=123", 1)
-        .await
-        .unwrap();
+    parse_list(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://www.bilibili.com/list/12345?oid=123",
+        1,
+    )
+    .await
+    .unwrap();
 
     // 少数链接只有 oid，同样按 aid 去查，不另做 av→BV 换算
     let first = &server.received_requests().await.unwrap()[0];
@@ -158,7 +184,13 @@ async fn play_page_by_oid_only() {
 #[tokio::test]
 async fn play_page_video_without_season_raises() {
     let server = MockServer::start().await;
-    mount_json(&server, "/x/web-interface/wbi/view", view_without_season(), 1).await;
+    mount_json(
+        &server,
+        "/x/web-interface/wbi/view",
+        view_without_season(),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
@@ -184,9 +216,15 @@ async fn play_page_sid_series() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    parse_list(&client, &server.uri(), &ctx, "https://www.bilibili.com/list/12345?sid=1462496", 1)
-        .await
-        .unwrap();
+    parse_list(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://www.bilibili.com/list/12345?sid=1462496",
+        1,
+    )
+    .await
+    .unwrap();
 
     let requests = server.received_requests().await.unwrap();
     // 探针拿到的 meta 应被复用（系列元信息接口只打了一次）
@@ -202,7 +240,9 @@ async fn play_page_sid_series() {
         .unwrap();
     assert!(archives.contains("series_id=1462496"), "{archives}");
     assert!(
-        !requests.iter().any(|r| r.url.path().contains("seasons_archives_list")),
+        !requests
+            .iter()
+            .any(|r| r.url.path().contains("seasons_archives_list")),
         "探针命中系列后不应再查合集"
     );
 }
@@ -228,7 +268,9 @@ async fn play_page_sid_beats_the_season_of_the_video() {
 
     let requests = server.received_requests().await.unwrap();
     assert!(
-        !requests.iter().any(|r| r.url.path().contains("seasons_archives_list")),
+        !requests
+            .iter()
+            .any(|r| r.url.path().contains("seasons_archives_list")),
         "sid 明说了是系列，不该解析成视频的合集"
     );
     let archives = requests
@@ -243,7 +285,13 @@ async fn play_page_sid_beats_the_season_of_the_video() {
 async fn play_page_sid_matching_the_video_season_skips_the_probe() {
     let server = MockServer::start().await;
     mount_json(&server, "/x/web-interface/wbi/view", view(), 1).await;
-    mount_json(&server, "/x/polymer/web-space/seasons_archives_list", season_archives(), 1).await;
+    mount_json(
+        &server,
+        "/x/polymer/web-space/seasons_archives_list",
+        season_archives(),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
@@ -274,13 +322,25 @@ async fn play_page_sid_matching_the_video_season_skips_the_probe() {
 async fn play_page_sid_season() {
     let server = MockServer::start().await;
     mount_json(&server, "/x/series/series", series_not_found(), 1).await;
-    mount_json(&server, "/x/polymer/web-space/seasons_archives_list", season_archives(), 1).await;
+    mount_json(
+        &server,
+        "/x/polymer/web-space/seasons_archives_list",
+        season_archives(),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    parse_list(&client, &server.uri(), &ctx, "https://www.bilibili.com/list/12345?sid=789", 1)
-        .await
-        .unwrap();
+    parse_list(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://www.bilibili.com/list/12345?sid=789",
+        1,
+    )
+    .await
+    .unwrap();
 
     let requests = server.received_requests().await.unwrap();
     let season = requests
@@ -290,7 +350,9 @@ async fn play_page_sid_season() {
         .unwrap();
     assert!(season.contains("season_id=789"), "{season}");
     assert!(
-        !requests.iter().any(|r| r.url.path().contains("x/series/archives")),
+        !requests
+            .iter()
+            .any(|r| r.url.path().contains("x/series/archives")),
         "探针未命中时不应查系列归档"
     );
 }
@@ -302,9 +364,15 @@ async fn play_page_without_list_raises() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    let error = parse_list(&client, &server.uri(), &ctx, "https://www.bilibili.com/list/456", 1)
-        .await
-        .unwrap_err();
+    let error = parse_list(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://www.bilibili.com/list/456",
+        1,
+    )
+    .await
+    .unwrap_err();
 
     assert!(matches!(error, ListError::InvalidLink));
     assert!(server.received_requests().await.unwrap().is_empty());
@@ -334,16 +402,34 @@ fn card_response(name: &str) -> Value {
 async fn space_parses_and_requests_uname_once() {
     let server = MockServer::start().await;
     mount_json(&server, "/x/space/wbi/arc/search", space_response(80), 2).await;
-    mount_json(&server, "/x/web-interface/card", card_response("测试UP主"), 1).await;
+    mount_json(
+        &server,
+        "/x/web-interface/card",
+        card_response("测试UP主"),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    let first = parse_space(&client, &server.uri(), &ctx, "https://space.bilibili.com/123", 1)
-        .await
-        .unwrap();
-    let second = parse_space(&client, &server.uri(), &ctx, "https://space.bilibili.com/123", 2)
-        .await
-        .unwrap();
+    let first = parse_space(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/123",
+        1,
+    )
+    .await
+    .unwrap();
+    let second = parse_space(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/123",
+        2,
+    )
+    .await
+    .unwrap();
 
     // 缓存命中：翻页不再请求用户名接口（test_space_parser 的守门用例）
     let card_calls = server
@@ -374,8 +460,24 @@ async fn space_different_mid_requests_again() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    parse_space(&client, &server.uri(), &ctx, "https://space.bilibili.com/123", 1).await.unwrap();
-    parse_space(&client, &server.uri(), &ctx, "https://space.bilibili.com/456", 1).await.unwrap();
+    parse_space(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/123",
+        1,
+    )
+    .await
+    .unwrap();
+    parse_space(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/456",
+        1,
+    )
+    .await
+    .unwrap();
 
     let card_calls = server
         .received_requests()
@@ -426,9 +528,15 @@ async fn space_mid_ignores_query_numbers() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    parse_space(&client, &server.uri(), &ctx, "https://space.bilibili.com/123?pn=99", 1)
-        .await
-        .unwrap();
+    parse_space(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/123?pn=99",
+        1,
+    )
+    .await
+    .unwrap();
 
     let card = server
         .received_requests()
@@ -438,7 +546,10 @@ async fn space_mid_ignores_query_numbers() {
         .find(|r| r.url.path().contains("web-interface/card"))
         .map(|r| r.url.to_string())
         .unwrap();
-    assert!(card.contains("mid=123"), "mid 不应被查询串里的数字干扰 {card}");
+    assert!(
+        card.contains("mid=123"),
+        "mid 不应被查询串里的数字干扰 {card}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -490,10 +601,14 @@ async fn favlist_parses_params_and_badges() {
 
     let items = &output.node.child(0);
     assert_eq!(items.child(0).bvid, "BVfav1");
-    assert!(items.child(0).has_attribute(Attribute::FAVLIST_BIT | Attribute::NEED_PARSE_BIT | Attribute::VIDEO_BIT));
+    assert!(items
+        .child(0)
+        .has_attribute(Attribute::FAVLIST_BIT | Attribute::NEED_PARSE_BIT | Attribute::VIDEO_BIT));
     // page > 1 的条目：分P徽章 + FAVORITE_WITH_MULTI_PART_VIDEO_BIT
     assert_eq!(items.child(1).badge, "分P");
-    assert!(items.child(1).has_attribute(Attribute::FAVORITE_WITH_MULTI_PART_VIDEO_BIT));
+    assert!(items
+        .child(1)
+        .has_attribute(Attribute::FAVORITE_WITH_MULTI_PART_VIDEO_BIT));
     assert_eq!(items.child(1).favtime, 1700000001);
 }
 
@@ -514,9 +629,15 @@ async fn favlist_ogv_item_is_bangumi_shaped() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    let output = parse_favlist(&client, &server.uri(), &ctx, "https://space.bilibili.com/123/favlist?fid=7", 1)
-        .await
-        .unwrap();
+    let output = parse_favlist(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/123/favlist?fid=7",
+        1,
+    )
+    .await
+    .unwrap();
 
     let item = output.node.child(0).child(0);
     assert!(item.has_attribute(Attribute::BANGUMI_BIT));
@@ -531,9 +652,15 @@ async fn favlist_ml_path_id_is_accepted() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    parse_favlist(&client, &server.uri(), &ctx, "https://space.bilibili.com/123/favlist?fid=456&mlid=789", 1)
-        .await
-        .unwrap();
+    parse_favlist(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/123/favlist?fid=456&mlid=789",
+        1,
+    )
+    .await
+    .unwrap();
 
     let url = server.received_requests().await.unwrap()[0].url.to_string();
     // fid= 优先于 ml 提取（与 Python 相同的 find_str 顺序）
@@ -559,7 +686,10 @@ fn watch_later_response(count: i64) -> Value {
 }
 
 fn logged_in_auth() -> auth::AuthState {
-    auth::AuthState { is_login: true, ..Default::default() }
+    auth::AuthState {
+        is_login: true,
+        ..Default::default()
+    }
 }
 
 #[tokio::test]
@@ -587,7 +717,13 @@ async fn watch_later_requires_login() {
 #[tokio::test]
 async fn watch_later_uses_key_param_and_maps_bangumi() {
     let server = MockServer::start().await;
-    mount_json(&server, "/x/v2/history/toview/web", watch_later_response(40), 1).await;
+    mount_json(
+        &server,
+        "/x/v2/history/toview/web",
+        watch_later_response(40),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
     let auth_state = logged_in_auth();
@@ -615,7 +751,9 @@ async fn watch_later_uses_key_param_and_maps_bangumi() {
     assert_eq!(output.node.child(0).title, "搜索: 测试");
 
     let items = &output.node.child(0);
-    assert!(items.child(0).has_attribute(Attribute::WATCH_LATER_BIT | Attribute::NEED_PARSE_BIT | Attribute::VIDEO_BIT));
+    assert!(items.child(0).has_attribute(
+        Attribute::WATCH_LATER_BIT | Attribute::NEED_PARSE_BIT | Attribute::VIDEO_BIT
+    ));
     let bangumi = items.child(1);
     assert!(bangumi.has_attribute(Attribute::BANGUMI_BIT));
     assert_eq!(bangumi.badge, "国创");
@@ -669,7 +807,13 @@ async fn history_requires_login() {
 #[tokio::test]
 async fn history_maps_business_shapes_and_expired() {
     let server = MockServer::start().await;
-    mount_json(&server, "/x/web-interface/history/search", history_response(40), 1).await;
+    mount_json(
+        &server,
+        "/x/web-interface/history/search",
+        history_response(40),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
     let auth_state = logged_in_auth();
@@ -697,7 +841,9 @@ async fn history_maps_business_shapes_and_expired() {
 
     let items = &output.node.child(0);
     // archive → VIDEO_BIT，且有 uri 时用 uri，否则拼视频链接
-    assert!(items.child(0).has_attribute(Attribute::HISTORY_BIT | Attribute::NEED_PARSE_BIT | Attribute::VIDEO_BIT));
+    assert!(items
+        .child(0)
+        .has_attribute(Attribute::HISTORY_BIT | Attribute::NEED_PARSE_BIT | Attribute::VIDEO_BIT));
     assert_eq!(items.child(0).url, "https://www.bilibili.com/video/BVhis1");
     assert_eq!(items.child(0).viewtime, 1700000100);
     // pgc → BANGUMI_BIT，uri 直传，标题拼 show_title
@@ -731,13 +877,24 @@ fn weekly_response() -> Value {
 #[tokio::test]
 async fn popular_uses_number_param_and_has_no_pagination() {
     let server = MockServer::start().await;
-    mount_json(&server, "/x/web-interface/popular/series/one", weekly_response(), 1).await;
+    mount_json(
+        &server,
+        "/x/web-interface/popular/series/one",
+        weekly_response(),
+        1,
+    )
+    .await;
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    let output = parse_popular(&client, &server.uri(), &ctx, "https://www.bilibili.com/v/popular/weekly?num=200")
-        .await
-        .unwrap();
+    let output = parse_popular(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://www.bilibili.com/v/popular/weekly?num=200",
+    )
+    .await
+    .unwrap();
 
     let url = server.received_requests().await.unwrap()[0].url.to_string();
     assert!(url.contains("number=200"), "{url}");
@@ -748,7 +905,10 @@ async fn popular_uses_number_param_and_has_no_pagination() {
     assert!(!output.extra.server_search);
     let item = output.node.child(0).child(0);
     assert!(item.has_attribute(Attribute::WEEKLY_BIT | Attribute::VIDEO_BIT));
-    assert_eq!(item.related_titles.get("source_title").unwrap(), "第 200 期");
+    assert_eq!(
+        item.related_titles.get("source_title").unwrap(),
+        "第 200 期"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -768,9 +928,15 @@ async fn non_zero_code_is_an_api_error_with_the_message() {
     let client = mock_client();
     let ctx = ListParseContext::new();
 
-    let error = parse_favlist(&client, &server.uri(), &ctx, "https://space.bilibili.com/1/favlist?fid=1", 1)
-        .await
-        .unwrap_err();
+    let error = parse_favlist(
+        &client,
+        &server.uri(),
+        &ctx,
+        "https://space.bilibili.com/1/favlist?fid=1",
+        1,
+    )
+    .await
+    .unwrap_err();
 
     assert_eq!(error.to_string(), "啥都木有");
 }
@@ -778,7 +944,10 @@ async fn non_zero_code_is_an_api_error_with_the_message() {
 #[test]
 fn swap_host_keeps_path_and_supports_empty_base() {
     assert_eq!(
-        swap_host("https://api.bilibili.com/x/series/series", "http://localhost:1"),
+        swap_host(
+            "https://api.bilibili.com/x/series/series",
+            "http://localhost:1"
+        ),
         "http://localhost:1/x/series/series"
     );
     assert_eq!(

@@ -1,0 +1,258 @@
+name: Rust release
+
+# Ticket 29: release packaging for the Rust build. One job per platform,
+# each building the workspace release binary, staging bundle/ffmpeg via
+# crates/packaging/src/bin/packager.py, and uploading runnable artifacts.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag or version name, e.g. v2.21.0 or v2.21.0-rc1"
+        required: true
+        type: string
+
+concurrency:
+  group: rust-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION_NAME: ${{ steps.set-version.outputs.VERSION_NAME }}
+      IS_PRERELEASE: ${{ steps.set-version.outputs.IS_PRERELEASE }}
+    steps:
+      - name: Set version
+        id: set-version
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.release_tag }}"
+          else
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          fi
+
+          TAG_NAME="${TAG_NAME#v}"
+          echo "VERSION_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+
+          if echo "$TAG_NAME" | grep -q -- '-rc'; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+  windows-build:
+    needs: get-version
+    env:
+      VERSION_NAME: ${{ needs.get-version.outputs.VERSION_NAME }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Build release binary
+        run: cargo build --release -p app --manifest-path crates/Cargo.toml
+
+      - name: Install Inno Setup and Chinese language packs
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to install Inno Setup (exit code: $LASTEXITCODE)"
+          }
+
+          $inno = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $inno) {
+            throw "ISCC.exe was not found after installing Inno Setup"
+          }
+
+          $languageDir = Join-Path (Split-Path $inno) "Languages"
+          New-Item -ItemType Directory -Path $languageDir -Force | Out-Null
+
+          foreach ($pair in @(
+            @{ u = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"; p = "ChineseSimplified.isl" },
+            @{ u = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseTraditional.isl"; p = "ChineseTraditional.isl" }
+          )) {
+            $dest = Join-Path $languageDir $pair.p
+            curl.exe --fail --location --retry 3 --retry-all-errors --output $dest $pair.u
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dest)) {
+              throw "Failed to download $($pair.p)"
+            }
+          }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "INNO_COMPILER=$inno"
+
+      - name: Package Windows artifacts
+        env:
+          INNO_COMPILER_DIR: ${{ env.INNO_COMPILER }}
+        run: |
+          # ISCC on PATH keeps the packager simple; CI owns the installation
+          $env:PATH = "$env:INNO_COMPILER_DIR\..;$env:PATH"
+          python crates/packaging/src/bin/packager.py windows `
+            --version $env:VERSION_NAME `
+            --out dist `
+            --isolate
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-windows-artifacts
+          path: |
+            dist/Bili23-Downloader_*_windows_x64_portable.zip
+            dist/Bili23-Downloader_*_windows_x64.exe
+
+  macos-build:
+    needs: get-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            os: macos-15-intel
+            rust_target: x86_64-apple-darwin
+          - arch: aarch64
+            os: macos-latest
+            rust_target: aarch64-apple-darwin
+    env:
+      VERSION_NAME: ${{ needs.get-version.outputs.VERSION_NAME }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      - name: Build release binary
+        run: cargo build --release -p app --manifest-path crates/Cargo.toml
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Package macOS artifacts
+        run: |
+          python3 crates/packaging/src/bin/packager.py macos \
+            --version "$VERSION_NAME" \
+            --out dist \
+            --isolate
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-macos-${{ matrix.arch }}-artifacts
+          path: dist/Bili23-Downloader_*_macos_*.dmg
+
+  linux-build:
+    needs: get-version
+    env:
+      VERSION_NAME: ${{ needs.get-version.outputs.VERSION_NAME }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates
+
+      # Same X11/Wayland dev set the CI build job installs to link GPUI.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libgtk-3-dev \
+            libasound2-dev libglib2.0-dev \
+            libcairo2-dev libpango1.0-dev \
+            libjpeg-turbo8-dev libpng-dev libz-dev \
+            librsvg2-bin appstream
+
+      - name: Validate AppStream metadata
+        run: |
+          # --no-net: local spec validation only; screenshot URLs stay
+          # unrerenced so the build never depends on site reachability
+          appstreamcli validate --no-net assets/com.scottsloan.bili23.metainfo.xml
+
+      - name: Build release binary
+        run: cargo build --release -p app --manifest-path crates/Cargo.toml
+
+      - name: Package Linux artifacts
+        run: |
+          python3 crates/packaging/src/bin/packager.py linux \
+            --version "$VERSION_NAME" \
+            --out dist \
+            --isolate
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-linux-artifacts
+          path: dist/Bili23-Downloader_*_linux_*.AppImage
+
+  packaging-checks:
+    needs: get-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Check packaging scripts
+        run: python crates/packaging/test/check_packaging.py
+
+  publish:
+    if: github.event_name != 'workflow_dispatch'
+    needs: [get-version, windows-build, macos-build, linux-build, packaging-checks]
+    env:
+      VERSION_NAME: ${{ needs.get-version.outputs.VERSION_NAME }}
+      IS_PRERELEASE: ${{ needs.get-version.outputs.IS_PRERELEASE }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      discussions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: 'rust-*'
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: ls -la release-artifacts
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: v${{ env.VERSION_NAME }}
+          body: Rust rewrite build (v2.21.0 line).
+          make_latest: ${{ env.IS_PRERELEASE != 'true' }}
+          draft: false
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
+          generate_release_notes: true
+          discussion_category_name: announcements
+          files: |
+            release-artifacts/*

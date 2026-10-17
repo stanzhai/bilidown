@@ -88,12 +88,18 @@ async fn walk_fetches_every_page_and_reports_progress() {
 
     assert_eq!(outcome.pages.len(), 3);
     assert_eq!(outcome.episodes.len(), 3, "每一页的条目都要并入同一结果");
-    assert_eq!(*texts.lock(), vec![
-        page_progress_text(1, 3),
-        page_progress_text(2, 3),
-        page_progress_text(3, 3),
-    ]);
-    assert_eq!(texts.lock()[0], "Parsing page 1, total 3 pages, progress: 33%");
+    assert_eq!(
+        *texts.lock(),
+        vec![
+            page_progress_text(1, 3),
+            page_progress_text(2, 3),
+            page_progress_text(3, 3),
+        ]
+    );
+    assert_eq!(
+        texts.lock()[0],
+        "Parsing page 1, total 3 pages, progress: 33%"
+    );
 }
 
 #[tokio::test]
@@ -136,7 +142,9 @@ async fn page_error_stops_the_walk() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/x/space/wbi/arc/search"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": -404, "message": "啥都木有"})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"code": -404, "message": "啥都木有"})),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -146,7 +154,11 @@ async fn page_error_stops_the_walk() {
     let base = server.uri();
 
     let error = walk_pages(
-        &AutoParseOptions { start_page: 1, end_page: 2, interval: Duration::ZERO },
+        &AutoParseOptions {
+            start_page: 1,
+            end_page: 2,
+            interval: Duration::ZERO,
+        },
         move |pn| {
             let (client, ctx, url, base) = (client.clone(), ctx.clone(), url.clone(), base.clone());
             Box::pin(async move { parse_space(&client, &base, &ctx, &url, pn).await })

@@ -10,6 +10,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use regex::Regex;
+use std::sync::LazyLock;
 use serde_json::{json, Value};
 
 use crate::episode;
@@ -39,7 +40,8 @@ pub const MEDIA_REVIEW_API: &str = "https://api.bilibili.com/pgc/review/user";
 pub const BANGUMI_SEASON_API: &str = "https://api.bilibili.com/pgc/view/web/season";
 pub const CHEESE_SEASON_API: &str = "https://api.bilibili.com/pugv/view/web/season/v2";
 pub const LESSON_API_BASE: &str = "https://mall.bilibili.com/mall-search-items";
-pub const LESSON_PLAY_DETAIL_URL: &str = "https://mall.bilibili.com/mall-search-items/items/course/section/play/detail";
+pub const LESSON_PLAY_DETAIL_URL: &str =
+    "https://mall.bilibili.com/mall-search-items/items/course/section/play/detail";
 pub const LESSON_VIDEO_QUALITY_ID: i64 = 80;
 
 /// Errors of the media parsers, mirroring `check_response` plus the
@@ -69,10 +71,8 @@ pub enum ParseOutcome {
     Episode(TreeItem, (String, Value)),
 }
 
-fn find_str(pattern: &str, url: &str) -> Option<String> {
-    Regex::new(pattern)
-        .ok()
-        .and_then(|re| re.find(url).map(|m| m.as_str().to_owned()))
+fn find_str(re: &Regex, url: &str) -> Option<String> {
+    re.find(url).map(|m| m.as_str().to_owned())
 }
 
 /// `VideoParser.parse` — av/BV dispatch, view fetch, page-number
@@ -104,18 +104,21 @@ pub async fn parse_video_url(
 
 /// `get_bvid`/`get_aid` combined: BV pass-through, av converted.
 pub fn video_bvid(url: &str) -> Option<String> {
-    if let Some(bv) = find_str(r"(?:BV|bv)\w+", url) {
+    static BV_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:BV|bv)\w+").unwrap());
+    static AV_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:av|AV)([0-9]+)").unwrap());
+    if let Some(bv) = find_str(&BV_RE, url) {
         return Some(bv);
     }
-    find_str(r"(?:av|AV)([0-9]+)", url)
+    find_str(&AV_RE, url)
         .and_then(|m| m[2..].parse::<i64>().ok())
         .map(aid_to_bvid)
 }
 
 /// `get_page_number`: the `?p=` page of a multi-part link.
 pub fn get_page_number(url: &str) -> Option<i64> {
-    Regex::new(r"p=(\d+)")
-        .unwrap()
+    static P_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"p=(\d+)").unwrap());
+    P_RE
         .captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
@@ -149,7 +152,11 @@ pub async fn get_video_info(
         if let Some(page_number) = get_page_number(url) {
             if let Some(page) = data["pages"]
                 .as_array()
-                .and_then(|pages| pages.iter().find(|p| p["page"].as_i64() == Some(page_number)))
+                .and_then(|pages| {
+                    pages
+                        .iter()
+                        .find(|p| p["page"].as_i64() == Some(page_number))
+                })
                 .cloned()
             {
                 data.as_object_mut().map(|d| d.remove("pages"));
@@ -341,7 +348,11 @@ impl<'a> InteractiveContext<'a> {
                 }
                 options.push(StoryOption {
                     edge_id: choice["id"].as_i64().unwrap_or(0),
-                    name: choice.get("option").and_then(Value::as_str).unwrap_or("").to_owned(),
+                    name: choice
+                        .get("option")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned(),
                     target_node_cid: choice.get("cid").and_then(Value::as_i64),
                 });
             }
@@ -356,7 +367,12 @@ impl<'a> InteractiveContext<'a> {
             ("graph_version".to_owned(), self.graph_version.to_string()),
             ("edge_id".to_owned(), edge_id.to_string()),
         ];
-        let response: Value = client_get(self.client, &swap_host(STEIN_EDGEINFO_API, &self.base), &params).await?;
+        let response: Value = client_get(
+            self.client,
+            &swap_host(STEIN_EDGEINFO_API, &self.base),
+            &params,
+        )
+        .await?;
         check_response(&response).map_err(|e| MediaError::Api(e.to_string()))?;
 
         let data = &response["data"];
@@ -430,17 +446,18 @@ pub async fn bangumi_param(
     base: &str,
     url: &str,
 ) -> Result<((String, String), Option<i64>), MediaError> {
-    match find_str(r"ep|ss|md", url).as_deref() {
+    static EP_SS_MD_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep|ss|md").unwrap());
+    match find_str(&EP_SS_MD_RE, url).as_deref() {
         Some("ep") => {
-            let id = capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?;
+            let id = capture_id(&EP_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             Ok((("ep_id".to_owned(), id.to_string()), Some(id)))
         }
         Some("ss") => {
-            let id = capture_id(r"ss([0-9]+)", url).ok_or(MediaError::InvalidLink)?;
+            let id = capture_id(&SS_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             Ok((("season_id".to_owned(), id.to_string()), None))
         }
         Some("md") => {
-            let media_id = capture_id(r"md([0-9]+)", url).ok_or(MediaError::InvalidLink)?;
+            let media_id = capture_id(&MD_ID_RE, url).ok_or(MediaError::InvalidLink)?;
             let response: Value = client
                 .get_json(
                     &swap_host(MEDIA_REVIEW_API, base),
@@ -457,10 +474,12 @@ pub async fn bangumi_param(
     }
 }
 
-fn capture_id(pattern: &str, url: &str) -> Option<i64> {
-    Regex::new(pattern)
-        .ok()
-        .and_then(|re| re.captures(url))
+static EP_ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep([0-9]+)").unwrap());
+static SS_ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ss([0-9]+)").unwrap());
+static MD_ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"md([0-9]+)").unwrap());
+
+fn capture_id(re: &Regex, url: &str) -> Option<i64> {
+    re.captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
 }
@@ -476,13 +495,24 @@ pub async fn parse_cheese_url(
     url: &str,
     episode_data: &EpisodeData,
 ) -> Result<(TreeItem, Option<(String, String)>), MediaError> {
-    let ((key, value), ep_id) = match find_str(r"ep|ss", url).as_deref() {
+    static EP_SS_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ep|ss").unwrap());
+    let ((key, value), ep_id) = match find_str(&EP_SS_RE, url).as_deref() {
         Some("ep") => (
-            ("ep_id".to_owned(), capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?.to_string()),
-            Some(capture_id(r"ep([0-9]+)", url).ok_or(MediaError::InvalidLink)?),
+            (
+                "ep_id".to_owned(),
+                capture_id(&EP_ID_RE, url)
+                    .ok_or(MediaError::InvalidLink)?
+                    .to_string(),
+            ),
+            Some(capture_id(&EP_ID_RE, url).ok_or(MediaError::InvalidLink)?),
         ),
         Some("ss") => (
-            ("season_id".to_owned(), capture_id(r"ss([0-9]+)", url).ok_or(MediaError::InvalidLink)?.to_string()),
+            (
+                "season_id".to_owned(),
+                capture_id(&SS_ID_RE, url)
+                    .ok_or(MediaError::InvalidLink)?
+                    .to_string(),
+            ),
             None,
         ),
         _ => return Err(MediaError::InvalidLink),
@@ -618,4 +648,3 @@ pub fn build_lesson_media_info(data: &Value) -> Result<Value, MediaError> {
         }],
     }))
 }
-

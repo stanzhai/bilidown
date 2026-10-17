@@ -23,6 +23,10 @@ use tasks::TaskManager;
 /// Default `Mcp.mcp_port` (Python `MCP_PORT`).
 pub const DEFAULT_PORT: u16 = 23330;
 
+/// Production API base: the real bilibili hosts (`swap_host` keeps an
+/// empty base untouched); tests inject a wiremock base instead.
+const PRODUCTION_API_BASE: &str = "";
+
 /// Auto-generated token size in bytes (32 → 43 URL-safe base64 chars).
 const TOKEN_BYTES: usize = 32;
 
@@ -58,9 +62,19 @@ pub async fn start(
     let (enabled, configured_port, configured_token) = {
         let store = config.lock();
         (
-            store.get("MCP", "mcp_enabled").and_then(|v| v.as_bool()).unwrap_or(false),
-            store.get("MCP", "mcp_port").and_then(|v| v.as_i64()).unwrap_or(DEFAULT_PORT as i64),
-            store.get("MCP", "mcp_token").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
+            store
+                .get("MCP", "mcp_enabled")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            store
+                .get("MCP", "mcp_port")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(DEFAULT_PORT as i64),
+            store
+                .get("MCP", "mcp_token")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_owned(),
         )
     };
     if !enabled {
@@ -77,9 +91,11 @@ pub async fn start(
         configured_token
     };
 
-    let state = Arc::new(McpState::new(config, manager, ""));
+    let state = Arc::new(McpState::new(config, manager, PRODUCTION_API_BASE));
     let app = server::app(Arc::new(server::McpServer {
-        dispatcher: Arc::new(protocol::Dispatcher::new(tools::register_all(state.clone()))),
+        dispatcher: Arc::new(protocol::Dispatcher::new(tools::register_all(
+            state.clone(),
+        ))),
         token: token.clone(),
     }));
 
@@ -98,7 +114,11 @@ pub async fn start(
             .await;
     });
 
-    Ok(Some(McpHandle { shutdown: shutdown_tx, port: bound_port, token }))
+    Ok(Some(McpHandle {
+        shutdown: shutdown_tx,
+        port: bound_port,
+        token,
+    }))
 }
 
 fn generate_token() -> String {

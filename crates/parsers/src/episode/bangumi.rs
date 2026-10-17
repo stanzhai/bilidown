@@ -3,7 +3,7 @@
 
 use serde_json::{Map, Value};
 
-use crate::episode::list_base::episode_duration;
+use crate::episode::list_base::{episode_duration, int, text};
 use crate::episode::video::timestamp_from_string;
 use crate::tree::{Attribute, EpisodeData, Number, TreeItem};
 
@@ -21,13 +21,6 @@ pub fn bangumi_episode_type(category: &str) -> String {
     }
 }
 
-fn text(v: &Value, key: &str) -> String {
-    v[key].as_str().unwrap_or_default().to_owned()
-}
-
-fn int(v: &Value, key: &str) -> i64 {
-    v[key].as_i64().unwrap_or(0)
-}
 
 /// `update_info_data`: prepend the 正片 section built from `episodes`,
 /// then drop sections whose episodes lack bvid/cid (the "UP主陪你看"
@@ -86,7 +79,11 @@ pub fn parse_bangumi(episode_data: &EpisodeData, episode_id: &str, info: &Value)
             let title = bangumi_title(&episode);
             let mut item = TreeItem::empty();
             item.aid = int(&episode, "aid");
-            item.bvid = episode.get("bvid").and_then(Value::as_str).unwrap_or_default().to_owned();
+            item.bvid = episode
+                .get("bvid")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned();
             item.cid = int(&episode, "cid");
             item.cover = text(&episode, "cover");
             item.duration = episode_duration(&episode) / 1000;
@@ -98,8 +95,10 @@ pub fn parse_bangumi(episode_data: &EpisodeData, episode_id: &str, info: &Value)
             item.badge = text(&episode, "badge");
             item.url = text(&episode, "link");
             item.episode_id = episode_id.to_owned();
-            item.related_titles.insert("season_title".into(), Value::String(season_title.clone()));
-            item.related_titles.insert("section_title".into(), Value::String(section_title.clone()));
+            item.related_titles
+                .insert("season_title".into(), Value::String(season_title.clone()));
+            item.related_titles
+                .insert("section_title".into(), Value::String(section_title.clone()));
             item.episode_plot = format!("《{season_title}》{title}");
             item.set_attribute(Attribute::BANGUMI_BIT);
             section_node.add_child(item);
@@ -125,10 +124,16 @@ fn bangumi_title(episode: &Value) -> String {
 /// `episode_data_parser`: series/season metadata + rating + uploader.
 pub fn episode_data_parser(episode_data: &EpisodeData, episode_id: &str, info: &Value) {
     let mut map = Map::new();
-    map.insert("series_title".into(), Value::String(text(&info["series"], "series_title")));
+    map.insert(
+        "series_title".into(),
+        Value::String(text(&info["series"], "series_title")),
+    );
     map.insert("season_id".into(), Value::from(int(info, "season_id")));
     map.insert("media_id".into(), Value::from(int(info, "media_id")));
-    map.insert("season_number".into(), Value::from(determine_season_number(info)));
+    map.insert(
+        "season_number".into(),
+        Value::from(determine_season_number(info)),
+    );
     map.insert(
         "areas".into(),
         Value::Array(
@@ -141,7 +146,10 @@ pub fn episode_data_parser(episode_data: &EpisodeData, episode_id: &str, info: &
                 .collect(),
         ),
     );
-    map.insert("premiered".into(), Value::from(timestamp_from_string(&text(&info["publish"], "pub_time"))));
+    map.insert(
+        "premiered".into(),
+        Value::from(timestamp_from_string(&text(&info["publish"], "pub_time"))),
+    );
     map.insert("description".into(), Value::String(text(info, "evaluate")));
     map.insert(
         "styles".into(),
@@ -152,7 +160,10 @@ pub fn episode_data_parser(episode_data: &EpisodeData, episode_id: &str, info: &
                 .unwrap_or_default()
                 .iter()
                 .map(|s| Value::String(s.as_str().unwrap_or_default().to_owned()))
-                .chain(std::iter::once(Value::String(format!("Bilibili {}", "番剧"))))
+                .chain(std::iter::once(Value::String(format!(
+                    "Bilibili {}",
+                    "番剧"
+                ))))
                 .collect(),
         ),
     );
@@ -160,12 +171,24 @@ pub fn episode_data_parser(episode_data: &EpisodeData, episode_id: &str, info: &
     map.insert("actors".into(), Value::String(text(info, "actors")));
     if info.get("rating").is_some_and(|r| !r.is_null()) {
         map.insert("rating".into(), Value::from(int(&info["rating"], "score")));
-        map.insert("rating_votes".into(), Value::from(int(&info["rating"], "count")));
+        map.insert(
+            "rating_votes".into(),
+            Value::from(int(&info["rating"], "count")),
+        );
     }
     if info.get("up_info").is_some_and(|u| !u.is_null()) {
-        map.insert("uploader".into(), Value::String(text(&info["up_info"], "uname")));
-        map.insert("uploader_uid".into(), Value::from(int(&info["up_info"], "mid")));
-        map.insert("uploader_face".into(), Value::String(text(&info["up_info"], "avatar")));
+        map.insert(
+            "uploader".into(),
+            Value::String(text(&info["up_info"], "uname")),
+        );
+        map.insert(
+            "uploader_uid".into(),
+            Value::from(int(&info["up_info"], "mid")),
+        );
+        map.insert(
+            "uploader_face".into(),
+            Value::String(text(&info["up_info"], "avatar")),
+        );
     }
     episode_data.set_episode_data(episode_id, Value::Object(map));
 }
@@ -197,4 +220,3 @@ pub fn get_ep_id(info: &Value) -> Value {
         .cloned()
         .unwrap_or(Value::String(String::new()))
 }
-

@@ -91,7 +91,7 @@ fn test_special_characters_keep_document_valid() {
         "a&b",
         "a\"b",
         "a'b",
-        "&lt;",                // 已经像转义序列的文本不能被二次破坏
+        "&lt;", // 已经像转义序列的文本不能被二次破坏
         "<![CDATA[x]]>",
         "</d><d p=\"0\">注入", // 构造出的闭合标签不得改变文档结构
         "&amp;<>&",
@@ -329,7 +329,10 @@ fn scroll_duration_and_static_duration_change_dialogue_times() {
         ..Default::default()
     };
     let ass = render_ass(&[scroll], "t", &style);
-    assert!(dialogue_lines(&ass)[0].contains("0:00:01.00,0:00:13.00"), "{ass}");
+    assert!(
+        dialogue_lines(&ass)[0].contains("0:00:01.00,0:00:13.00"),
+        "{ass}"
+    );
 
     let top = DanmakuEntry {
         stime: 1000,
@@ -338,7 +341,10 @@ fn scroll_duration_and_static_duration_change_dialogue_times() {
         ..Default::default()
     };
     let ass = render_ass(&[top], "t", &style);
-    assert!(dialogue_lines(&ass)[0].contains("0:00:01.00,0:00:05.00"), "{ass}");
+    assert!(
+        dialogue_lines(&ass)[0].contains("0:00:01.00,0:00:05.00"),
+        "{ass}"
+    );
 }
 
 #[test]
@@ -461,10 +467,7 @@ fn colored_danmaku_get_color_tag_others_do_not() {
 
 #[test]
 fn entries_are_sorted_by_stime() {
-    let entries = [
-        scroll_entry(3000, "late"),
-        scroll_entry(1000, "early"),
-    ];
+    let entries = [scroll_entry(3000, "late"), scroll_entry(1000, "early")];
     let ass = render_ass(&entries, "t", &DanmakuStyle::default());
     let ds = dialogue_lines(&ass);
     assert!(ds[0].ends_with("early"), "{ds:?}");
@@ -488,7 +491,10 @@ fn ass_time_uses_python_centis_clamp() {
     // 0:00:00.995 rounds to .100 → clamps to 99 (Python behavior).
     let entries = [scroll_entry(995, "x")];
     let ass = render_ass(&entries, "t", &DanmakuStyle::default());
-    assert!(dialogue_lines(&ass)[0].contains("0:00:00.99,0:00:10.99"), "{ass}");
+    assert!(
+        dialogue_lines(&ass)[0].contains("0:00:00.99,0:00:10.99"),
+        "{ass}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -534,7 +540,9 @@ mod fetch {
 
         // 610s → 2 segments (ceil(610/360))
         assert_eq!(segment_count(610), 2);
-        let entries = fetch_segments(&client(), &server.uri(), 12345, 610).await.unwrap();
+        let entries = fetch_segments(&client(), &server.uri(), 12345, 610)
+            .await
+            .unwrap();
         assert_eq!(entries.len(), 5, "{entries:?}");
         assert_eq!(entries[0].text, "普通弹幕");
         assert_eq!(entries[3].text, "顶部弹幕"); // seg2 first element
@@ -547,7 +555,9 @@ mod fetch {
     async fn zero_or_missing_duration_fetches_nothing() {
         let server = MockServer::start().await;
         assert_eq!(segment_count(0), 0);
-        let entries = fetch_segments(&client(), &server.uri(), 1, 0).await.unwrap();
+        let entries = fetch_segments(&client(), &server.uri(), 1, 0)
+            .await
+            .unwrap();
         assert!(entries.is_empty());
         server.verify().await;
     }
@@ -567,9 +577,9 @@ mod fetch {
         // The decoded default entry mirrors the dict fallbacks the xml
         // renderer applies.
         assert_eq!(
-            DanmakuEntry::default().color, 0,
+            DanmakuEntry::default().color,
+            0,
             "default color is proto3 zero; xml substitutes 16777215"
         );
     }
-
 }

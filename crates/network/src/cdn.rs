@@ -51,7 +51,10 @@ pub struct CdnServer {
 
 impl CdnServer {
     pub fn new(host: &str, provider: &str) -> Self {
-        Self { host: host.to_owned(), provider: provider.to_owned() }
+        Self {
+            host: host.to_owned(),
+            provider: provider.to_owned(),
+        }
     }
 }
 
@@ -161,7 +164,9 @@ impl HostHealth {
         let count = state.failures.entry(host.to_owned()).or_insert(0);
         *count += 1;
         if *count >= HOST_FAILURE_THRESHOLD {
-            state.cooldown_until.insert(host.to_owned(), Instant::now() + HOST_COOLDOWN);
+            state
+                .cooldown_until
+                .insert(host.to_owned(), Instant::now() + HOST_COOLDOWN);
         }
     }
 
@@ -211,7 +216,9 @@ pub fn clear_host_health_for_test() {
 /// Host of a URL, or `""` when unparseable (`CDN.get_netloc`; malformed
 /// IPv6 literals etc. behave as no-host rather than panicking).
 pub fn netloc(url: &str) -> String {
-    Url::parse(url).map(|u| u.host_str().map_or_else(String::new, |h| h.to_owned())).unwrap_or_default()
+    Url::parse(url)
+        .map(|u| u.host_str().map_or_else(String::new, |h| h.to_owned()))
+        .unwrap_or_default()
 }
 
 /// Deduplicate preserving first occurrence, sinking cooldown hosts to the
@@ -326,7 +333,11 @@ pub fn candidate_urls(
 ) -> Vec<String> {
     let mut filtered = filter(url_list);
     if filtered.is_empty() {
-        filtered = url_list.iter().filter(|url| !url.is_empty()).cloned().collect();
+        filtered = url_list
+            .iter()
+            .filter(|url| !url.is_empty())
+            .cloned()
+            .collect();
     }
 
     let replaced = replace(&filtered, servers);
@@ -357,14 +368,22 @@ pub fn parse_area(data: &serde_json::Value) -> Option<Area> {
     if country_code.is_boolean() || !country_code.is_i64() {
         return None;
     }
-    Some(if CHINA_COUNTRY_CODES.contains(&code) { Area::Cn } else { Area::Ov })
+    Some(if CHINA_COUNTRY_CODES.contains(&code) {
+        Area::Cn
+    } else {
+        Area::Ov
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const NODES: [&str; 3] = ["node-a.example.com", "node-b.example.com", "node-c.example.com"];
+    const NODES: [&str; 3] = [
+        "node-a.example.com",
+        "node-b.example.com",
+        "node-c.example.com",
+    ];
 
     fn servers() -> Vec<CdnServer> {
         NODES.iter().map(|h| CdnServer::new(h, "TEST")).collect()
@@ -386,7 +405,9 @@ mod tests {
         static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
         // Lock BEFORE clearing: a sibling's clear while we hold the lock
         // would wipe our own cooldown mid-body.
-        let guard = SERIAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let guard = SERIAL
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         clear_host_health_for_test();
         guard
     }
@@ -398,8 +419,7 @@ mod tests {
             "https://upos-origin.example.net/video.m4s",
             "https://upos-backup.example.net/audio.m4s",
         ]);
-        let candidates =
-            candidate_urls(&originals, &servers(), PreferProvider(true));
+        let candidates = candidate_urls(&originals, &servers(), PreferProvider(true));
 
         let mut expected: Vec<String> = Vec::new();
         for _ in &originals {
@@ -425,7 +445,11 @@ mod tests {
         let _guard = clean();
         // Own nodes: tests run in parallel threads on one global map, so
         // a sibling's report_host_success must not clear this cooldown.
-        let nodes = ["cool-a.example.com", "node-b.example.com", "node-c.example.com"];
+        let nodes = [
+            "cool-a.example.com",
+            "node-b.example.com",
+            "node-c.example.com",
+        ];
         let servers: Vec<CdnServer> = nodes.iter().map(|h| CdnServer::new(h, "TEST")).collect();
         let originals = urls(&["https://upos-origin.example.net/video.m4s"]);
         for _ in 0..HOST_FAILURE_THRESHOLD {
@@ -560,14 +584,22 @@ mod tests {
     #[test]
     fn overseas_is_ov() {
         for code in [1, 44, 81] {
-            assert_eq!(parse_area(&zone_response(Some(code.into()))), Some(Area::Ov), "code {code}");
+            assert_eq!(
+                parse_area(&zone_response(Some(code.into()))),
+                Some(Area::Ov),
+                "code {code}"
+            );
         }
     }
 
     #[test]
     fn hong_kong_macau_taiwan_use_mainland_list() {
         for code in [852, 853, 886] {
-            assert_eq!(parse_area(&zone_response(Some(code.into()))), Some(Area::Cn), "code {code}");
+            assert_eq!(
+                parse_area(&zone_response(Some(code.into()))),
+                Some(Area::Cn),
+                "code {code}"
+            );
         }
     }
 
@@ -611,12 +643,30 @@ mod tests {
     fn malformed_shapes_are_none() {
         let missing_code = zone_response(None);
         assert_eq!(parse_area(&missing_code), None);
-        assert_eq!(parse_area(&serde_json::json!({"code": 0, "message": "OK"})), None);
-        assert_eq!(parse_area(&serde_json::json!({"code": 0, "message": "OK", "data": null})), None);
-        assert_eq!(parse_area(&serde_json::json!({"code": 0, "data": "1.2.3.4"})), None);
+        assert_eq!(
+            parse_area(&serde_json::json!({"code": 0, "message": "OK"})),
+            None
+        );
+        assert_eq!(
+            parse_area(&serde_json::json!({"code": 0, "message": "OK", "data": null})),
+            None
+        );
+        assert_eq!(
+            parse_area(&serde_json::json!({"code": 0, "data": "1.2.3.4"})),
+            None
+        );
         // No implicit conversions.
-        for code in [serde_json::json!("86"), serde_json::json!(86.0), serde_json::json!([86]), serde_json::json!({"v": 86})] {
-            assert_eq!(parse_area(&zone_response(Some(code.clone()))), None, "code {code:?}");
+        for code in [
+            serde_json::json!("86"),
+            serde_json::json!(86.0),
+            serde_json::json!([86]),
+            serde_json::json!({"v": 86}),
+        ] {
+            assert_eq!(
+                parse_area(&zone_response(Some(code.clone()))),
+                None,
+                "code {code:?}"
+            );
         }
     }
 
@@ -629,7 +679,13 @@ mod tests {
 
     #[test]
     fn non_object_input_is_none() {
-        for body in [serde_json::json!(null), serde_json::json!([]), serde_json::json!("ok"), serde_json::json!(0), serde_json::json!(1.5)] {
+        for body in [
+            serde_json::json!(null),
+            serde_json::json!([]),
+            serde_json::json!("ok"),
+            serde_json::json!(0),
+            serde_json::json!(1.5),
+        ] {
             assert_eq!(parse_area(&body), None);
         }
     }

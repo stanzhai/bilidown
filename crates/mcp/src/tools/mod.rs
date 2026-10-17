@@ -29,7 +29,7 @@ pub fn http_client(state: &McpState) -> anyhow::Result<network::HttpClient> {
             .lock()
             .get("Advanced", "user_agent")
             .and_then(Value::as_str)
-            .unwrap_or_default()
+            .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_owned(),
         proxy: network::ProxyConfig::none(),
         cookies_from_persistence: Vec::new(),
@@ -80,9 +80,11 @@ pub async fn preview_flow(state: &McpState) -> Option<PreviewSummary> {
         }
         let mut preview = Preview::new(Priorities::default());
         let outcome = match parsers::playurl::fetch_media_info(&client, &apis, item, None).await {
-            Ok(fetched) => preview
-                .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
-                .await,
+            Ok(fetched) => {
+                preview
+                    .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
+                    .await
+            }
             Err(error) => Err(error),
         };
         match outcome {

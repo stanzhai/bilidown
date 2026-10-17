@@ -6,6 +6,9 @@ use std::time::Duration;
 use anyhow::Context as _;
 use gpui_kit::gpui::*;
 
+mod bootstrap;
+mod download_pipeline;
+mod pipeline_extras;
 mod single_instance;
 mod tray;
 mod ui;
@@ -58,7 +61,7 @@ fn close_decision(when_close: i64, force: bool) -> CloseDecision {
     }
 }
 
-/// Screens as `services::window_state::ScreenRect`, from live displays.
+/// Live displays as `services::window_state::ScreenRect`s.
 fn screen_rects(cx: &App) -> Vec<services::window_state::ScreenRect> {
     cx.displays()
         .iter()
@@ -114,6 +117,15 @@ fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
 pub fn run() -> anyhow::Result<()> {
     let ensure_running = std::env::args().any(|a| a == ENSURE_RUNNING_FLAG);
 
+    // Terms gate (F2): first launch checks before any UI init.
+    let cfg =
+        config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+    if services::terms::gate(&cfg) == services::terms::TermsGate::Pending {
+        // No UI toolkit is up yet; Python blocks startup on the dialog.
+        // Terminal ack keeps the shipped path real until the dialog lands.
+        eprintln!("Terms of use not accepted; see config Application/accepted_terms.");
+    }
+
     // --- single instance gate, before any UI -----------------------------
     let (wake_tx, wake_rx) = channel::<WakeEvent>();
     let (tray_tx, tray_rx) = channel::<tray::TrayAction>();
@@ -149,7 +161,7 @@ pub fn run() -> anyhow::Result<()> {
             let mut _tray =
                 tray::spawn_tray(&show_label, &exit_label, APP_DISPLAY_NAME, tray_tx);
 
-            // --- window ----------------------------------------------------
+            // --- window (titlebar/min-size + F2 saved bounds) --------------
             let mut options = WindowOptions {
                 titlebar: Some(TitlebarOptions {
                     title: Some(APP_DISPLAY_NAME.into()),
@@ -166,10 +178,15 @@ pub fn run() -> anyhow::Result<()> {
                 .try_global::<ConfigGlobal>()
                 .and_then(|g| services::window_state::saved_state(&g.0.lock(), &screen_rects(cx)));
             if let Some(saved) = saved {
-                options.window_bounds = Some(WindowBounds::Windowed(Bounds {
+                let bounds = Bounds {
                     origin: point(px(saved.x as f32), px(saved.y as f32)),
                     size: size(px(saved.width as f32), px(saved.height as f32)),
-                }));
+                };
+                options.window_bounds = Some(if saved.maximized {
+                    WindowBounds::Maximized(bounds)
+                } else {
+                    WindowBounds::Windowed(bounds)
+                });
             }
 
             let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {

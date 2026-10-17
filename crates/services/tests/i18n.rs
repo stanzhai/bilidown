@@ -29,9 +29,18 @@ fn catalog_covers_all_contexts_and_sources() {
     // spot-check the three biggest consumer contexts resolve.
     let zh_cn = catalog(ResolvedLanguage::ZhCn);
     let zh_tw = catalog(ResolvedLanguage::ZhTw);
-    for (ctx, src) in [("TIP_MESSAGES", "Download completed"), ("MainWindow", "Downloads")] {
-        assert!(zh_cn.lookup(ctx, src).is_some(), "{ctx}/{src} missing zh_CN");
-        assert!(zh_tw.lookup(ctx, src).is_some(), "{ctx}/{src} missing zh_TW");
+    for (ctx, src) in [
+        ("TIP_MESSAGES", "Download completed"),
+        ("MainWindow", "Downloads"),
+    ] {
+        assert!(
+            zh_cn.lookup(ctx, src).is_some(),
+            "{ctx}/{src} missing zh_CN"
+        );
+        assert!(
+            zh_tw.lookup(ctx, src).is_some(),
+            "{ctx}/{src} missing zh_TW"
+        );
     }
 }
 
@@ -46,8 +55,14 @@ fn named_contexts_resolve_translations() {
         let tw = zh_tw.tr(ctx, src);
         assert_ne!(cn, *src, "{ctx}: zh_CN returned source untranslated");
         assert_ne!(tw, *src, "{ctx}: zh_TW returned source untranslated");
-        assert!(cn.chars().any(|c| (c as u32) >= 0x4e00), "{ctx}: zh_CN not Chinese: {cn}");
-        assert!(tw.chars().any(|c| (c as u32) >= 0x4e00), "{ctx}: zh_TW not Chinese: {tw}");
+        assert!(
+            cn.chars().any(|c| (c as u32) >= 0x4e00),
+            "{ctx}: zh_CN not Chinese: {cn}"
+        );
+        assert!(
+            tw.chars().any(|c| (c as u32) >= 0x4e00),
+            "{ctx}: zh_TW not Chinese: {tw}"
+        );
     }
 }
 
@@ -55,7 +70,10 @@ fn named_contexts_resolve_translations() {
 #[test]
 fn english_is_source_passthrough() {
     let en = catalog(ResolvedLanguage::En);
-    assert_eq!(en.tr("TIP_MESSAGES", "Download completed"), "Download completed");
+    assert_eq!(
+        en.tr("TIP_MESSAGES", "Download completed"),
+        "Download completed"
+    );
     assert_eq!(en.tr("NoSuchContext", "anything"), "anything");
 }
 
@@ -64,7 +82,10 @@ fn english_is_source_passthrough() {
 fn unknown_key_falls_back_to_source() {
     let zh_cn = catalog(ResolvedLanguage::ZhCn);
     assert_eq!(zh_cn.tr("TIP_MESSAGES", "Not in catalog"), "Not in catalog");
-    assert_eq!(zh_cn.tr("NoSuchCtx", "Download completed"), "Download completed");
+    assert_eq!(
+        zh_cn.tr("NoSuchCtx", "Download completed"),
+        "Download completed"
+    );
 }
 
 /// `Interface.language` values parse; Auto resolves off the system locale.
@@ -76,8 +97,14 @@ fn language_config_parsing() {
     assert_eq!(Language::from_config("Auto"), Language::Auto);
     assert_eq!(Language::from_config("garbage"), Language::Auto);
 
-    assert_eq!(Language::ChineseSimplified.resolve(), ResolvedLanguage::ZhCn);
-    assert_eq!(Language::ChineseTraditional.resolve(), ResolvedLanguage::ZhTw);
+    assert_eq!(
+        Language::ChineseSimplified.resolve(),
+        ResolvedLanguage::ZhCn
+    );
+    assert_eq!(
+        Language::ChineseTraditional.resolve(),
+        ResolvedLanguage::ZhTw
+    );
     assert_eq!(Language::English.resolve(), ResolvedLanguage::En);
 }
 
@@ -85,14 +112,23 @@ fn language_config_parsing() {
 #[test]
 fn translator_maps_translate() {
     let zh_cn = catalog(ResolvedLanguage::ZhCn);
-    assert_eq!(tip_messages(zh_cn, "DOWNLOAD_COMPLETED").unwrap(), "下载完成");
-    assert_eq!(tip_messages(zh_cn, "DOWNLOAD_COMPLETED_DETAIL").unwrap(), "所有下载任务已完成");
+    assert_eq!(
+        tip_messages(zh_cn, "DOWNLOAD_COMPLETED").unwrap(),
+        "下载完成"
+    );
+    assert_eq!(
+        tip_messages(zh_cn, "DOWNLOAD_COMPLETED_DETAIL").unwrap(),
+        "所有下载任务已完成"
+    );
     assert_eq!(video_quality(zh_cn, "1080P").unwrap(), "1080P 高清");
     assert_eq!(episode_type(zh_cn, "TV").unwrap(), "电视剧");
     assert!(tip_messages(zh_cn, "NO_SUCH_KEY").is_none());
     // en passthrough
     let en = catalog(ResolvedLanguage::En);
-    assert_eq!(tip_messages(en, "DOWNLOAD_COMPLETED").unwrap(), "Download completed");
+    assert_eq!(
+        tip_messages(en, "DOWNLOAD_COMPLETED").unwrap(),
+        "Download completed"
+    );
 }
 
 /// Terms/privacy HTML resolves to non-empty translated text.
@@ -101,6 +137,12 @@ fn terms_and_privacy_text() {
     let zh_cn = catalog(ResolvedLanguage::ZhCn);
     let terms = i18n::terms_of_use(zh_cn);
     let privacy = i18n::privacy_policy(zh_cn);
-    assert!(!terms.is_empty() && terms.contains('<'), "terms HTML: {terms}");
-    assert!(!privacy.is_empty() && privacy.contains('<'), "privacy HTML: {privacy}");
+    assert!(
+        !terms.is_empty() && terms.contains('<'),
+        "terms HTML: {terms}"
+    );
+    assert!(
+        !privacy.is_empty() && privacy.contains('<'),
+        "privacy HTML: {privacy}"
+    );
 }

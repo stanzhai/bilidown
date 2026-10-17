@@ -6,18 +6,10 @@
 use serde_json::{json, Map, Value};
 
 use crate::episode::list_base::{
-    build_list_node, build_video_url, episode_duration, episode_type, patch_episode_data,
-    with_search_keyword, TIP_EXPIRED,
+    build_list_node, build_video_url, episode_duration, episode_type, int, patch_episode_data,
+    text, with_search_keyword, TIP_EXPIRED,
 };
 use crate::tree::{Attribute, EpisodeData, Number, TreeItem};
-
-fn text(v: &Value, key: &str) -> String {
-    v[key].as_str().unwrap_or_default().to_owned()
-}
-
-fn int(v: &Value, key: &str) -> i64 {
-    v[key].as_i64().unwrap_or(0)
-}
 
 /// `SpaceEpisodeParser`.
 pub fn parse_space(episode_data: &EpisodeData, info_data: &Value) -> TreeItem {
@@ -28,7 +20,10 @@ pub fn parse_space(episode_data: &EpisodeData, info_data: &Value) -> TreeItem {
         &episode_id,
         Map::from_iter([
             ("space_owner".to_owned(), json!(name)),
-            ("space_owner_id".to_owned(), json!(int(&info_data["info"], "mid"))),
+            (
+                "space_owner_id".to_owned(),
+                json!(int(&info_data["info"], "mid")),
+            ),
         ]),
     );
 
@@ -53,7 +48,10 @@ pub fn parse_space(episode_data: &EpisodeData, info_data: &Value) -> TreeItem {
             );
             item.aid = int(episode, "aid");
             item.bvid = text(episode, "bvid");
-            item.ep_id = episode.get("season_id").and_then(Value::as_i64).unwrap_or(0);
+            item.ep_id = episode
+                .get("season_id")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
             item.episode_id = episode_id.clone();
             item.badge = space_badge(episode);
             item
@@ -88,10 +86,7 @@ pub fn parse_watch_later(episode_data: &EpisodeData, info_data: &Value) -> TreeI
     patch_episode_data(
         episode_data,
         &episode_id,
-        Map::from_iter([(
-            "source_title".to_owned(),
-            json!(episode_type::WATCH_LATER),
-        )]),
+        Map::from_iter([("source_title".to_owned(), json!(episode_type::WATCH_LATER))]),
     );
 
     let title = with_search_keyword(info_data, "");
@@ -146,7 +141,10 @@ pub fn parse_favlist(episode_data: &EpisodeData, info_data: &Value) -> TreeItem 
         Map::from_iter([
             ("favorites_name".to_owned(), json!(text(info, "title"))),
             ("favorites_id".to_owned(), json!(int(info, "id"))),
-            ("favorites_owner".to_owned(), json!(text(&info["upper"], "name"))),
+            (
+                "favorites_owner".to_owned(),
+                json!(text(&info["upper"], "name")),
+            ),
             (
                 "favorites_owner_id".to_owned(),
                 json!(int(&info["upper"], "mid")),
@@ -215,10 +213,7 @@ pub fn parse_history(episode_data: &EpisodeData, info_data: &Value) -> TreeItem 
     patch_episode_data(
         episode_data,
         &episode_id,
-        Map::from_iter([(
-            "source_title".to_owned(),
-            json!(episode_type::HISTORY),
-        )]),
+        Map::from_iter([("source_title".to_owned(), json!(episode_type::HISTORY))]),
     );
 
     let title = with_search_keyword(info_data, "");
@@ -269,7 +264,10 @@ pub fn parse_history(episode_data: &EpisodeData, info_data: &Value) -> TreeItem 
 
 fn history_title(episode: &Value) -> String {
     if episode["history"]["business"].as_str() == Some("pgc") {
-        let show_title = episode.get("show_title").and_then(Value::as_str).unwrap_or("");
+        let show_title = episode
+            .get("show_title")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         if !show_title.is_empty() {
             return format!("{} - {}", text(episode, "title"), show_title);
         }
@@ -306,10 +304,7 @@ pub fn parse_popular(episode_data: &EpisodeData, info_data: &Value) -> TreeItem 
                 int(episode, "pubdate"),
                 &build_video_url(&text(episode, "bvid")),
                 "",
-                Map::from_iter([(
-                    "source_title".to_owned(),
-                    Value::String(label.clone()),
-                )]),
+                Map::from_iter([("source_title".to_owned(), Value::String(label.clone()))]),
             );
             item.aid = int(episode, "aid");
             item.bvid = text(episode, "bvid");
@@ -335,10 +330,7 @@ pub fn parse_list(episode_data: &EpisodeData, info_data: &Value) -> TreeItem {
     patch_episode_data(
         episode_data,
         &episode_id,
-        Map::from_iter([(
-            "collection_title".to_owned(),
-            json!(node_title),
-        )]),
+        Map::from_iter([("collection_title".to_owned(), json!(node_title))]),
     );
 
     let archives = info_data["archives"].as_array().cloned();

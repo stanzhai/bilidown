@@ -82,8 +82,14 @@ mod tests {
 
     #[test]
     fn file_uri_percent_encodes() {
-        assert_eq!(file_uri(std::path::Path::new("/tmp/bili23/captcha.html")), "file:///tmp/bili23/captcha.html");
-        assert_eq!(file_uri(std::path::Path::new("/tmp/a b/c.html")), "file:///tmp/a%20b/c.html");
+        assert_eq!(
+            file_uri(std::path::Path::new("/tmp/bili23/captcha.html")),
+            "file:///tmp/bili23/captcha.html"
+        );
+        assert_eq!(
+            file_uri(std::path::Path::new("/tmp/a b/c.html")),
+            "file:///tmp/a%20b/c.html"
+        );
     }
 
     #[test]

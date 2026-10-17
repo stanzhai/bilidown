@@ -15,8 +15,8 @@ config = { path = "../config" }
 network = { path = "../network" }
 ffmpeg = { path = "../ffmpeg" }
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
-anyhow = "1"
-parking_lot = "=0.12.5"
+anyhow.workspace = true
+parking_lot.workspace = true
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 uuid = { version = "=1.28.0", features = ["v4"] }
 md-5 = "=0.10.6"

@@ -198,17 +198,7 @@ impl TreeItem {
 
     /// Empty structural node.
     pub fn empty() -> Self {
-        Self::new(
-            Number::Empty,
-            "",
-            "",
-            0,
-            0,
-            0,
-            "",
-            "",
-            Map::new(),
-        )
+        Self::new(Number::Empty, "", "", 0, 0, 0, "", "", Map::new())
     }
 
     /// Structural root node carrying a category label and title.
@@ -242,12 +232,7 @@ impl TreeItem {
     /// Recursive case-insensitive title search (`search_items`).
     pub fn search_items(&self, keyword: &str) -> Vec<&TreeItem> {
         let mut matches = Vec::new();
-        if !keyword.is_empty()
-            && self
-                .title
-                .to_lowercase()
-                .contains(&keyword.to_lowercase())
-        {
+        if !keyword.is_empty() && self.title.to_lowercase().contains(&keyword.to_lowercase()) {
             matches.push(self);
         }
         for child in &self.children {
@@ -396,9 +381,7 @@ pub struct ActiveParsers<'a> {
 
 impl Drop for ActiveParsers<'_> {
     fn drop(&mut self) {
-        self.inner
-            .active_parsers
-            .fetch_sub(1, Ordering::SeqCst);
+        self.inner.active_parsers.fetch_sub(1, Ordering::SeqCst);
     }
 }
 

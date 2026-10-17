@@ -195,17 +195,25 @@ dependencies = [
  "auth",
  "chrono",
  "config",
+ "danmaku",
  "database",
  "dirs 6.0.0",
+ "downloader",
+ "extras",
+ "ffmpeg",
  "gpui-kit",
  "image",
  "interprocess",
+ "mcp",
  "muda",
+ "mux",
+ "naming",
  "network",
  "open",
  "parking_lot",
  "parsers",
  "qrcode",
+ "serde",
  "serde_json",
  "services",
  "tasks",
@@ -213,6 +221,7 @@ dependencies = [
  "tokio",
  "tray-icon",
  "urls",
+ "uuid",
  "windows-sys 0.61.2",
  "wiremock",
 ]
@@ -6635,9 +6644,9 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.30"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cb23c424d8ee841bb4d813677ca237e2a610067d594fec130f87d6093495ab5"
+checksum = "91c1b7e4904c873ef0710c1f407dde2e6287de2bebc1bbbf7d430bb7cbffd939"
 dependencies = [
  "windows-sys 0.61.2",
 ]

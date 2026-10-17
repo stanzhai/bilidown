@@ -39,7 +39,11 @@ PlayResY: 720
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 ";
-    assert!(doc.starts_with(expected_head), "head mismatch:\n{}", &doc[..expected_head.len().min(doc.len())]);
+    assert!(
+        doc.starts_with(expected_head),
+        "head mismatch:\n{}",
+        &doc[..expected_head.len().min(doc.len())]
+    );
     let events = &doc[doc.find("[Events]").unwrap()..];
     assert_eq!(
         events,
@@ -59,7 +63,10 @@ fn custom_style_from_config() {
     });
     let s = SubtitleStyle::from_config(&cfg);
     let doc = generate(&subtitle_body(), "T", &s);
-    let style_line = doc.lines().find(|l| l.starts_with("Style: Default")).unwrap();
+    let style_line = doc
+        .lines()
+        .find(|l| l.starts_with("Style: Default"))
+        .unwrap();
     assert_eq!(
         style_line,
         "Style: Default,思源黑体,48,&H000000FF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,2.5,1.0,8,20,30,40,1"

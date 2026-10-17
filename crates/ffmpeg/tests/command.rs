@@ -20,8 +20,17 @@ fn remux_audio_argv_is_frozen() {
     assert_eq!(
         argv,
         vec![
-            "ffmpeg", "-y", "-i", "audio_1.m4a", "-c", "copy", "-movflags", "+faststart",
-            "-strict", "unofficial", "remux_1.m4a",
+            "ffmpeg",
+            "-y",
+            "-i",
+            "audio_1.m4a",
+            "-c",
+            "copy",
+            "-movflags",
+            "+faststart",
+            "-strict",
+            "unofficial",
+            "remux_1.m4a",
         ]
     );
 }
@@ -48,12 +57,19 @@ fn remux_audio_is_a_stream_copy() {
 
 #[test]
 fn convert_m4a_to_mp3_uses_lame_v2() {
-    let argv =
-        FFmpegCommand::convert_m4a_to_mp3("in.m4a".as_ref(), "out.mp3".as_ref()).build();
+    let argv = FFmpegCommand::convert_m4a_to_mp3("in.m4a".as_ref(), "out.mp3".as_ref()).build();
     assert_eq!(
         argv,
         vec![
-            "ffmpeg", "-y", "-i", "in.m4a", "-c:a", "libmp3lame", "-q:a", "2", "out.mp3",
+            "ffmpeg",
+            "-y",
+            "-i",
+            "in.m4a",
+            "-c:a",
+            "libmp3lame",
+            "-q:a",
+            "2",
+            "out.mp3",
         ]
     );
 }
@@ -72,8 +88,19 @@ fn merge_video_audio_plain_copy() {
     assert_eq!(
         argv,
         vec![
-            "ffmpeg", "-y", "-i", "v.m4s", "-i", "a.m4s", "-c:v", "copy", "-c:a", "copy",
-            "-strict", "unofficial", "out.mp4",
+            "ffmpeg",
+            "-y",
+            "-i",
+            "v.m4s",
+            "-i",
+            "a.m4s",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "copy",
+            "-strict",
+            "unofficial",
+            "out.mp4",
         ]
     );
 }
@@ -151,19 +178,27 @@ fn merge_video_audio_with_cover_and_chapter_keeps_order() {
 
 #[test]
 fn merge_video_parts_uses_concat_demuxer() {
-    let argv = FFmpegCommand::merge_video_parts(
-        "list.txt".as_ref(),
-        "out.mp4".as_ref(),
-        None,
-        None,
-        &[],
-    )
-    .build();
+    let argv =
+        FFmpegCommand::merge_video_parts("list.txt".as_ref(), "out.mp4".as_ref(), None, None, &[])
+            .build();
     assert_eq!(
         argv,
         vec![
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "list.txt", "-c:v", "copy",
-            "-c:a", "copy", "-strict", "unofficial", "out.mp4",
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            "list.txt",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "copy",
+            "-strict",
+            "unofficial",
+            "out.mp4",
         ]
     );
 }

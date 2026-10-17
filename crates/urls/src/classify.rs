@@ -79,7 +79,11 @@ pub enum RawIds {
     /// `cheese/play/(ss|ep)…`.
     Cheese { kind: CheeseId, id: u64 },
     /// mall lesson query ids (`courseId`/`lessonId`/`itemId`).
-    Lesson { course_id: u64, lesson_id: u64, item_id: u64 },
+    Lesson {
+        course_id: u64,
+        lesson_id: u64,
+        item_id: u64,
+    },
     /// Collection id from the path; `?type=season|series` marks the id's
     /// family on `space/{mid}/lists` links, play-page links carry
     /// `sid`/`oid`/`bvid` extras instead.
@@ -93,7 +97,10 @@ pub enum RawIds {
     },
     /// Favorites folder: `ml…` media id (or `fid=` query), plus the owner
     /// mid for personal-space favlist links.
-    Favlist { media_id: Option<u64>, owner_mid: Option<u64> },
+    Favlist {
+        media_id: Option<u64>,
+        owner_mid: Option<u64>,
+    },
     /// Space owner uid.
     Space { mid: u64 },
     /// Weekly popular issue number, when `num=` is given.
@@ -148,30 +155,109 @@ struct Row {
 /// The table, ported verbatim from `url_pattern.py`. Order matters;
 /// see the module docs.
 static ROWS: &[Row] = &[
-    Row { pattern: r"bilibili\.com/video/([a-zA-Z0-9]+)", parser_type: ParserType::Video, ids: ids_video },
-    Row { pattern: r"bilibili\.com/bangumi/(play|media)/(ss\d+|ep\d+|md\d+)", parser_type: ParserType::Bangumi, ids: ids_bangumi },
-    Row { pattern: r"bilibili\.com/cheese/play/(ss\d+|ep\d+)", parser_type: ParserType::Cheese, ids: ids_cheese },
-    Row { pattern: r"mall\.bilibili\.com/lesson/play", parser_type: ParserType::Lesson, ids: ids_lesson },
+    Row {
+        pattern: r"bilibili\.com/video/([a-zA-Z0-9]+)",
+        parser_type: ParserType::Video,
+        ids: ids_video,
+    },
+    Row {
+        pattern: r"bilibili\.com/bangumi/(play|media)/(ss\d+|ep\d+|md\d+)",
+        parser_type: ParserType::Bangumi,
+        ids: ids_bangumi,
+    },
+    Row {
+        pattern: r"bilibili\.com/cheese/play/(ss\d+|ep\d+)",
+        parser_type: ParserType::Cheese,
+        ids: ids_cheese,
+    },
+    Row {
+        pattern: r"mall\.bilibili\.com/lesson/play",
+        parser_type: ParserType::Lesson,
+        ids: ids_lesson,
+    },
     // live.bilibili.com/{room} is deliberately absent here too
-    Row { pattern: r"space\.bilibili\.com/(\d+)/lists", parser_type: ParserType::List, ids: ids_list },
-    Row { pattern: r"space\.bilibili\.com/(\d+)/favlist", parser_type: ParserType::Favlist, ids: ids_favlist },
-    Row { pattern: r"www\.bilibili\.com/list/ml(\d+)", parser_type: ParserType::Favlist, ids: ids_favlist },
-    Row { pattern: r"space\.bilibili\.com/(\d+)", parser_type: ParserType::Space, ids: ids_space },
-    Row { pattern: r"www\.bilibili\.com/medialist/play/(\d+)", parser_type: ParserType::Space, ids: ids_space },
-    Row { pattern: r"bilibili\.com/list/(\d+)", parser_type: ParserType::List, ids: ids_list },
-    Row { pattern: r"bilibili\.com/v/popular", parser_type: ParserType::Popular, ids: ids_popular },
-    Row { pattern: r"bili23://watch_later", parser_type: ParserType::WatchLater, ids: |_| RawIds::WatchLater },
-    Row { pattern: r"bili23://history", parser_type: ParserType::History, ids: |_| RawIds::History },
-    Row { pattern: r"bilibili\.com/festival", parser_type: ParserType::Festival, ids: |_| RawIds::ShortLink },
-    Row { pattern: r"(b23\.tv|bili2233\.cn)", parser_type: ParserType::B23, ids: |_| RawIds::ShortLink },
+    Row {
+        pattern: r"space\.bilibili\.com/(\d+)/lists",
+        parser_type: ParserType::List,
+        ids: ids_list,
+    },
+    Row {
+        pattern: r"space\.bilibili\.com/(\d+)/favlist",
+        parser_type: ParserType::Favlist,
+        ids: ids_favlist,
+    },
+    Row {
+        pattern: r"www\.bilibili\.com/list/ml(\d+)",
+        parser_type: ParserType::Favlist,
+        ids: ids_favlist,
+    },
+    Row {
+        pattern: r"space\.bilibili\.com/(\d+)",
+        parser_type: ParserType::Space,
+        ids: ids_space,
+    },
+    Row {
+        pattern: r"www\.bilibili\.com/medialist/play/(\d+)",
+        parser_type: ParserType::Space,
+        ids: ids_space,
+    },
+    Row {
+        pattern: r"bilibili\.com/list/(\d+)",
+        parser_type: ParserType::List,
+        ids: ids_list,
+    },
+    Row {
+        pattern: r"bilibili\.com/v/popular",
+        parser_type: ParserType::Popular,
+        ids: ids_popular,
+    },
+    Row {
+        pattern: r"bili23://watch_later",
+        parser_type: ParserType::WatchLater,
+        ids: |_| RawIds::WatchLater,
+    },
+    Row {
+        pattern: r"bili23://history",
+        parser_type: ParserType::History,
+        ids: |_| RawIds::History,
+    },
+    Row {
+        pattern: r"bilibili\.com/festival",
+        parser_type: ParserType::Festival,
+        ids: |_| RawIds::ShortLink,
+    },
+    Row {
+        pattern: r"(b23\.tv|bili2233\.cn)",
+        parser_type: ParserType::B23,
+        ids: |_| RawIds::ShortLink,
+    },
     // 裸 ID bare ids
-    Row { pattern: r"(?:BV|bv|AV|av)(\w+)", parser_type: ParserType::Video, ids: ids_video },
-    Row { pattern: r"(ep[0-9]+|ss[0-9]+)|md[0-9]+", parser_type: ParserType::Bangumi, ids: ids_bangumi },
-    Row { pattern: r"(am[0-9]+)|(au[0-9]+)", parser_type: ParserType::Audio, ids: ids_audio },
+    Row {
+        pattern: r"(?:BV|bv|AV|av)(\w+)",
+        parser_type: ParserType::Video,
+        ids: ids_video,
+    },
+    Row {
+        pattern: r"(ep[0-9]+|ss[0-9]+)|md[0-9]+",
+        parser_type: ParserType::Bangumi,
+        ids: ids_bangumi,
+    },
+    Row {
+        pattern: r"(am[0-9]+)|(au[0-9]+)",
+        parser_type: ParserType::Audio,
+        ids: ids_audio,
+    },
 ];
 
 static COMPILED: LazyLock<Vec<(Regex, &'static Row)>> = LazyLock::new(|| {
-    ROWS.iter().map(|row| (Regex::new(row.pattern).expect("url pattern must compile"), row)).collect()
+    ROWS.iter()
+        .map(|row| {
+            (
+                Regex::new(row.pattern).expect("url pattern must compile"),
+                row,
+            )
+        })
+        .collect()
 });
 
 /// Classified link: its Parser Type plus the raw ids lifted off it.
@@ -188,7 +274,10 @@ pub struct Classified {
 pub fn classify(url: &str) -> Option<Classified> {
     for (regex, row) in COMPILED.iter() {
         if regex.is_match(url) {
-            return Some(Classified { parser_type: row.parser_type, ids: (row.ids)(url) });
+            return Some(Classified {
+                parser_type: row.parser_type,
+                ids: (row.ids)(url),
+            });
         }
     }
     None
@@ -196,14 +285,20 @@ pub fn classify(url: &str) -> Option<Classified> {
 
 /// Parser Type alone (`search_url`-style dispatch).
 pub fn parser_type(url: &str) -> Option<ParserType> {
-    COMPILED.iter().find(|(regex, _)| regex.is_match(url)).map(|(_, row)| row.parser_type)
+    COMPILED
+        .iter()
+        .find(|(regex, _)| regex.is_match(url))
+        .map(|(_, row)| row.parser_type)
 }
 
 fn ids_video(url: &str) -> RawIds {
     static BV: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:BV|bv)\w+").unwrap());
     static AV: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:av|AV)([0-9]+)").unwrap());
     let bv = BV.find(url).map(|m| m.as_str().to_owned());
-    let av = AV.captures(url).and_then(|c| c.get(1)).and_then(|m| m.as_str().parse().ok());
+    let av = AV
+        .captures(url)
+        .and_then(|c| c.get(1))
+        .and_then(|m| m.as_str().parse().ok());
     RawIds::Video { av, bv }
 }
 
@@ -219,24 +314,38 @@ fn ids_bangumi(url: &str) -> RawIds {
             return RawIds::Bangumi { kind, id };
         }
     }
-    RawIds::Bangumi { kind: BangumiId::Ep, id: 0 }
+    RawIds::Bangumi {
+        kind: BangumiId::Ep,
+        id: 0,
+    }
 }
 
 fn ids_cheese(url: &str) -> RawIds {
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:ss|ep)([0-9]+)").unwrap());
     if let Some(caps) = RE.captures(url) {
-        let kind = if url.contains("/ss") { CheeseId::Ss } else { CheeseId::Ep };
+        let kind = if url.contains("/ss") {
+            CheeseId::Ss
+        } else {
+            CheeseId::Ep
+        };
         if let Ok(id) = caps[1].parse() {
             return RawIds::Cheese { kind, id };
         }
     }
-    RawIds::Cheese { kind: CheeseId::Ss, id: 0 }
+    RawIds::Cheese {
+        kind: CheeseId::Ss,
+        id: 0,
+    }
 }
 
 fn ids_lesson(url: &str) -> RawIds {
     let pairs = query_pairs(url);
     let get = |name: &str| pairs.get(name).and_then(|v| v.parse().ok()).unwrap_or(0);
-    RawIds::Lesson { course_id: get("courseId"), lesson_id: get("lessonId"), item_id: get("itemId") }
+    RawIds::Lesson {
+        course_id: get("courseId"),
+        lesson_id: get("lessonId"),
+        item_id: get("itemId"),
+    }
 }
 
 fn ids_list(url: &str) -> RawIds {
@@ -275,36 +384,58 @@ fn ids_favlist(url: &str) -> RawIds {
         .captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
-        .or_else(|| FID.captures(url).and_then(|c| c.get(1)).and_then(|m| m.as_str().parse().ok()));
-    RawIds::Favlist { media_id, owner_mid: first_number_in_path(url) }
+        .or_else(|| {
+            FID.captures(url)
+                .and_then(|c| c.get(1))
+                .and_then(|m| m.as_str().parse().ok())
+        });
+    RawIds::Favlist {
+        media_id,
+        owner_mid: first_number_in_path(url),
+    }
 }
 
 fn ids_space(url: &str) -> RawIds {
-    RawIds::Space { mid: first_number_in_path(url).unwrap_or(0) }
+    RawIds::Space {
+        mid: first_number_in_path(url).unwrap_or(0),
+    }
 }
 
 fn ids_popular(url: &str) -> RawIds {
-    RawIds::Popular { number: query_pairs(url).get("num").and_then(|v| v.parse().ok()) }
+    RawIds::Popular {
+        number: query_pairs(url).get("num").and_then(|v| v.parse().ok()),
+    }
 }
 
 fn ids_audio(url: &str) -> RawIds {
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(am|au)([0-9]+)").unwrap());
     if let Some(caps) = RE.captures(url) {
-        let kind = if &caps[1] == "am" { AudioId::Am } else { AudioId::Au };
+        let kind = if &caps[1] == "am" {
+            AudioId::Am
+        } else {
+            AudioId::Au
+        };
         if let Ok(id) = caps[2].parse() {
             return RawIds::Audio { kind, id };
         }
     }
-    RawIds::Audio { kind: AudioId::Au, id: 0 }
+    RawIds::Audio {
+        kind: AudioId::Au,
+        id: 0,
+    }
 }
 
 fn first_number_in_path(url: &str) -> Option<u64> {
     static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"/([0-9]+)").unwrap());
-    RE.captures(&url_path(url)).and_then(|c| c.get(1)).and_then(|m| m.as_str().parse().ok())
+    RE.captures(&url_path(url))
+        .and_then(|c| c.get(1))
+        .and_then(|m| m.as_str().parse().ok())
 }
 
 fn url_path(url: &str) -> String {
-    Url::parse(url).map(|u| u.path().to_owned()).unwrap_or_else(|_| url.to_owned())
+    Url::parse(url)
+        .map(|u| u.path().to_owned())
+        .unwrap_or_else(|_| url.to_owned())
 }
 
 fn query_pairs(url: &str) -> BTreeMap<String, String> {

@@ -32,7 +32,8 @@ fn copy_fixture(name: &str) -> std::path::PathBuf {
 }
 
 fn journal_mode(conn: &Connection) -> String {
-    conn.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap()
+    conn.query_row("PRAGMA journal_mode", [], |r| r.get(0))
+        .unwrap()
 }
 
 #[test]
@@ -56,7 +57,9 @@ fn golden_task_db_reads_python_rows() {
     assert_eq!(t.Naming.rule.as_deref(), Some("<title>"));
     assert_eq!(t.File.subtitle_track_list.len(), 1);
     assert_eq!(
-        t.File.subtitle_track_list[0].get("kind").and_then(|v| v.as_str()),
+        t.File.subtitle_track_list[0]
+            .get("kind")
+            .and_then(|v| v.as_str()),
         Some("danmaku")
     );
 
@@ -66,10 +69,11 @@ fn golden_task_db_reads_python_rows() {
     assert_eq!(completed[0].Episode.ep_id, 777);
 
     // Direct id read + count.
-    let by_id = db
-        .query_task_by_id("t-bangumi-02", true)
-        .expect("by id");
-    assert_eq!(by_id.as_ref().map(|t| t.Basic.task_id.as_str()), Some("t-bangumi-02"));
+    let by_id = db.query_task_by_id("t-bangumi-02", true).expect("by id");
+    assert_eq!(
+        by_id.as_ref().map(|t| t.Basic.task_id.as_str()),
+        Some("t-bangumi-02")
+    );
     assert_eq!(db.count_tasks(false).unwrap(), 1);
     assert_eq!(db.count_tasks(true).unwrap(), 1);
 
@@ -109,12 +113,11 @@ fn task_round_trip_download_and_completed() {
     let dir = tempfile::tempdir().unwrap();
     let mut db = TaskDatabase::open(dir.path().join("task.db")).expect("open");
 
-    let original: TaskInfo = serde_json::from_str(include_str!(
-        "fixtures/task_video.json"
-    ))
-    .expect("fixture task json");
+    let original: TaskInfo =
+        serde_json::from_str(include_str!("fixtures/task_video.json")).expect("fixture task json");
 
-    db.add_tasks(std::slice::from_ref(&original), false).expect("insert");
+    db.add_tasks(std::slice::from_ref(&original), false)
+        .expect("insert");
     let read = db.query_tasks(false, None).expect("read");
     assert_eq!(read.len(), 1);
     // Identical sections round-trip.
@@ -155,7 +158,8 @@ fn task_round_trip_download_and_completed() {
     db.update_task(&updated).expect("update");
     let after = db.query_tasks(false, None).unwrap();
     assert_eq!(after[0].Download.progress, 42);
-    db.delete_tasks(&[updated.Basic.task_id.clone()], false).expect("delete");
+    db.delete_tasks(&[updated.Basic.task_id.clone()], false)
+        .expect("delete");
     assert_eq!(db.count_tasks(false).unwrap(), 0);
 }
 
@@ -183,7 +187,8 @@ fn history_capped_at_100_and_dedupes_urls() {
     let db = HistoryDatabase::open(dir.path().join("history.db")).expect("open");
 
     for i in 0..105 {
-        db.add(&format!("标题{i}"), &format!("https://b23.tv/{i}"), "video").unwrap();
+        db.add(&format!("标题{i}"), &format!("https://b23.tv/{i}"), "video")
+            .unwrap();
     }
     assert_eq!(db.count().unwrap(), 100);
     // Same-second timestamps tie: SQLite keeps the first 100 rows it
@@ -206,7 +211,10 @@ fn history_capped_at_100_and_dedupes_urls() {
     db.add("旧标题新写", "https://b23.tv/0", "video").unwrap();
     let rows = db.query_all().unwrap();
     assert_eq!(rows.len(), 100);
-    let readded: Vec<_> = rows.iter().filter(|r| r.url == "https://b23.tv/0").collect();
+    let readded: Vec<_> = rows
+        .iter()
+        .filter(|r| r.url == "https://b23.tv/0")
+        .collect();
     assert_eq!(readded.len(), 1);
     assert_eq!(readded[0].title, "旧标题新写");
     let first = rows[0].clone();

@@ -90,12 +90,24 @@ pub fn date_from_timestamp(timestamp: i64) -> String {
         .timestamp_opt(seconds as i64, 0)
         .single()
         .map(|dt| dt.naive_local())
-        .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::UNIX_EPOCH.naive_utc() + chrono::Duration::seconds(seconds as i64));
-    format!("{:04}-{:02}-{:02}", naive.year(), naive.month(), naive.day())
+        .unwrap_or_else(|| {
+            chrono::DateTime::<chrono::Utc>::UNIX_EPOCH.naive_utc()
+                + chrono::Duration::seconds(seconds as i64)
+        });
+    format!(
+        "{:04}-{:02}-{:02}",
+        naive.year(),
+        naive.month(),
+        naive.day()
+    )
 }
 
 fn year_from_timestamp(timestamp: i64) -> String {
-    date_from_timestamp(timestamp).split('-').next().unwrap_or_default().to_owned()
+    date_from_timestamp(timestamp)
+        .split('-')
+        .next()
+        .unwrap_or_default()
+        .to_owned()
 }
 
 /// `math.ceil(duration / 60)` over positive durations.
@@ -123,7 +135,11 @@ fn rating_block(rating: f64, votes: i64) -> String {
 }
 
 fn status_block(new_ep_status: bool) -> &'static str {
-    if new_ep_status { "<status>Ongoing</status>" } else { "<status>Ended</status>" }
+    if new_ep_status {
+        "<status>Ongoing</status>"
+    } else {
+        "<status>Ended</status>"
+    }
 }
 
 /// `MetadataNFO.generate` pure half: the NFO documents to write.
@@ -252,7 +268,13 @@ pub async fn parse(
     match metadata_type.as_str() {
         "nfo" => {
             if task.Episode.attribute & VIDEO_BIT != 0 {
-                get_video_tags(client, base, &task.Episode.bvid.clone(), &mut task.Episode.tags).await?;
+                get_video_tags(
+                    client,
+                    base,
+                    &task.Episode.bvid.clone(),
+                    &mut task.Episode.tags,
+                )
+                .await?;
             }
             let docs = generate(task, &labels.metadata_qualifier);
             for doc in docs {
@@ -301,7 +323,12 @@ async fn get_video_tags(
         .and_then(Value::as_array)
         .map(|a| {
             a.iter()
-                .map(|t| t.get("tag_name").and_then(Value::as_str).unwrap_or_default().to_owned())
+                .map(|t| {
+                    t.get("tag_name")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned()
+                })
                 .collect()
         })
         .unwrap_or_default();

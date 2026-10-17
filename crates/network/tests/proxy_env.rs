@@ -8,9 +8,15 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const TEST_UA: &str = "test-agent";
 
 #[tokio::test]
-async fn direct_mode_ignores_environment_proxies() {
-    // ProxyMode::None must connect straight to the server even when
-    // proxy env vars point at a black hole. (Python: mounts=None → direct.)
+async fn proxy_mode_env_interaction() {
+    // One serialized test, two phases: both phases mutate the same six
+    // process-global env vars, so running them as parallel #[tokio::test]s
+    // races (reqwest reads env at client build; the loser caches the other
+    // phase's value — the historical 127.0.0.1:1 flake).
+
+    // Phase 1: ProxyMode::None must connect straight to the server even
+    // when proxy env vars point at a black hole. (Python: mounts=None →
+    // direct.)
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/nav"))
@@ -19,13 +25,23 @@ async fn direct_mode_ignores_environment_proxies() {
         .mount(&server)
         .await;
 
-    for key in ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"] {
+    for key in [
+        "http_proxy",
+        "https_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "all_proxy",
+        "ALL_PROXY",
+    ] {
         std::env::set_var(key, "http://127.0.0.1:1");
     }
 
     let client = HttpClient::new(ClientOptions {
         user_agent: TEST_UA.to_owned(),
-        proxy: ProxyConfig { mode: ProxyMode::None, ..ProxyConfig::none() },
+        proxy: ProxyConfig {
+            mode: ProxyMode::None,
+            ..ProxyConfig::none()
+        },
         cookies_from_persistence: Vec::new(),
         signer: None,
     })
@@ -37,12 +53,10 @@ async fn direct_mode_ignores_environment_proxies() {
         .unwrap();
     assert_eq!(json["code"], 0);
     server.verify().await;
-}
 
-#[tokio::test]
-async fn system_mode_uses_environment_proxy() {
-    // ProxyMode::System restores the httpx-default behavior the Python
-    // client had: env/system proxies are honored.
+    // Phase 2: ProxyMode::System restores the httpx-default behavior the
+    // Python client had: env/system proxies are honored. All six variants
+    // rewritten: reqwest may prefer the uppercase/all_proxy form.
     let proxy = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/nav"))
@@ -51,15 +65,23 @@ async fn system_mode_uses_environment_proxy() {
         .mount(&proxy)
         .await;
 
-    // All six variants: test 1 set them to a black hole, and reqwest may
-    // prefer the uppercase/all_proxy form when re-reading the environment.
-    for key in ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"] {
+    for key in [
+        "http_proxy",
+        "https_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "all_proxy",
+        "ALL_PROXY",
+    ] {
         std::env::set_var(key, proxy.uri());
     }
 
     let client = HttpClient::new(ClientOptions {
         user_agent: TEST_UA.to_owned(),
-        proxy: ProxyConfig { mode: ProxyMode::System, ..ProxyConfig::none() },
+        proxy: ProxyConfig {
+            mode: ProxyMode::System,
+            ..ProxyConfig::none()
+        },
         cookies_from_persistence: Vec::new(),
         signer: None,
     })

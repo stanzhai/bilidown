@@ -234,6 +234,22 @@ impl ParseListView {
         }
     }
 
+    /// Batch-selection by episode number (the misc dialog's
+    /// "1,3,5-10" grammar already parsed by the caller).
+    pub fn check_numbers(&mut self, numbers: &[i64]) {
+        fn walk(node: &mut TreeItem, numbers: &[i64]) {
+            for item in node.children.iter_mut() {
+                if let crate::Number::Int(n) = &item.number {
+                    if numbers.contains(n) {
+                        item.checked = CheckState::Checked;
+                    }
+                }
+                walk(item, numbers);
+            }
+        }
+        walk(&mut self.root, numbers);
+    }
+
     /// Filter by title (`search_keywords`): returns the matching items in
     /// tree order; `None`/empty keyword clears the filter. The match list
     /// is what the search widget's prev/next navigation walks.
@@ -332,7 +348,10 @@ mod tests {
         )
         .unwrap();
 
-        assert!(checked(&view).is_empty(), "第一页里没有目标，不该勾选任何条目");
+        assert!(
+            checked(&view).is_empty(),
+            "第一页里没有目标，不该勾选任何条目"
+        );
         assert_eq!(
             view.pending_episode_data(),
             Some(&("bvid".to_owned(), "BV_target".to_owned())),
@@ -347,7 +366,10 @@ mod tests {
             Some("BV_target"),
             "媒体信息预览要指向这一项"
         );
-        assert!(view.pending_episode_data().is_none(), "定位到了就不该再留着");
+        assert!(
+            view.pending_episode_data().is_none(),
+            "定位到了就不该再留着"
+        );
     }
 
     #[test]

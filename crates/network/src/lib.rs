@@ -351,10 +351,7 @@ fn manual_proxy(config: &ProxyConfig) -> Result<ReqwestProxy, InvalidProxy> {
         String::new()
     };
     let proxy_url = format!("{scheme}://{auth}{}:{}", config.server, config.port);
-    ReqwestProxy::all(&proxy_url).map_err(|source| InvalidProxy {
-        proxy_url,
-        source,
-    })
+    ReqwestProxy::all(&proxy_url).map_err(|source| InvalidProxy { proxy_url, source })
 }
 
 async fn check_status(response: reqwest::Response, url: &str) -> Result<String, HttpError> {

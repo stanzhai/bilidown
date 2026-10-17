@@ -61,16 +61,22 @@ pub async fn parse(
             P::Video => {
                 let mut current = url.clone();
                 for _ in 0..MAX_EXPANSIONS {
-                    match media_parser::parse_video_url(client, BASE_URL, &current, &ctx.episode_data)
-                        .await?
+                    match media_parser::parse_video_url(
+                        client,
+                        BASE_URL,
+                        &current,
+                        &ctx.episode_data,
+                    )
+                    .await?
                     {
                         ParseOutcome::Redirect(next) => current = next,
                         ParseOutcome::Episode(node, (_key, value)) => {
                             ctx.episode_data.set_episode_data(&node.episode_id, value);
                             return Ok(one_shot("USER_UPLOADS", node, None));
                         }
-                        // Ticket 25 owns the interactive dialog; until
-                        // then the walked tree returns as-is.
+                        // Ticket 25: the stein walk already ran inside
+                        // `parse_video_url`; the dialog only gates
+                        // presentation of the completed tree.
                         ParseOutcome::Interactive(node) => {
                             return Ok(one_shot("INTERACTIVE_VIDEO", node, None));
                         }
@@ -106,23 +112,21 @@ pub async fn parse(
                 let node = parsers::audio::build_audio_tree(&info.data);
                 return Ok(one_shot("AUDIO", node, None));
             }
-            P::List => {
-                return Ok(list::parse_list(client, BASE_URL, ctx, &url, req.pn).await?)
-            }
+            P::List => return Ok(list::parse_list(client, BASE_URL, ctx, &url, req.pn).await?),
             P::Favlist => {
                 return Ok(list::parse_favlist(client, BASE_URL, ctx, &url, req.pn).await?)
             }
-            P::Space => {
-                return Ok(list::parse_space(client, BASE_URL, ctx, &url, req.pn).await?)
-            }
+            P::Space => return Ok(list::parse_space(client, BASE_URL, ctx, &url, req.pn).await?),
             P::Popular => return Ok(list::parse_popular(client, BASE_URL, ctx, &url).await?),
             P::WatchLater => {
-                return Ok(list::parse_watch_later(client, BASE_URL, ctx, &url, req.auth, req.pn)
-                    .await?)
+                return Ok(
+                    list::parse_watch_later(client, BASE_URL, ctx, &url, req.auth, req.pn).await?,
+                )
             }
             P::History => {
-                return Ok(list::parse_history(client, BASE_URL, ctx, &url, req.auth, req.pn)
-                    .await?)
+                return Ok(
+                    list::parse_history(client, BASE_URL, ctx, &url, req.auth, req.pn).await?,
+                )
             }
         }
     }
@@ -200,7 +204,7 @@ impl ParseService {
         let ua = cfg
             .get("Advanced", "user_agent")
             .and_then(Value::as_str)
-            .unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0")
+            .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
         let client = HttpClient::new(network::ClientOptions {
             user_agent: ua,
@@ -213,6 +217,18 @@ impl ParseService {
             client: Arc::new(client),
             ctx: ListParseContext::new(),
             key_store,
+        }
+    }
+
+    /// [`ParseService::new`] adopting an existing side-data table, so
+    /// the screen's handle and this parse share one registry.
+    pub fn with_episode_data(
+        cfg: &config::ConfigStore,
+        episode_data: std::sync::Arc<parsers::EpisodeData>,
+    ) -> Self {
+        Self {
+            ctx: ListParseContext::with_episode_data(episode_data),
+            ..Self::new(cfg)
         }
     }
 

@@ -247,7 +247,9 @@ pub async fn parse_space(
     let keyword = urls::search::extract_keyword(url).unwrap_or_default();
 
     let params = space_params(mid, pn, &keyword);
-    let response: Value = client.get_json(&swap_host(SPACE_ARC_API, base), &params).await?;
+    let response: Value = client
+        .get_json(&swap_host(SPACE_ARC_API, base), &params)
+        .await?;
     check_response(&response)?;
 
     let data = &response["data"];
@@ -369,8 +371,7 @@ fn space_badge(episode: &Value) -> &'static str {
 /// `SpaceParser.get_mid`: first number of the path only, so query params
 /// (e.g. a search keyword) can't干扰 the uid.
 fn space_mid(url: &str) -> Option<i64> {
-    static RE: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"/([0-9]+)").unwrap());
+    static RE: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"/([0-9]+)").unwrap());
     let path = url::Url::parse(url)
         .map(|u| u.path().to_owned())
         .unwrap_or_else(|_| url.to_owned());
@@ -412,7 +413,10 @@ pub async fn parse_favlist(
     check_response(&response)?;
 
     let data = &response["data"];
-    let title = data["info"]["title"].as_str().unwrap_or_default().to_owned();
+    let title = data["info"]["title"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
 
     let episode_id = ctx.add_episode();
     ctx.episode_data.set_episode_data(
@@ -496,8 +500,7 @@ fn favlist_title(episode: &Value) -> String {
 /// query.
 fn favlist_media_id(url: &str) -> Option<i64> {
     static ML: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"ml(\d+)").unwrap());
-    static FID: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"fid=(\d+)").unwrap());
+    static FID: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"fid=(\d+)").unwrap());
     ML.captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
@@ -536,10 +539,13 @@ pub async fn parse_list(
         match family {
             ListFamily::Season => {
                 let season_id = list_path_id(url).ok_or(ListError::InvalidLink)?;
-                let (data, count) =
-                    seasons_archives(client, base, mid, season_id, pn).await?;
+                let (data, count) = seasons_archives(client, base, mid, season_id, pn).await?;
                 let meta = season_meta(&data);
-                (data["mid"].as_i64().unwrap_or(mid), archives_page(&data, count), meta)
+                (
+                    data["mid"].as_i64().unwrap_or(mid),
+                    archives_page(&data, count),
+                    meta,
+                )
             }
             ListFamily::Series => {
                 let series_id = list_path_id(url).ok_or(ListError::InvalidLink)?;
@@ -558,7 +564,9 @@ pub async fn parse_list(
 
         let season_matches = season
             .and_then(|s| s["id"].as_i64())
-            .map_or(sid.is_none(), |season_id| sid.is_none_or(|sid| sid == season_id));
+            .map_or(sid.is_none(), |season_id| {
+                sid.is_none_or(|sid| sid == season_id)
+            });
         if let Some(season) = season.filter(|_| season_matches) {
             let season_id = season["id"].as_i64().unwrap_or(0);
             let mid = season["mid"].as_i64().unwrap_or(0);
@@ -572,9 +580,14 @@ pub async fn parse_list(
                 let (data, count) = series_archives(client, base, meta_mid(&meta), sid, pn).await?;
                 (meta_mid(&meta), archives_page(&data, count), meta)
             } else {
-                let (data, count) = seasons_archives(client, base, list_mid(url).unwrap_or(0), sid, pn).await?;
+                let (data, count) =
+                    seasons_archives(client, base, list_mid(url).unwrap_or(0), sid, pn).await?;
                 let meta = season_meta(&data);
-                (data["mid"].as_i64().unwrap_or(0), archives_page(&data, count), meta)
+                (
+                    data["mid"].as_i64().unwrap_or(0),
+                    archives_page(&data, count),
+                    meta,
+                )
             }
         } else if video_data.is_some() {
             return Err(ListError::NoListInLink);
@@ -594,10 +607,7 @@ pub async fn parse_list(
         json!({ "collection_title": node_title, "space_owner_id": mid }),
     );
 
-    let mut node = TreeItem::root(
-        Number::Text(COLLECTION_CATEGORY.to_owned()),
-        &node_title,
-    );
+    let mut node = TreeItem::root(Number::Text(COLLECTION_CATEGORY.to_owned()), &node_title);
     node.set_attribute(Attribute::TREE_NODE_BIT);
 
     let mut number = 0;
@@ -623,13 +633,7 @@ pub async fn parse_list(
     }
 
     let count = node.children.len() as i64 + (pn - 1) * LIST_PS;
-    let extra = paged_extra(
-        meta_total(&meta).max(count),
-        LIST_PS,
-        pn,
-        false,
-        "",
-    );
+    let extra = paged_extra(meta_total(&meta).max(count), LIST_PS, pn, false, "");
 
     let mut wrapper = TreeItem::empty();
     wrapper.add_child(node);
@@ -657,8 +661,7 @@ fn list_link_family(url: &str) -> Option<ListFamily> {
 }
 
 fn list_mid(url: &str) -> Option<i64> {
-    static RE: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"/([0-9]+)").unwrap());
+    static RE: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"/([0-9]+)").unwrap());
     let path = url::Url::parse(url)
         .map(|u| u.path().to_owned())
         .unwrap_or_else(|_| url.to_owned());
@@ -681,8 +684,10 @@ async fn list_video_data(
     static BVID: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new(r"bvid=([Bb][Vv][0-9A-Za-z]+)").unwrap());
 
-    let params: Vec<(String, String)> = if let Some(bvid) =
-        BVID.captures(url).and_then(|c| c.get(1)).map(|m| m.as_str().to_owned())
+    let params: Vec<(String, String)> = if let Some(bvid) = BVID
+        .captures(url)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_owned())
     {
         vec![("bvid".into(), bvid)]
     } else if let Some(aid) = query_u64(url, "oid") {
@@ -763,7 +768,9 @@ async fn series_meta_probe(
         ("series_id".to_owned(), sid.to_string()),
         ("web_location".to_owned(), "333.1387".to_owned()),
     ];
-    let response: Value = client.get_json(&swap_host(SERIES_API, base), &params).await?;
+    let response: Value = client
+        .get_json(&swap_host(SERIES_API, base), &params)
+        .await?;
     if response.get("code").and_then(Value::as_i64).unwrap_or(-1) != 0 {
         return Ok(None);
     }
@@ -779,7 +786,9 @@ async fn series_meta_request(
         ("series_id".to_owned(), series_id.to_string()),
         ("web_location".to_owned(), "333.1387".to_owned()),
     ];
-    let response: Value = client.get_json(&swap_host(SERIES_API, base), &params).await?;
+    let response: Value = client
+        .get_json(&swap_host(SERIES_API, base), &params)
+        .await?;
     check_response(&response)?;
     Ok(response["data"]["meta"].clone())
 }
@@ -806,10 +815,7 @@ fn meta_total(meta: &Value) -> i64 {
 }
 
 fn archives_page(data: &Value, _count: i64) -> Vec<Value> {
-    data["archives"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
+    data["archives"].as_array().cloned().unwrap_or_default()
 }
 
 // ---------------------------------------------------------------------------
@@ -838,15 +844,15 @@ pub async fn parse_watch_later(
         ("need_split".into(), "true".into()),
         ("web_location".into(), "333.881".into()),
     ];
-    let response: Value = client.get_json(&swap_host(TOVIEW_API, base), &params).await?;
+    let response: Value = client
+        .get_json(&swap_host(TOVIEW_API, base), &params)
+        .await?;
     check_response(&response)?;
 
     let data = &response["data"];
     let episode_id = ctx.add_episode();
-    ctx.episode_data.set_episode_data(
-        &episode_id,
-        json!({ "source_title": WATCH_LATER_CATEGORY }),
-    );
+    ctx.episode_data
+        .set_episode_data(&episode_id, json!({ "source_title": WATCH_LATER_CATEGORY }));
 
     let list = data["list"].as_array();
     let count = data["count"].as_i64().unwrap_or(0);
@@ -938,7 +944,9 @@ pub async fn parse_history(
         ("device_type".into(), "0".into()),
         ("web_location".into(), "333.1391".into()),
     ];
-    let response: Value = client.get_json(&swap_host(HISTORY_API, base), &params).await?;
+    let response: Value = client
+        .get_json(&swap_host(HISTORY_API, base), &params)
+        .await?;
     check_response(&response)?;
 
     let data = &response["data"];
@@ -1045,11 +1053,16 @@ pub async fn parse_popular(
         ("number".to_owned(), number.to_string()),
         ("web_location".to_owned(), "333.934".to_owned()),
     ];
-    let response: Value = client.get_json(&swap_host(WEEKLY_API, base), &params).await?;
+    let response: Value = client
+        .get_json(&swap_host(WEEKLY_API, base), &params)
+        .await?;
     check_response(&response)?;
 
     let data = &response["data"];
-    let label = data["config"]["label"].as_str().unwrap_or_default().to_owned();
+    let label = data["config"]["label"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
 
     let episode_id = ctx.add_episode();
 
@@ -1057,7 +1070,11 @@ pub async fn parse_popular(
     node.set_attribute(Attribute::TREE_NODE_BIT);
 
     let mut number = 0;
-    for episode in data["list"].as_array().map(Vec::as_slice).unwrap_or_default() {
+    for episode in data["list"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
         number += 1;
         let mut item = TreeItem::empty();
         item.aid = episode["aid"].as_i64().unwrap_or(0);

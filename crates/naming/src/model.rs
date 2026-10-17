@@ -73,7 +73,12 @@ fn serialize_fragment(fragment: &Fragment) -> String {
         return field_text;
     }
 
-    format!("<{}{}{}>", escape(&fragment.prefix), field_text, escape(&fragment.suffix))
+    format!(
+        "<{}{}{}>",
+        escape(&fragment.prefix),
+        field_text,
+        escape(&fragment.suffix)
+    )
 }
 
 impl RuleModel {
@@ -96,8 +101,16 @@ impl RuleModel {
 #[derive(Debug, Clone, PartialEq)]
 enum Item {
     Text(String),
-    Field { name: String, spec: String },
-    Optional { prefix: String, name: String, spec: String, suffix: String },
+    Field {
+        name: String,
+        spec: String,
+    },
+    Optional {
+        prefix: String,
+        name: String,
+        spec: String,
+        suffix: String,
+    },
 }
 
 /// Split a text node into literal/field items, raising `_Unsupported` shapes
@@ -105,14 +118,20 @@ enum Item {
 fn iter_items(text: &str) -> Result<Vec<Item>, String> {
     let mut items = Vec::new();
 
-    for seg in format_parse(text).map_err(|_| String::from("规则中含有无法解析的格式串"))? {
+    for seg in format_parse(text).map_err(|_| String::from("规则中含有无法解析的格式串"))?
+    {
         match seg {
             Segment::Literal(lit) => {
                 if !lit.is_empty() {
                     items.push(Item::Text(lit));
                 }
             }
-            Segment::Field { literal, name, spec, conversion } => {
+            Segment::Field {
+                literal,
+                name,
+                spec,
+                conversion,
+            } => {
                 if !literal.is_empty() {
                     items.push(Item::Text(literal));
                 }
@@ -125,7 +144,11 @@ fn iter_items(text: &str) -> Result<Vec<Item>, String> {
                     return Err("规则中使用了嵌套格式串，可视化编辑器无法表示".to_string());
                 }
 
-                if name.is_empty() || name.contains('.') || name.contains('[') || name.chars().all(|c| c.is_ascii_digit()) {
+                if name.is_empty()
+                    || name.contains('.')
+                    || name.contains('[')
+                    || name.chars().all(|c| c.is_ascii_digit())
+                {
                     return Err("规则中含有无法识别的变量写法".to_string());
                 }
 
@@ -179,8 +202,16 @@ fn flatten_optional(node: &[Node]) -> Result<(String, String, String, String), S
         _ => String::new(),
     };
 
-    let prefix: String = items[..index].iter().map(text_of).collect::<Vec<_>>().concat();
-    let suffix: String = items[index + 1..].iter().map(text_of).collect::<Vec<_>>().concat();
+    let prefix: String = items[..index]
+        .iter()
+        .map(text_of)
+        .collect::<Vec<_>>()
+        .concat();
+    let suffix: String = items[index + 1..]
+        .iter()
+        .map(text_of)
+        .collect::<Vec<_>>()
+        .concat();
 
     Ok((prefix, name, spec, suffix))
 }
@@ -208,7 +239,12 @@ fn node_items(nodes: &[Node]) -> Result<Vec<Item>, String> {
                     return Err("规则中有跨越目录层级的可选段，可视化编辑器无法表示".to_string());
                 }
 
-                items.push(Item::Optional { prefix, name, spec, suffix });
+                items.push(Item::Optional {
+                    prefix,
+                    name,
+                    spec,
+                    suffix,
+                });
             }
         }
     }
@@ -228,7 +264,10 @@ fn split_levels(items: Vec<Item>) -> Vec<Vec<Item>> {
                         levels.push(Vec::new());
                     }
                     if !part.is_empty() {
-                        levels.last_mut().unwrap().push(Item::Text(part.to_string()));
+                        levels
+                            .last_mut()
+                            .unwrap()
+                            .push(Item::Text(part.to_string()));
                     }
                 }
             }
@@ -253,7 +292,10 @@ fn build_level(items: Vec<Item>) -> Level {
                         continue;
                     }
                 }
-                fragments.push(Fragment { text, ..Default::default() });
+                fragments.push(Fragment {
+                    text,
+                    ..Default::default()
+                });
             }
             Item::Field { name, spec } => {
                 fragments.push(Fragment {
@@ -262,7 +304,12 @@ fn build_level(items: Vec<Item>) -> Level {
                     ..Default::default()
                 });
             }
-            Item::Optional { prefix, name, spec, suffix } => {
+            Item::Optional {
+                prefix,
+                name,
+                spec,
+                suffix,
+            } => {
                 fragments.push(Fragment {
                     variable: Some(name),
                     spec,

@@ -56,7 +56,11 @@ impl ScreenRect {
 /// 4. the title bar `(x, y, width, 40)` must intersect some screen's work
 ///    area
 pub fn saved_state(cfg: &ConfigStore, screens: &[ScreenRect]) -> Option<WindowState> {
-    if !cfg.get("Behavior", "remember_window_state").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if !cfg
+        .get("Behavior", "remember_window_state")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         return None;
     }
     let state = cfg.get("Behavior", "window_state")?.as_object()?;
@@ -84,7 +88,10 @@ pub fn saved_state(cfg: &ConfigStore, screens: &[ScreenRect]) -> Option<WindowSt
         y,
         width,
         height,
-        maximized: state.get("maximized").and_then(|v| v.as_bool()).unwrap_or(false),
+        maximized: state
+            .get("maximized")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
     })
 }
 
@@ -99,13 +106,21 @@ pub fn save_state(
     geometry: WindowState,
     normal_geometry: Option<WindowState>,
 ) {
-    if !cfg.get("Behavior", "remember_window_state").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if !cfg
+        .get("Behavior", "remember_window_state")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         return;
     }
     if !shown {
         return;
     }
-    let rect = if geometry.maximized { normal_geometry.unwrap_or(geometry) } else { geometry };
+    let rect = if geometry.maximized {
+        normal_geometry.unwrap_or(geometry)
+    } else {
+        geometry
+    };
     if rect.width <= 0 || rect.height <= 0 {
         return;
     }

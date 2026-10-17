@@ -13,7 +13,11 @@
 //! interface kept in the widget (search matches + cursor, category label,
 //! pagination flags), and rebuilds display rows on mutation.
 
-use parsers::tree::{CheckState, Number, TreeItem as EpisodeItem};
+use parsers::playurl::detect_media_type;
+use parsers::preview::{
+    audio_quality_choice_data, video_codec_choice_data, video_quality_choice_data, PreviewInfo,
+};
+use parsers::tree::{Attribute, CheckState, Number, TreeItem as EpisodeItem};
 use parsers::view::ParseListView;
 use serde_json::Value;
 
@@ -58,7 +62,6 @@ pub fn row_label(item: &EpisodeItem) -> String {
 /// (inclusive ranges, comma-separated). `None` on any malformed token
 /// (Python's dialog validates before accept; here the caller checks
 /// [`parse_ranges`] first and toasts).
-#[allow(dead_code)] // BatchSelectDialog (ticket 25) calls this
 pub fn parse_ranges(input: &str) -> Option<Vec<i64>> {
     let mut out = Vec::new();
     for part in input.split(',').map(str::trim).filter(|s| !s.is_empty()) {
@@ -77,12 +80,6 @@ pub fn parse_ranges(input: &str) -> Option<Vec<i64>> {
         return None;
     }
     Some(out)
-}
-
-/// True when the whole input parses to at least one number.
-#[allow(dead_code)] // BatchSelectDialog (ticket 25) calls this
-pub fn parse_ranges_ok(input: &str) -> bool {
-    parse_ranges(input).is_some()
 }
 
 /// The view model over the parse list. Wraps `ParseListView` (the port of
@@ -180,7 +177,10 @@ impl ParseViewModel {
     pub fn count_label(&self) -> String {
         let (checked, total) = self.counts();
         if checked > 0 {
-            format!("{} ({} selected, {} total)", self.category_name, checked, total)
+            format!(
+                "{} ({} selected, {} total)",
+                self.category_name, checked, total
+            )
         } else {
             format!("{} ({} total)", self.category_name, total)
         }
@@ -230,6 +230,52 @@ impl ParseViewModel {
         out
     }
 
+    /// `PreviewInfo` for the dialog: episode identity + choice data derived
+    /// from the primary preview candidate (the previewer's async query
+    /// results fill `video_info`/`audio_info` later; the dialog starts on
+    /// the "auto-selected" descriptions).
+    pub fn preview_info(&self) -> PreviewInfo {
+        let candidates = self.preview_candidates(1);
+        let dict = candidates
+            .first()
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
+        let attribute = dict.get("attribute").and_then(Value::as_i64).unwrap_or(0) as u32;
+        let info_data = dict
+            .get("info_data")
+            .cloned()
+            .unwrap_or(serde_json::json!(null));
+        let media_type = detect_media_type(&info_data);
+        let quality_ids: Vec<i64> = dict
+            .get("quality_ids")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_i64).collect())
+            .unwrap_or_default();
+        let audio_ids: Vec<i64> = dict
+            .get("audio_quality_ids")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_i64).collect())
+            .unwrap_or_default();
+        PreviewInfo {
+            episode_title: dict
+                .get("title")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            episode_number: dict
+                .get("episode_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            attribute: Attribute(attribute),
+            media_type,
+            video_quality_choices: video_quality_choice_data(&quality_ids),
+            audio_quality_choices: audio_quality_choice_data(&audio_ids),
+            video_codec_choices: video_codec_choice_data(),
+            ..PreviewInfo::new()
+        }
+    }
+
     /// In-page search: store the keyword, refresh matches as row indexes,
     /// reset the cursor to the first match. Returns the match count.
     pub fn search(&mut self, keyword: Option<&str>) -> usize {
@@ -247,7 +293,11 @@ impl ParseViewModel {
             .filter(|(_, row)| matched.iter().any(|id| id == &row.id))
             .map(|(ix, _)| ix)
             .collect();
-        self.match_cursor = if self.matches.is_empty() { None } else { Some(0) };
+        self.match_cursor = if self.matches.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
         self.matches.len()
     }
 
@@ -312,8 +362,7 @@ impl ParseViewModel {
     /// `parsers::TreeItem`, which has no such field; the set drives the
     /// gray-out rendering.
     pub fn checked_dicts_mark_downloaded(&mut self) -> Vec<Value> {
-        let items: Vec<EpisodeItem> =
-            self.list.get_checked_items().into_iter().cloned().collect();
+        let items: Vec<EpisodeItem> = self.list.get_checked_items().into_iter().cloned().collect();
         for item in &items {
             if !item.bvid.is_empty() {
                 self.downloaded.insert(item.bvid.clone());
@@ -475,15 +524,12 @@ mod tests {
         assert_eq!(parse_ranges("x"), None);
         assert_eq!(parse_ranges("5-2"), None, "反向区间必须整体拒绝");
         assert_eq!(parse_ranges("1,x,3"), None, "一个坏 token 毁掉整个输入");
-        assert!(!parse_ranges_ok("3-"));
+        assert!(!parse_ranges("3-").is_some());
     }
 
     #[test]
     fn count_label_formats_selected_and_plain() {
-        let mut m = model_with(vec![
-            item("BV1", 1, "a", ""),
-            item("BV2", 2, "b", ""),
-        ]);
+        let mut m = model_with(vec![item("BV1", 1, "a", ""), item("BV2", 2, "b", "")]);
         m.category_name = "Favorites".into();
         assert_eq!(m.count_label(), "Favorites (2 total)");
         m.batch_select(&[2]);
@@ -498,7 +544,12 @@ mod tests {
             item("BV3", 3, "c", ""),
         ]);
         m.batch_select(&[1, 3]);
-        let checked: Vec<String> = m.list.get_checked_items().iter().map(|i| i.bvid.clone()).collect();
+        let checked: Vec<String> = m
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|i| i.bvid.clone())
+            .collect();
         assert_eq!(checked, ["BV1", "BV3"]);
     }
 
@@ -544,7 +595,12 @@ mod tests {
         ]);
         m.search(Some("ep"));
         m.check_matches();
-        let checked: Vec<String> = m.list.get_checked_items().iter().map(|i| i.bvid.clone()).collect();
+        let checked: Vec<String> = m
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|i| i.bvid.clone())
+            .collect();
         assert_eq!(checked, ["BV1"]);
     }
 
@@ -576,10 +632,17 @@ mod tests {
         let mut m = model_with(vec![item("BV1", 1, "a", "")]);
         m.category_key = "USER_UPLOADS".into();
         m.apply_auto_select(&cfg_with(2, 1, 0, 0));
-        assert_eq!(m.list.get_checked_items().len(), 1, "user_uploads 条件开启 → 全选");
+        assert_eq!(
+            m.list.get_checked_items().len(),
+            1,
+            "user_uploads 条件开启 → 全选"
+        );
         let mut m = model_with(vec![item("BV1", 1, "a", "")]);
         m.apply_auto_select(&cfg_with(2, 0, 0, 0));
-        assert!(m.list.get_checked_items().is_empty(), "user_uploads 条件关闭 → 不加选");
+        assert!(
+            m.list.get_checked_items().is_empty(),
+            "user_uploads 条件关闭 → 不加选"
+        );
 
         let mut m = model_with(vec![item("BV1", 1, "a", "")]);
         m.category_key = "FIV".into();
@@ -600,10 +663,18 @@ mod tests {
         m.list.update_tree(root, None).unwrap();
         m.check_main_episodes_node();
         let node = &m.list.root().children[0].children[0];
-        assert_eq!(node.checked, CheckState::Checked, "勾的正是 main-episodes 节点");
+        assert_eq!(
+            node.checked,
+            CheckState::Checked,
+            "勾的正是 main-episodes 节点"
+        );
         // set_checked_state 向下传播：正片节点下的条目全选
-        let checked: Vec<String> =
-            m.list.get_checked_items().iter().map(|i| i.bvid.clone()).collect();
+        let checked: Vec<String> = m
+            .list
+            .get_checked_items()
+            .iter()
+            .map(|i| i.bvid.clone())
+            .collect();
         assert_eq!(checked, ["BV_main"]);
     }
 

@@ -37,19 +37,28 @@ fn unsupported() {
 
 #[test]
 fn extract_percent_decoding() {
-    assert_eq!(extract_keyword(&format!("{SPACE}?keyword=%E6%B5%8B%E8%AF%95")).as_deref(), Some("测试"));
+    assert_eq!(
+        extract_keyword(&format!("{SPACE}?keyword=%E6%B5%8B%E8%AF%95")).as_deref(),
+        Some("测试")
+    );
 }
 
 #[test]
 fn extract_uses_type_specific_param() {
-    assert_eq!(extract_keyword(&format!("{WATCH_LATER}?key=abc")).as_deref(), Some("abc"));
+    assert_eq!(
+        extract_keyword(&format!("{WATCH_LATER}?key=abc")).as_deref(),
+        Some("abc")
+    );
     // 参数名不匹配时不应误读 wrong param name must not be misread
     assert_eq!(extract_keyword(&format!("{WATCH_LATER}?keyword=abc")), None);
 }
 
 #[test]
 fn extract_strips_whitespace() {
-    assert_eq!(extract_keyword(&format!("{SPACE}?keyword=%20abc%20")).as_deref(), Some("abc"));
+    assert_eq!(
+        extract_keyword(&format!("{SPACE}?keyword=%20abc%20")).as_deref(),
+        Some("abc")
+    );
 }
 
 #[test]
@@ -60,12 +69,18 @@ fn extract_absent_and_unsupported() {
 
 #[test]
 fn build_write() {
-    assert_eq!(extract_keyword(&build_search_url(SPACE, "测试")).as_deref(), Some("测试"));
+    assert_eq!(
+        extract_keyword(&build_search_url(SPACE, "测试")).as_deref(),
+        Some("测试")
+    );
 }
 
 #[test]
 fn build_overwrite() {
-    assert_eq!(extract_keyword(&build_search_url(&format!("{SPACE}?keyword=old"), "new")).as_deref(), Some("new"));
+    assert_eq!(
+        extract_keyword(&build_search_url(&format!("{SPACE}?keyword=old"), "new")).as_deref(),
+        Some("new")
+    );
 }
 
 #[test]
@@ -92,6 +107,10 @@ fn build_roundtrip() {
     // 关键词里可能出现任何字符，写入再读出必须完全一致，
     // 否则翻页会带着被破坏的关键词去请求接口
     for keyword in ["测试", "a b", "a&b=c", "100%", "a/b"] {
-        assert_eq!(extract_keyword(&build_search_url(SPACE, keyword)).as_deref(), Some(keyword), "roundtrip {keyword}");
+        assert_eq!(
+            extract_keyword(&build_search_url(SPACE, keyword)).as_deref(),
+            Some(keyword),
+            "roundtrip {keyword}"
+        );
     }
 }

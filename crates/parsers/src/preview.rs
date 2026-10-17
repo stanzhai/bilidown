@@ -14,11 +14,11 @@ use serde_json::{json, Value};
 use std::future::Future;
 
 use crate::playurl::{
-    available_codecs, audio_quality_label, build_available_streams, check_drm,
-    extract_stream_urls, fetch_video_streams, merge_video_streams, parse_declared_quality_map,
-    probe_file_size, query_mp4_info, resolve_codec, resolve_quality, sort_audio_ids_preview,
-    video_quality_label, warn_codec_fallback, AvailableStreams, CodecFallbackWarning, FetchedMedia,
-    MediaType, PlayurlApis, PlayurlError, AUDIO_QUALITY_AUTO, CODEC_AUTO, QUALITY_AUTO,
+    audio_quality_label, available_codecs, build_available_streams, check_drm, extract_stream_urls,
+    fetch_video_streams, merge_video_streams, parse_declared_quality_map, probe_file_size,
+    query_mp4_info, resolve_codec, resolve_quality, sort_audio_ids_preview, video_quality_label,
+    warn_codec_fallback, AvailableStreams, CodecFallbackWarning, FetchedMedia, MediaType,
+    PlayurlApis, PlayurlError, AUDIO_QUALITY_AUTO, CODEC_AUTO, QUALITY_AUTO,
 };
 use crate::tree::Attribute;
 
@@ -53,17 +53,22 @@ pub fn audio_quality_choice_data(quality_ids: &[i64]) -> ChoiceData {
 }
 
 pub fn video_codec_choice_data() -> ChoiceData {
-    [("auto", CODEC_AUTO), ("AVC/H.264", 7), ("HEVC/H.265", 12), ("AV1", 13)]
-        .into_iter()
-        .map(|(l, id)| (l.to_string(), id))
-        .collect()
+    [
+        ("auto", CODEC_AUTO),
+        ("AVC/H.264", 7),
+        ("HEVC/H.265", 12),
+        ("AV1", 13),
+    ]
+    .into_iter()
+    .map(|(l, id)| (l.to_string(), id))
+    .collect()
 }
 
 // ---------------------------------------------------------------------------
 // Preview state
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PreviewInfo {
     pub episode_title: String,
     pub episode_number: String,
@@ -85,7 +90,10 @@ pub struct PreviewInfo {
 
 impl PreviewInfo {
     pub fn new() -> Self {
-        Self { error_occurred: true, ..Default::default() }
+        Self {
+            error_occurred: true,
+            ..Default::default()
+        }
     }
 }
 
@@ -191,7 +199,11 @@ impl Preview {
     /// `post_process` + `parse_info`: media type detection, DRM guard,
     /// available lists and choice data.
     pub fn adopt(&mut self, fetched: FetchedMedia) -> Result<(), PlayurlError> {
-        let FetchedMedia { parser_type, media_type, info_data } = fetched;
+        let FetchedMedia {
+            parser_type,
+            media_type,
+            info_data,
+        } = fetched;
         check_drm(&info_data)?;
         self.declared = if parser_type == "video" {
             parse_declared_quality_map(&info_data)
@@ -242,8 +254,7 @@ impl Preview {
             &self.priorities.video_quality,
         )
         .as_ref()
-        .filter(|_| !self.streams.quality_ids.is_empty())
-        else {
+        .filter(|_| !self.streams.quality_ids.is_empty()) else {
             return Ok(None);
         };
         let codecs = available_codecs(&self.streams, self.declared.as_deref(), quality);
@@ -274,8 +285,10 @@ impl Preview {
             // Supplement (worker.py supplement_video_stream): fetch the qn,
             // prefer the requested codec, else first entry at that quality.
             let list = fetch_video_streams(client, apis, &self.bvid, self.cid, quality).await;
-            let matched: Vec<&Value> =
-                list.iter().filter(|e| e.get("id").and_then(Value::as_i64) == Some(quality)).collect();
+            let matched: Vec<&Value> = list
+                .iter()
+                .filter(|e| e.get("id").and_then(Value::as_i64) == Some(quality))
+                .collect();
             let Some(picked) = matched
                 .iter()
                 .find(|e| e.get("codecid").and_then(Value::as_i64) == Some(codec))
@@ -298,8 +311,13 @@ impl Preview {
                 .await
                 .unwrap_or(0)
         } else {
-            let (size, timelength) =
-                query_mp4_info(client, &self.info.parser_type, &self.info.info_data, quality).await?;
+            let (size, timelength) = query_mp4_info(
+                client,
+                &self.info.parser_type,
+                &self.info.info_data,
+                quality,
+            )
+            .await?;
             if let Some(obj) = node.as_object_mut() {
                 obj.insert("timelength".into(), json!(timelength));
             }
@@ -323,10 +341,7 @@ impl Preview {
     }
 
     /// `query_info` for audio: 30300 (auto) resolves by priority, like Python.
-    pub fn query_audio(
-        &mut self,
-        requested_quality: i64,
-    ) -> Option<AudioQueryInfo> {
+    pub fn query_audio(&mut self, requested_quality: i64) -> Option<AudioQueryInfo> {
         let id = if requested_quality == AUDIO_QUALITY_AUTO {
             self.priorities
                 .audio_quality
@@ -341,10 +356,7 @@ impl Preview {
         if let Some(cached) = self.cache.audio.get(&id) {
             return Some(cached.clone());
         }
-        let file_size = node
-            .get("size")
-            .and_then(Value::as_u64)
-            .unwrap_or_default();
+        let file_size = node.get("size").and_then(Value::as_u64).unwrap_or_default();
         let info = AudioQueryInfo {
             quality_id: id,
             file_size,
@@ -372,5 +384,33 @@ impl Preview {
     pub fn audio_ids(&self) -> &[i64] {
         &self.streams.audio_ids
     }
-}
 
+    /// The stream node backing one `(quality, codec)` video selection.
+    /// Ticket 31's download pipeline reads it to resolve the download URL.
+    pub fn video_node(&self, quality: i64, codec: i64) -> Value {
+        self.streams
+            .video_map
+            .get(&quality)
+            .and_then(|entries| entries.iter().find(|(c, _)| *c == codec))
+            .map(|(_, v)| v.clone())
+            .unwrap_or(Value::Null)
+    }
+
+    /// The stream node backing one audio selection.
+    pub fn audio_node(&self, quality: i64) -> Value {
+        self.streams
+            .audio_map
+            .get(&quality)
+            .cloned()
+            .unwrap_or(Value::Null)
+    }
+
+    /// The MP4/FLV `durl` parts of the selected quality (index order).
+    pub fn durl_parts(&self, quality: i64) -> Vec<Value> {
+        self.video_node(quality, 7)
+            .get("url_entry_list")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    }
+}

@@ -26,7 +26,10 @@ fn main() -> ExitCode {
         }
     }
 
-    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
         Ok(rt) => rt,
         Err(err) => {
             eprintln!("[bili23-mcp] failed to start runtime: {err}");

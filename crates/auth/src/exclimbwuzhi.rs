@@ -50,8 +50,7 @@ fn dumps_string(s: &str) -> String {
 }
 
 /// `https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi`.
-pub const EXCLIMBWUZHI_API: &str =
-    "https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi";
+pub const EXCLIMBWUZHI_API: &str = "https://api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi";
 
 /// `get_exclimbwuzhi_payload(user_agent, uuid)` — the full request body
 /// as a JSON string.
@@ -59,7 +58,10 @@ pub fn exclimbwuzhi_payload(user_agent: &str, uuid: &str, timestamp_ms: i64) -> 
     let mut inner = Map::new();
     inner.insert("3064".to_owned(), json!(1));
     inner.insert("5062".to_owned(), json!(timestamp_ms.to_string()));
-    inner.insert("03bf".to_owned(), json!("https%3A%2F%2Fwww.bilibili.com%2F"));
+    inner.insert(
+        "03bf".to_owned(),
+        json!("https%3A%2F%2Fwww.bilibili.com%2F"),
+    );
     inner.insert("39c8".to_owned(), json!("333.1007.fp.risk"));
     inner.insert("34f1".to_owned(), json!(""));
     inner.insert("d402".to_owned(), json!(""));
@@ -74,7 +76,10 @@ pub fn exclimbwuzhi_payload(user_agent: &str, uuid: &str, timestamp_ms: i64) -> 
     inner.insert("db46".to_owned(), json!(0));
 
     let mut outer = Map::new();
-    outer.insert("payload".to_owned(), Value::String(dumps_python(&Value::Object(inner))));
+    outer.insert(
+        "payload".to_owned(),
+        Value::String(dumps_python(&Value::Object(inner))),
+    );
     dumps_python(&Value::Object(outer))
 }
 
@@ -124,16 +129,31 @@ fn device_info(user_agent: &str) -> Value {
 
 fn pdf_viewers() -> Value {
     json!([
-        ["PDF Viewer", "Portable Document Format",
-            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]],
-        ["Chrome PDF Viewer", "Portable Document Format",
-            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]],
-        ["Chromium PDF Viewer", "Portable Document Format",
-            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]],
-        ["Microsoft Edge PDF Viewer", "Portable Document Format",
-            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]],
-        ["WebKit built-in PDF", "Portable Document Format",
-            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]],
+        [
+            "PDF Viewer",
+            "Portable Document Format",
+            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]
+        ],
+        [
+            "Chrome PDF Viewer",
+            "Portable Document Format",
+            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]
+        ],
+        [
+            "Chromium PDF Viewer",
+            "Portable Document Format",
+            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]
+        ],
+        [
+            "Microsoft Edge PDF Viewer",
+            "Portable Document Format",
+            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]
+        ],
+        [
+            "WebKit built-in PDF",
+            "Portable Document Format",
+            [["application/pdf", "pdf"], ["text/pdf", "pdf"]]
+        ],
     ])
 }
 
@@ -208,18 +228,53 @@ fn webgl_report() -> Value {
 
 fn fonts() -> Value {
     json!([
-        "Arial", "Arial Black", "Arial Narrow", "Book Antiqua",
-        "Bookman Old Style", "Calibri", "Cambria", "Cambria Math",
-        "Century", "Century Gothic", "Century Schoolbook", "Comic Sans MS",
-        "Consolas", "Courier", "Courier New", "Georgia", "Helvetica",
-        "Impact", "Lucida Bright", "Lucida Calligraphy", "Lucida Console",
-        "Lucida Fax", "Lucida Handwriting", "Lucida Sans",
-        "Lucida Sans Typewriter", "Lucida Sans Unicode",
-        "Microsoft Sans Serif", "Monotype Corsiva", "MS Gothic",
-        "MS PGothic", "MS Reference Sans Serif", "MS Sans Serif", "MS Serif",
-        "Palatino Linotype", "Segoe Print", "Segoe Script", "Segoe UI",
-        "Segoe UI Light", "Segoe UI Semibold", "Segoe UI Symbol", "Tahoma",
-        "Times", "Times New Roman", "Trebuchet MS", "Verdana", "Wingdings",
-        "Wingdings 2", "Wingdings 3",
+        "Arial",
+        "Arial Black",
+        "Arial Narrow",
+        "Book Antiqua",
+        "Bookman Old Style",
+        "Calibri",
+        "Cambria",
+        "Cambria Math",
+        "Century",
+        "Century Gothic",
+        "Century Schoolbook",
+        "Comic Sans MS",
+        "Consolas",
+        "Courier",
+        "Courier New",
+        "Georgia",
+        "Helvetica",
+        "Impact",
+        "Lucida Bright",
+        "Lucida Calligraphy",
+        "Lucida Console",
+        "Lucida Fax",
+        "Lucida Handwriting",
+        "Lucida Sans",
+        "Lucida Sans Typewriter",
+        "Lucida Sans Unicode",
+        "Microsoft Sans Serif",
+        "Monotype Corsiva",
+        "MS Gothic",
+        "MS PGothic",
+        "MS Reference Sans Serif",
+        "MS Sans Serif",
+        "MS Serif",
+        "Palatino Linotype",
+        "Segoe Print",
+        "Segoe Script",
+        "Segoe UI",
+        "Segoe UI Light",
+        "Segoe UI Semibold",
+        "Segoe UI Symbol",
+        "Tahoma",
+        "Times",
+        "Times New Roman",
+        "Trebuchet MS",
+        "Verdana",
+        "Wingdings",
+        "Wingdings 2",
+        "Wingdings 3",
     ])
 }

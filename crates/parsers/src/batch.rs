@@ -182,7 +182,10 @@ pub fn build_video_items(data: &Value) -> BatchPage {
     let bvid = data["bvid"].as_str().unwrap_or_default().to_owned();
     let aid = data["aid"].as_i64().unwrap_or(0);
     let cover = data["pic"].as_str().unwrap_or_default().to_owned();
-    let owner = data["owner"]["name"].as_str().unwrap_or_default().to_owned();
+    let owner = data["owner"]["name"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     let title = data["title"].as_str().unwrap_or_default().to_owned();
     let mut items: Vec<TreeItem> = Vec::new();
 
@@ -197,7 +200,10 @@ pub fn build_video_items(data: &Value) -> BatchPage {
             for episode in section["episodes"].as_array().cloned().unwrap_or_default() {
                 let ep_bvid = episode["bvid"].as_str().unwrap_or_default().to_owned();
                 let ep_aid = episode["aid"].as_i64().unwrap_or(0);
-                let ep_cover = episode["arc"]["pic"].as_str().unwrap_or_default().to_owned();
+                let ep_cover = episode["arc"]["pic"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned();
                 let ep_pubdate = episode["arc"]["pubdate"].as_i64().unwrap_or(0);
                 let ep_title = episode["title"].as_str().unwrap_or_default().to_owned();
                 let pages = episode["pages"].as_array().cloned().unwrap_or_default();
@@ -315,7 +321,6 @@ pub fn build_video_items(data: &Value) -> BatchPage {
     BatchPage { title, items }
 }
 
-
 /// The walk: parse every link and fold the results into one root
 /// (`DynamicParser.parse_url_list`). `on_progress` receives the running
 /// episode count after each link (the dialog's link counter). `interval`
@@ -330,10 +335,7 @@ pub async fn parse_batch<F>(
 where
     F: FnMut(usize, usize),
 {
-    let mut root = TreeItem::root(
-        Number::Text(VIDEO_CATEGORY.to_owned()),
-        "",
-    );
+    let mut root = TreeItem::root(Number::Text(VIDEO_CATEGORY.to_owned()), "");
     root.set_attribute(Attribute::TREE_NODE_BIT);
 
     let total = urls.len();

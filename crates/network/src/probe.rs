@@ -18,13 +18,11 @@
 
 use std::collections::HashSet;
 
-use futures::stream::{FuturesUnordered, StreamExt};
 use crate::cdn::{netloc, report_host_failure, report_host_success, CdnConfig};
 use crate::HttpClient;
+use futures::stream::{FuturesUnordered, StreamExt};
+use reqwest::header::{HeaderMap, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use reqwest::Method;
-use reqwest::header::{
-    HeaderMap, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE,
-};
 
 /// Probes in flight at once (`PROBE_CONCURRENCY`).
 pub const PROBE_CONCURRENCY: usize = 4;
@@ -70,7 +68,12 @@ fn extract_file_size(headers: &HeaderMap) -> u64 {
     }
 
     if let Some(range) = headers.get(CONTENT_RANGE).and_then(|v| v.to_str().ok()) {
-        if let Some(total) = range.rsplit('/').next().map(str::trim).and_then(|t| t.parse().ok()) {
+        if let Some(total) = range
+            .rsplit('/')
+            .next()
+            .map(str::trim)
+            .and_then(|t| t.parse().ok())
+        {
             return total;
         }
     }
@@ -104,9 +107,18 @@ enum ProbeAttempt {
 async fn probe_once(client: &reqwest::Client, url: &str, min_file_size: u64) -> ProbeOutcome {
     let attempt = head_probe(client, url, min_file_size).await;
     match attempt {
-        ProbeAttempt::Size(size) => ProbeOutcome { file_size: size, inconclusive: false },
-        ProbeAttempt::Inconclusive => ProbeOutcome { file_size: 0, inconclusive: true },
-        ProbeAttempt::Failed => ProbeOutcome { file_size: 0, inconclusive: false },
+        ProbeAttempt::Size(size) => ProbeOutcome {
+            file_size: size,
+            inconclusive: false,
+        },
+        ProbeAttempt::Inconclusive => ProbeOutcome {
+            file_size: 0,
+            inconclusive: true,
+        },
+        ProbeAttempt::Failed => ProbeOutcome {
+            file_size: 0,
+            inconclusive: false,
+        },
     }
 }
 
@@ -183,9 +195,8 @@ async fn probe_candidates(
     state: &parking_lot::Mutex<ProbeState>,
 ) -> Option<ResolvedUrl> {
     let mut index = 0;
-    let mut pending: FuturesUnordered<
-        tokio::task::JoinHandle<(usize, String, u64, bool)>,
-    > = FuturesUnordered::new();
+    let mut pending: FuturesUnordered<tokio::task::JoinHandle<(usize, String, u64, bool)>> =
+        FuturesUnordered::new();
 
     loop {
         while pending.len() < PROBE_CONCURRENCY && index < candidates.len() {
@@ -204,8 +215,12 @@ async fn probe_candidates(
             }));
         }
 
-        let Some(joined) = pending.next().await else { break };
-        let Ok((_position, url, file_size, inconclusive)) = joined else { continue };
+        let Some(joined) = pending.next().await else {
+            break;
+        };
+        let Ok((_position, url, file_size, inconclusive)) = joined else {
+            continue;
+        };
         let host = netloc(&url);
 
         {
@@ -261,8 +276,15 @@ pub async fn resolve_download_url(
     match result {
         Some(resolved) => Ok(resolved),
         None => {
-            let hosts = candidates.iter().map(|u| netloc(u)).collect::<HashSet<_>>().len();
-            Err(AllCandidatesFailed { total: candidates.len(), hosts })
+            let hosts = candidates
+                .iter()
+                .map(|u| netloc(u))
+                .collect::<HashSet<_>>()
+                .len();
+            Err(AllCandidatesFailed {
+                total: candidates.len(),
+                hosts,
+            })
         }
     }
 }

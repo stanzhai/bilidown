@@ -102,13 +102,24 @@ pub async fn get_subtitles_data_list(
         .unwrap_or_default();
 
     for entry in subtitles {
-        let language = entry.get("lan").and_then(Value::as_str).unwrap_or_default().to_owned();
+        let language = entry
+            .get("lan")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         if download_specified && !specified.iter().any(|s| s == &language) {
             continue;
         }
         // Protocol-relative URLs from the API become https.
-        let raw = entry.get("subtitle_url").and_then(Value::as_str).unwrap_or_default();
-        let url = if raw.starts_with("http") { raw.to_owned() } else { format!("https:{raw}") };
+        let raw = entry
+            .get("subtitle_url")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let url = if raw.starts_with("http") {
+            raw.to_owned()
+        } else {
+            format!("https:{raw}")
+        };
         let body = client.get(&url, &[]).await?;
         let data: Value = serde_json::from_str(&body)?;
         if crate::python_truthy(&data) {
@@ -168,7 +179,12 @@ pub fn to_txt(data: &Value) -> String {
     let mut lines = Vec::new();
     if let Some(body) = data.get("body").and_then(Value::as_array) {
         for item in body {
-            lines.push(item.get("content").and_then(Value::as_str).unwrap_or("").to_owned());
+            lines.push(
+                item.get("content")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned(),
+            );
         }
     }
     lines.join("\n").trim().to_owned()
@@ -195,7 +211,10 @@ pub async fn parse(
         .unwrap_or("ass")
         .to_owned();
     let style = SubtitleStyle::from_config(
-        &store.get("Additional", "subtitle_style").cloned().unwrap_or(Value::Null),
+        &store
+            .get("Additional", "subtitle_style")
+            .cloned()
+            .unwrap_or(Value::Null),
     );
 
     for entry in &list {
@@ -203,7 +222,10 @@ pub async fn parse(
             "srt" => (to_srt(&entry.data), "srt"),
             "lrc" => (to_lrc(&entry.data), "lrc"),
             "txt" => (to_txt(&entry.data), "txt"),
-            "ass" => (ass::generate(&entry.data, &task.Basic.show_title, &style), "ass"),
+            "ass" => (
+                ass::generate(&entry.data, &task.Basic.show_title, &style),
+                "ass",
+            ),
             _ => (to_json(&entry.data), "json"),
         };
         let name = task.File.name.clone();
@@ -236,8 +258,14 @@ fn check_embed_subtitle(
     }
     let mut track = serde_json::Map::new();
     track.insert("file".to_owned(), Value::String(file_name.to_owned()));
-    track.insert("title".to_owned(), Value::String(track_title(entry, labels)));
-    track.insert("language".to_owned(), Value::String(to_iso_639_2(&entry.language)));
+    track.insert(
+        "title".to_owned(),
+        Value::String(track_title(entry, labels)),
+    );
+    track.insert(
+        "language".to_owned(),
+        Value::String(to_iso_639_2(&entry.language)),
+    );
     track.insert("kind".to_owned(), Value::String("subtitle".to_owned()));
     task.File.subtitle_track_list.push(track);
 }

@@ -38,7 +38,11 @@ impl std::error::Error for ExpandError {}
 /// serves the short domain's own 200 page — the link is expired.
 pub async fn expand_b23(client: &Client, url: &str) -> Result<String, ExpandError> {
     let normalized = normalize_url(url)?;
-    let response = client.get(&normalized).send().await.map_err(|e| ExpandError::Request(e.to_string()))?;
+    let response = client
+        .get(&normalized)
+        .send()
+        .await
+        .map_err(|e| ExpandError::Request(e.to_string()))?;
     let final_url = response.url().to_string();
 
     if final_url == normalized {
@@ -69,7 +73,9 @@ pub async fn resolve_festival(client: &Client, url: &str) -> Result<String, Expa
         LazyLock::new(|| Regex::new(r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\})\s*;").unwrap());
     static BV: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#""bvid"\s*:\s*"([^"]+)""#).unwrap());
 
-    let Some(caps) = INITIAL_STATE.captures(&body) else { return Err(ExpandError::InvalidLink) };
+    let Some(caps) = INITIAL_STATE.captures(&body) else {
+        return Err(ExpandError::InvalidLink);
+    };
     // The non-greedy match may grab partial JSON; take the first bvid inside
     // the matched region instead of requiring full JSON decoding.
     let Some(bv) = BV.captures(&caps[1]).map(|c| c[1].to_owned()) else {

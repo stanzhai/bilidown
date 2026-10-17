@@ -12,9 +12,9 @@ license = "GPL-3.0"
 # GPUI's API, so both are pinned exactly (`=`, never `^`). Bump deliberately
 # in a dedicated task. (spec: Maturity acknowledgment)
 gpui-kit = "=0.7.3"
-anyhow = "1"
-parking_lot = "0.12"
-libc = "0.2"
+anyhow = "=1.0.104"
+parking_lot = "=0.12.5"
+libc = "=0.2.190"
 tray-icon = "=0.26.1"
 muda = "=0.21.2"
 interprocess = { version = "=2.4.6", features = ["tokio"] }

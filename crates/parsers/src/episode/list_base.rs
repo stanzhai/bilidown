@@ -70,6 +70,15 @@ pub fn unformat_episode_duration(text: &str) -> i64 {
     total
 }
 
+/// Shared JSON field readers: string key or "", integer key or 0.
+pub(crate) fn text(v: &Value, key: &str) -> String {
+    v[key].as_str().unwrap_or_default().to_owned()
+}
+
+pub(crate) fn int(v: &Value, key: &str) -> i64 {
+    v[key].as_i64().unwrap_or(0)
+}
+
 /// Result of one flat-list parse: the emitted node (pre-wrapper) plus the
 /// `(key, value)` locating info the parse list uses to find the linked
 /// entry.
@@ -108,8 +117,7 @@ pub fn wrap_node(node: TreeItem) -> (String, TreeItem) {
     let mut title = node.title.clone();
     if title.is_empty() && node.count() > 0 {
         let child = node.child(0);
-        if child.has_attribute(Attribute::VIDEO_BIT) || child.has_attribute(Attribute::AUDIO_BIT)
-        {
+        if child.has_attribute(Attribute::VIDEO_BIT) || child.has_attribute(Attribute::AUDIO_BIT) {
             title = child.title.clone();
         }
         if child.has_attribute(Attribute::HISTORY_BIT)
