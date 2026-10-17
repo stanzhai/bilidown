@@ -26,6 +26,8 @@ pub enum TrayAction {
     Show,
     /// Menu "Exit" — force-close path (no exit dialog).
     Exit,
+    /// Window-close dialog chose "minimize to tray" (not a tray pick).
+    ShowMinimize,
 }
 
 /// Map a menu id to its action; `None` for anything else.

@@ -141,6 +141,11 @@ pub fn run() -> anyhow::Result<()> {
             // --- tray ------------------------------------------------------
             let show_label = cat.tr("SystemTrayIcon", "Show main window").to_string();
             let exit_label = cat.tr("SystemTrayIcon", "Exit").to_string();
+            // The close-dialog callback needs a sender too (see Ask arm);
+            // leaked so the FnOnce callback (called after this scope ends)
+            // can still reach the pump.
+            let dialog_tx: &'static std::sync::mpsc::Sender<tray::TrayAction> =
+                Box::leak(Box::new(tray_tx.clone()));
             let mut _tray =
                 tray::spawn_tray(&show_label, &exit_label, APP_DISPLAY_NAME, tray_tx);
 
@@ -167,16 +172,17 @@ pub fn run() -> anyhow::Result<()> {
                 }));
             }
 
-            let window = gpui_kit::open_window(options, cx, |window, cx| {
+            let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
                 cx.new(|cx| Shell::new(window, cx))
             })
-            .expect("Failed to open window")
-            .0; // AnyWindowHandle — works for every later .update
+            .expect("Failed to open window");
 
             // --- close → exit dialog / minimize-to-tray ---------------------
+            // Ticket 22's `Shell::ask_exit` owns the dialog; it writes
+            // `Behavior.when_close_window` itself when "remember" is checked.
             window
                 .update(cx, |_, window, cx| {
-                    window.on_window_should_close(cx, |window, cx| {
+                    window.on_window_should_close(cx, move |window, cx| {
                         let when = cx
                             .try_global::<ConfigGlobal>()
                             .map(|g| when_close_value(&g.0.lock()))
@@ -192,8 +198,24 @@ pub fn run() -> anyhow::Result<()> {
                                 false
                             }
                             CloseDecision::Ask => {
-                                ask_then_close(window, cx);
-                                false // veto; the dialog closes later if needed
+                                // Ticket 22's dialog owns the exit UI; it
+                                // persists `Behavior.when_close_window`
+                                // itself when "remember" is checked. Its
+                                // callback has only `&mut App`, so the
+                                // exit/minimize work is deferred through
+                                // the tray pump (same code path as the
+                                // tray Exit item).
+                                shell.update(cx, |shell, cx| {
+                                    shell.ask_exit(window, cx, |exit, _remembered| {
+                                        let action = if exit {
+                                            tray::TrayAction::Exit
+                                        } else {
+                                            tray::TrayAction::ShowMinimize
+                                        };
+                                        let _ = dialog_tx.send(action);
+                                    });
+                                });
+                                false // veto; the dialog decides
                             }
                         }
                     });
@@ -242,6 +264,10 @@ async fn handle_tray_action(action: tray::TrayAction, window: AnyWindowHandle, c
             let _ = window.update(cx, |_, window, cx| persist_window_state(window, cx));
             cx.quit();
         }
+        tray::TrayAction::ShowMinimize => {
+            // Window-close dialog: cancel path = minimize to tray.
+            let _ = window.update(cx, |_, window, _| minimize_to_tray(window));
+        }
     });
 }
 
@@ -253,45 +279,6 @@ async fn handle_wake_event(ev: WakeEvent, window: AnyWindowHandle, cx: &AsyncApp
         // Python: probe only, never steals focus.
         WakeEvent::EnsureRunning => {}
     }
-}
-
-/// Exit dialog (port of `ExitDialog`): two answers; the remember-choice is
-/// the persisted `Behavior/when_close_window` value, editable in Settings.
-fn ask_then_close(window: &mut Window, cx: &mut App) {
-    let cat = active_catalog(cx);
-    let title = cat.tr("ExitDialog", "Choose an action").to_string();
-    let exit_label = cat.tr("ExitDialog", "Exit the program").to_string();
-    let minimize_label = cat.tr("ExitDialog", "Minimize to system tray").to_string();
-    let detail = cat.tr("ExitDialog", "Close the main window").to_string();
-
-    let rx = window.prompt(
-        PromptLevel::Info,
-        &title,
-        Some(&detail),
-        &[exit_label.as_str(), minimize_label.as_str()],
-        cx,
-    );
-    cx.spawn(async move |cx| {
-        let Ok(answer) = rx.await else { return };
-        let _ = cx.update(|cx| {
-            let Some(handle) = cx.windows().first().copied() else { return };
-            match answer {
-                0 => {
-                    // Exit: persist and close for real.
-                    let _ = handle.update(cx, |_, window, cx| {
-                        persist_window_state(window, cx);
-                        window.remove_window();
-                    });
-                    cx.quit();
-                }
-                _ => {
-                    // Minimize to tray: keep running.
-                    let _ = handle.update(cx, |_, window, _| minimize_to_tray(window));
-                }
-            }
-        });
-    })
-    .detach();
 }
 
 fn main() {
