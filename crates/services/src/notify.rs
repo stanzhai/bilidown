@@ -57,11 +57,14 @@ pub fn enabled(cfg: &ConfigStore) -> bool {
 /// active downloader finishes (`DownloaderManager.show_notification`):
 /// category INFO, title `TIP_MESSAGES("DOWNLOAD_COMPLETED")`, body
 /// `DOWNLOAD_COMPLETED_DETAIL`.
-pub fn download_completed() -> Notification {
+pub fn download_completed(lang: crate::i18n::ResolvedLanguage) -> Notification {
+    let c = crate::i18n::catalog(lang);
     Notification {
         category: ToastNotificationCategory::Info,
-        title: "Download completed".into(),
-        message: "All download tasks have been completed.".into(),
+        title: crate::i18n::tip_messages(c, "DOWNLOAD_COMPLETED")
+            .unwrap_or_else(|| "Download completed".into()),
+        message: crate::i18n::tip_messages(c, "DOWNLOAD_COMPLETED_DETAIL")
+            .unwrap_or_else(|| "All download tasks have been completed.".into()),
     }
 }
 
