@@ -62,26 +62,26 @@ Test names are `crate::file::name` abbreviated to file::name.
 | 33 | Duplicate detection by content hash | ✅ | database/tests/golden.rs hash_id_matches_python_algorithm; tasks/tests hash_from_episode_matches_database_calc, existing_hash_insert |
 | 34 | Duplicate dialog ask/skip/continue | ✅ | tasks/tests duplicate_ask_skip_and_continue, duplicate_resolution_*; app downloads/dialogs.rs persist_duplicate, open_duplicate_dialog |
 | 35 | Download list: cover/title/progress/speed/status, bulk, sort, filter | ✅ | app downloads/model.rs 14 tests (sorts_by_each_key, filter_matches_*, batch_actions_*, row_action_*); screen.rs pivot + QueryWorker-equivalent refresh; screen_state.rs sort prefs |
-| 36 | Clipboard monitoring + startup re-check | 🟡 | services/tests/clipboard.rs 8 (debounce, startup_recheck_uses_same_entry_point, options-dialog suppression) — service complete, **not wired into the app shell** (Finding F2) |
-| 37 | Parse history (last 100) | 🟡 | services/tests/history.rs record_gated_on_behavior_flag + database history_capped_at_100_and_dedupes_urls; parse/dispatch.rs records; **history dialog is a recorded `pending_dialog` seam never consumed** (Finding F3) |
+| 36 | Clipboard monitoring + startup re-check | ✅ | services/tests/clipboard.rs 8 (debounce, startup_recheck_uses_same_entry_point, options-dialog suppression); wired in Shell::new — ui/mod.rs polls via PolledClipboard + `check_clipboard_once` startup pass (e305c310) |
+| 37 | Parse history (last 100) | ✅ | services/tests/history.rs record_gated_on_behavior_flag + database history_capped_at_100_and_dedupes_urls; parse/dispatch.rs records; history button consumed — `open_history_dialog` (parse/screen.rs:669) from the toolbar |
 | 38 | System tray + window restore | 🟡 | ticket-26 branch (8be41009): app/src/tray.rs + 4 tests, icon asset. **In flight, merge pending** (peer T26TraySingle) |
-| 39 | OS notifications on completion | 🟡 | services/tests/notify.rs payload + gate; **no call site fires it on task completion** (Finding F4) |
+| 39 | OS notifications on completion | ✅ | services/tests/notify.rs payload + gate (now i18n-routed); bootstrap.rs download driver fires `should_notify`→`download_completed` when active count hits 0 — stderr notifier until a platform notifier lands (`ponytail:` at bootstrap.rs) |
 | 40 | Single instance focuses existing window | 🟡 | ticket-26 branch single_instance.rs: same GUID `B096F0C1-…` (matches src/main.py:350), lock-file staleness, socket wake + 7 tests incl. secondary_launch_wakes_primary_over_socket. In flight, merge pending |
-| 41 | Light/dark/auto + accent + scaling | ✅ | services/tests/theme.rs 6 (auto vs system, qfluentwidgets accent formats, scaling); settings screen accent row |
+| 41 | Light/dark/auto + accent + scaling | ✅ | services/tests/theme.rs 6 (auto vs system, qfluentwidgets accent formats, scaling); accent row removed from settings screen — Python uses a native QColorDialog gpui-kit lacks (review fix P2) |
 | 42 | zh_CN/zh_TW/en UI | ✅ | services/tests/i18n.rs catalog_covers_all_contexts_and_sources (973 entries/125 contexts, verbatim .ts); app settings i18n_bridge |
-| 43 | Window-state memory | ✅ | services/tests/window_state.rs 8 (min-size, title-bar-on-screen, maximized round-trip); 🟡 restore not called from app open path (Finding F5) |
+| 43 | Window-state memory | ✅ | services/tests/window_state.rs 8 (min-size, title-bar-on-screen, maximized round-trip); restore called from the app open path — main.rs `saved_state(cfg, &screens)` after first-frame displays (e305c310) |
 | 44 | Proxy (none/system/manual) + custom UA | ✅ | network/tests/proxy_env.rs, wire.rs manual_proxy_routes_*, sends_default_headers_and_configured_user_agent; settings screen proxy/UA rows |
 | 45 | Area auto-detection | ✅ | parsers/tests/area.rs mainland/hk/ovs with real bodies; network/src/cdn.rs real_mainland/hong_kong_response |
 | 46 | FFmpeg bundled/system/custom | ✅ | ffmpeg/tests/locate.rs 10 (bundle→PATH→custom fallback, MISSING_MESSAGE); runner.rs watchdog/exit/stdin/cwd |
 | 47 | Completed-file location + delete-after handling | ✅ | mux/tests/mux.rs kept_originals_*, prior_output_temp_counts_as_already_merged; config keys round-trip in settings/download-options |
 | 48 | Log viewer with filter | ✅ | services/tests/log.rs 5 (verbatim LOG_PATTERN, level/text filters); app downloads/log_view.rs refresh_parses_and_filters, clear_truncates_file |
 | 49 | Verhub update check + skip-version + prerelease | ✅ | services/tests/update.rs 8 wiremock; services/src/update.rs 10; app dialogs/update.rs gate_honors_skip_version_for_auto_checks, run_startup_check wired in Shell::new |
-| 50 | Teaching tips layer | 🟡 | services/tests/tips_terms.py-equivalent tips 5; **not driven by the app shell** (Finding F2, same wiring gap) |
-| 51 | Terms gate + privacy dialog | 🟡 | services terms::gate/accept + i18n terms_and_privacy_text; **no startup gate in app** (Finding F2) |
+| 50 | Teaching tips layer | ✅ | services/tests/tips_terms.py-equivalent tips 5; driven by the app shell — Shell::run_tip_pass runs after the terms gate resolves (ui/mod.rs, e305c310) |
+| 51 | Terms gate + privacy dialog | ✅ | services terms::gate/accept + i18n terms_and_privacy_text; startup gate in Shell::new — open_terms_gate on first frame, tips follow acceptance (ui/mod.rs, e305c310) |
 | 52 | About screen | ✅ | app dialogs/about.rs title_and_version_fill_placeholders, links_cover_the_five_actions, link_labels_translate |
 | 53 | Exit dialog (minimize vs exit, remember) | ✅ | app downloads/model.rs exit_choice_persists_only_when_remembered, apply_exit_choice; Shell::ask_exit seam for ticket-26 |
 | 54 | Reads Python data dir without migration | ✅ | config/tests/golden.rs old_python_config_upgrades_in_place_v2120/v2160; database/tests/golden.rs golden_task/thumbnail/history_db_read_python_rows, wal_mode_on_and_user_version_migration_ports |
-| 55 | Same screens (parse/downloads/settings/login/options/misc) | ✅ | app ui/{parse,downloads,settings,login,download_options,dialogs} ports of src/gui/interface + dialog trees; 🟡 8 settings `Configure…` rows are seams (Finding F6) |
+| 55 | Same screens (parse/downloads/settings/login/options/misc) | ✅ | app ui/{parse,downloads,settings,login,download_options,dialogs} ports of src/gui/interface + dialog trees; settings `Configure…` rows drained to their real dialogs (screen.rs pending_dialog match, e305c310); dead batch/auto-parse + accent rows removed (review P1/P2) |
 | 56 | Per-task download options (3 pages + preview) | ✅ | app download_options/tests.rs 9 (stream gating, preview_tags, filename_preview_matches_engine, commit_writes_config_and_naming_state); mod.rs 3-page pivot + preview bar |
 | 57 | Log viewer dialog | ✅ | downloads/dialogs.rs open_log_viewer; log_view.rs missing_file_records_error_not_panic |
 | 58 | Domain tests ported before modules | ✅ | auth/tests/vectors.rs (enc_wbi verbatim), urls, naming (117 ported), config migration 20, danmaku, extras time/units equivalents |
@@ -89,10 +89,10 @@ Test names are `crate::file::name` abbreviated to file::name.
 | 60 | Golden config.json + 3 SQLite schemas | ✅ | config/tests/golden.rs save_writes_python_identical_defaults; database/tests/fixtures/{task,thumbnail,history}.db + golden tests |
 | 61 | Three-platform CI green as release gate | 🟡 | .github/workflows/rust.yml matrix (win/mac/linux) build+clippy+test + packaging-checks job; local gate green. **No runs recorded on origin (Actions API total_count=0; repo private/unpushed)** — CI green cannot be evidenced from this worktree (Finding F7) |
 | 62 | Single-instance interop with Python | 🟡 | same mutex GUID + `pid:started` lock line + socket wake name (ticket-26 branch tests decision_matrix_matches_python_flow); in flight, merge pending |
-| 63 | MCP tools over HTTP JSON-RPC + stdio bridge | ✅ | mcp/tests/tools.rs parse_url_lists_episodes_and_reports_media_info, create_download_reports_missing_and_duplicate_paths; lifecycle.rs token gen/persist; protocol.rs 17; stdio.rs escape/dig; bin/mcp_stdio.rs. 🟡 app never calls `mcp::start` (Finding F8) |
+| 63 | MCP tools over HTTP JSON-RPC + stdio bridge | ✅ | mcp/tests/tools.rs parse_url_lists_episodes_and_reports_media_info, create_download_reports_missing_and_duplicate_paths; lifecycle.rs token gen/persist; protocol.rs 17; stdio.rs escape/dig; bin/mcp_stdio.rs; app starts the server from the shell — bootstrap::start_mcp_server wired in Shell::new (ui/mod.rs, e305c310) |
 | 64 | Native small self-contained executable | ✅ | packaging: rust-release.yml per-platform artifacts (win zip+Inno, mac dmg x86_64+aarch64, linux AppImage), packager stages bundle/ffmpeg; check_packaging.py 5 checks green; app identity test keeps v2.21.0 |
 
-**Score: 52 ✅ · 12 🟡 (of which 3 ride on ticket-26 merge, 5 share one app-shell wiring gap) · 0 🔴.**
+**Score: 58 ✅ · 6 🟡 (of which 3 ride on ticket-26 merge, 1 on CI evidence, 1 notification-payload, 1 tray/single-instance interop) · 0 🔴.**
 
 ### Automated seams per feature
 
