@@ -767,7 +767,7 @@ pub fn ensure_token(cfg: &mut config::ConfigStore) -> String {
 pub fn http_client_config(cfg: &config::ConfigStore, token: &str) -> Value {
     json!({
         "mcpServers": {
-            "bili23-downloader": {
+            "bilidown": {
                 "type": "http",
                 "url": format!("http://127.0.0.1:{}/mcp", get_int(cfg, "MCP", "mcp_port", 23330)),
                 "headers": {"Authorization": format!("Bearer {token}")},
@@ -1148,7 +1148,7 @@ mod tests {
         let t2 = ensure_token(&mut cfg);
         assert_eq!(t1, t2);
         let conf = http_client_config(&cfg, &t1);
-        assert_eq!(conf["mcpServers"]["bili23-downloader"]["type"], "http");
+        assert_eq!(conf["mcpServers"]["bilidown"]["type"], "http");
     }
 
     #[test]

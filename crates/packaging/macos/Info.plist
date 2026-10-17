@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>bili23-downloader</string>
+    <string>bilidown</string>
     <key>CFBundleIdentifier</key>
-    <string>com.scottsloan.bili23</string>
+    <string>cn.stanzhai.bilidown</string>
     <key>CFBundleName</key>
-    <string>Bili23 Downloader</string>
+    <string>bilidown</string>
     <key>CFBundleDisplayName</key>
-    <string>Bili23 Downloader</string>
+    <string>bilidown</string>
     <key>CFBundleIconFile</key>
     <string>app.icns</string>
     <key>CFBundleVersion</key>

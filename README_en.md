@@ -1,110 +1,93 @@
 <p align="center">
-    <a href="https://bili23.scott-sloan.cn" target="_blank">
-        <img src="https://bili23.scott-sloan.cn/logo.png" alt="Bili23 Downloader" style="width: 500px;"/>
-    </a>
+    <img src="assets/app.svg" alt="bilidown" width="120"/>
 </p>
 
-<h1 align="center">Bili23-Downloader</h1>
+<h1 align="center">bilidown</h1>
 
 <p align="center">
-    🌐&nbsp;&nbsp;<a href="README.md"><span>简体中文</span></a>&nbsp;&nbsp;<span><b>English</b></span>
+    A cross-platform video downloader for Bilibili (Rust rewrite)
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/github/v/release/ScottSloan/Bili23-Downloader?style=flat-square" alt="Release"/>
-    <img src="https://img.shields.io/github/license/ScottSloan/Bili23-Downloader?style=flat-square" alt="License"/>
-    <img src="https://img.shields.io/github/downloads/ScottSloan/Bili23-Downloader/total?style=flat-square" alt="Downloads"/>
-    <img src="https://img.shields.io/github/stars/ScottSloan/Bili23-Downloader?style=flat-square" alt="Stars"/>
-    <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/rust.yml?style=flat-square" alt="Build"/>
+    <img src="https://img.shields.io/github/v/release/stanzhai/bilidown?style=flat-square" alt="Release"/>
+    <img src="https://img.shields.io/github/license/stanzhai/bilidown?style=flat-square" alt="License"/>
+    <img src="https://img.shields.io/github/downloads/stanzhai/bilidown/total?style=flat-square" alt="Downloads"/>
+    <img src="https://img.shields.io/github/stars/stanzhai/bilidown?style=flat-square" alt="Stars"/>
+    <img src="https://img.shields.io/github/actions/workflow/status/stanzhai/bilidown/rust.yml?style=flat-square" alt="Build"/>
 </p>
 
-<div align="center">
-    <h3>
-        <a href="https://bili23.scott-sloan.cn/">Official Website</a>
-        <span> • </span>
-        <a href="https://bili23.scott-sloan.cn/doc/intro.html">Documentation</a>
-        <span> • </span>
-        <a href="#-download">Download</a>
-    </h3>
-</div>
+<p align="center">
+    <a href="https://github.com/stanzhai/bilidown/releases">Downloads</a> ·
+    <a href="README.md">简体中文</a>
+</p>
 
-<div align="center">
-    <strong>Open Source, Free, Cross-Platform Bilibili Video Downloader</strong><br>
-</div><br>
+## 📖 Introduction
 
-<p align="center"><img src="https://bili23.scott-sloan.cn/main_interface_en.png" alt="Program Screenshot" style="width: 80%;"></p>
+**bilidown** is a cross-platform desktop application for downloading videos from Bilibili. It is a community fork of [Bili23 Downloader](https://github.com/ScottSloan/Bili23-Downloader), rewritten from scratch in Rust with a [gpui-kit](https://github.com/longbridge/gpui-kit) native UI. All user data from the Python build (config, task database, download history) carries over seamlessly.
+
+Parse a shared link or video ID, then pick exactly which episodes, quality and extra content to save.
 
 ## ⚡ Features
 
-| Feature | Detailed Description |
+| Feature | Details |
 | :--- | :--- |
-| 🖥️ **Cross-Platform** | Fully compatible with **Windows** (including Win 7), **Linux**, and **macOS** desktop operating systems. |
-| 🎨 **Modern UI** | Based on Fluent Design, supports seamless light/dark theme switching and native High-DPI scaling. It also remembers the window position and size, restoring them on the next launch. | 
-| 🚀 **Multithreading & Acceleration**| Native integration of multi-threaded parallel downloading, breakpoint resuming, and automatic network error retries for extreme download speed, plus a global speed limit option. |
-| 🔗 **Multi-Type Parsing** | Fully supports: `Standard Videos`, `Bangumi`, `Movies`, `Courses`, `Interactive Videos`, `Audio (au/am)`, `User Space`, `Favorites`, `Weekly Must-Watch`, `Subscriptions`, `Watch Later`, `History`, etc. |
-| 🔍 **Batch & Search** | **Batch parsing** by pasting multiple standard video links at once; **keyword search** for User Space, Favorites, History, and Watch Later (filter the current page only, or search all pages); download items can also be **auto-selected** by preset conditions once parsing completes. |
-| ⚙️ **Media Customization**| **Video**: 8K, 4K, HDR, Dolby Vision <br>**Audio**: Hi-Res Lossless, Dolby Atmos <br>**Codec**: AVC, HEVC, AV1 <br>Preview exactly what will be downloaded before starting. |
-| 💬 **Danmaku & Subtitles** | **Danmaku**: `xml`, `ass`, `json` <br>**Subtitles**: `srt`, `lrc`, `txt`, `ass`, `json` <br>Customizable danmaku and subtitle styles, selectable subtitle languages, and `ass` danmaku/subtitles can be embedded into `mkv` containers. |
-| 🖼️ **Covers & Chapters**| Losslessly save covers (`jpg`, `png`, `avif`, `webp`), natively supports embedding posters directly into output video files (with an option to delete the original image afterwards), and can write video **chapter information**. |
-| 🧩 **NFO Metadata** | Automatically scrapes and generates local media metadata formats complying with standards of media centers like **Kodi**, **Jellyfin**, and **Emby**. |
-| 📁 **Classification & Naming** | Built-in powerful rule engine, with dedicated naming templates and multi-level directory classification modes for standard videos, bangumi, courses, interactive videos, favorites, user space, history, watch later, weekly must-watch, audio, and more. |
-| 📦 **Format Muxing**| Smart audio & video stream mixing/extraction, supports output format to `mp4` or `mkv` to fulfill broad device compatibility requirements. |
-| 🚫 **Duplicate Detection**| Download history is recorded automatically, so downloading the same content again raises a prompt and can be skipped outright, saving bandwidth and disk space. |
-| 🌐 **Network & Proxy** | Three proxy modes are available — **no proxy**, **system proxy**, and **manual configuration** — along with geolocation-based CDN node selection to improve download speed, and customizable User-Agent and Host. |
-| 📋 **Clipboard Monitoring** | Automatically detects Bilibili links copied to the clipboard and jumps straight into parsing and downloading after confirmation. |
-| 🌍 **i18n Support** | Built-in multi-language interface out of the box: Simplified Chinese, Traditional Chinese, and English. |
-| 🔒 **Secure Auth**| Supports quick and secure **QR Code Login**, **SMS Verification Login**, and **Cookie Login**. |
-| 📖 **Open Source & Free**| Released under the **GPL-3.0** License, fully open-source, no in-app purchases, no ads, embracing community contribution. |
+| 🖥️ **Cross-platform** | **Windows 10 1809+**, **Linux** (x64) and **macOS 12+**. |
+| 🎨 **Native UI** | GPU-rendered native interface built on [gpui-kit](https://github.com/longbridge/gpui-kit); light/dark themes, HiDPI-native, remembers window position and size across launches. |
+| 🚀 **Multi-threaded** | Parallel multi-threaded downloads, resume support, automatic retry on network errors, and a global speed limit. |
+| 🔗 **Rich link types** | Videos, bangumi, movies, courses, interactive videos, audio (au/am), user spaces, favourites, weekly picks, collections, watch progress, watch later and history. |
+| 🔍 **Batch & search** | Parse multiple video links at once; keyword search across spaces, favourites, watch later and history (current page or everything); auto-select items by preset rules after parsing. |
+| ⚙️ **A/V options** | **Video**: up to `8K`, `4K`, `HDR`, Dolby Vision <br>**Audio**: `Hi-Res`, Dolby Atmos <br>**Codec**: `AVC`, `HEVC`, `AV1`<br>Preview exactly what will be downloaded before starting. |
+| 💬 **Danmaku & subtitles** | **Danmaku**: `xml`, `ass`, `json`<br>**Subtitles**: `srt`, `lrc`, `txt`, `ass`, `json`<br>Custom styles, subtitle language selection, and `ass` embedding into `mkv`. |
+| 🖼️ **Covers & chapters** | Lossless covers (`jpg`, `png`, `avif`, `webp`), optional cover embedding into the final video (with original deletion), and chapter metadata. |
+| 🧩 **NFO metadata** | Scrapes and generates NFO metadata for **Kodi**, **Jellyfin**, **Emby** and other media centers. |
+| 📁 **Naming rules** | A rule engine with per-type naming templates and multi-level directory layouts for every supported link type. |
+| 📦 **Container muxing** | Smart stream extraction and muxing to `mp4` or `mkv`. |
+| 🚫 **Duplicate detection** | Download history warns about and can skip already-downloaded content. |
+| 🌐 **Network & proxy** | No proxy / system proxy / manual proxy, CDN selection by region, custom User-Agent and Host. |
+| 📋 **Clipboard watch** | Detects Bilibili links copied to the clipboard and offers to parse them. |
+| 🤖 **MCP server** | Built-in MCP (Model Context Protocol) server so AI clients can parse links, inspect episodes and create download tasks. |
+| 🌍 **i18n** | Simplified Chinese, Traditional Chinese and English out of the box. |
+| 🔒 **Secure login** | QR code, SMS verification code and cookie login. |
+| 📖 **Free & open source** | **GPL-3.0** licensed, no ads, no in-app purchases. |
 
-## 📥 Download
+## 📥 Downloads
 
-Two download methods are available. Choose the one that fits your situation best:
+- [**GitHub Releases**](https://github.com/stanzhai/bilidown/releases/latest) — Windows installer / portable, macOS dmg (Intel & Apple Silicon), Linux AppImage.
 
-- [**Go to GitHub Releases**](https://github.com/ScottSloan/Bili23-Downloader/releases/latest) - Recommended if GitHub is easily accessible for you, and you want the latest release.
-- [**Official Website Download (Recommended for users in China)**](https://bili23.scott-sloan.cn/doc/releases.html) - Recommended for users in China, usually faster and more stable to access.
+The Windows portable build and the AppImage bundle ffmpeg; the installer includes it too.
 
-## 🪧 Terms of Use
-This project is for personal learning and research purposes only. The downloaded content is **strictly for personal, non-commercial use, and any form of commercial use, public dissemination, or distribution is completely prohibited.**  
-This software operates solely based on the user's legal account access permissions and **will not bypass any paywalls or platform intellectual property protection measures.** Please do not use this software for batch scraping or any action that violates the target platform's terms of service.  
+## 🛠️ Building from source
 
-**Disclaimer**: Users must independently bear all risks associated with using this project (including but not limited to account bans, copyright disputes, etc.). The project developer assumes no responsibility for any direct or indirect legal disputes or damages caused by the use or inability to use this software.  
+```bash
+git clone https://github.com/stanzhai/bilidown.git
+cd bilidown
+cargo build --release -p app --manifest-path crates/Cargo.toml
+```
 
-By continuing to use this software, you indicate your full understanding and agreement to comply with all the above terms.
+Release artifacts are produced by `crates/packaging/src/bin/packager.py`; see `.github/workflows/rust-release.yml` for the full CI pipeline.
 
-## 🔑 Open Source License
-This project is released under the **GPLv3 License**.
+## 🪧 Terms of use
+This project is for personal study and research only. Downloaded content is **limited to personal, non-commercial use; commercial use, public redistribution or resale is strictly prohibited**.  
+The software operates only within the permissions of the user's own account and **does not bypass any paywall or platform DRM**. Do not use it for bulk scraping or anything that violates the platform's terms of service.  
 
-Wbi signature, specific APIs, and buvid3 generation parameters are inspired by [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect).
+**Disclaimer**: users assume all risk arising from the use of this project (including but not limited to account suspension and copyright disputes). The developers accept no liability for any direct or indirect damages caused by using or being unable to use this software.
 
-## 🛠️ Contributors
-New ideas and pull requests are always welcome!
+Continuing to use the software means you have read and accepted all of the above.
 
-<a href="https://github.com/ScottSloan/Bili23-Downloader/graphs/contributors" target="_blank">
-    <img src="https://contrib.rocks/image?repo=ScottSloan/Bili23-Downloader" alt="Contributors" style="width: 300px;"/>
+## 🌱 Fork origin
+
+This project is forked from [ScottSloan/Bili23-Downloader](https://github.com/ScottSloan/Bili23-Downloader) — full credit to the original project and its community. API documentation and signing implementations reference [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect).
+
+## 🔑 License
+Released under the **GPLv3 License**.
+
+wbi signing, several API endpoints and buvid3 generation reference [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)  
+
+## 🛠️ Contributing
+Issues and pull requests are welcome.
+
+<a href="https://github.com/stanzhai/bilidown/graphs/contributors" target="_blank">
+    <img src="https://contrib.rocks/image?repo=stanzhai/bilidown" alt="Contributors" style="width: 300px;"/>
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).
-
-## 🌟 Community
-Join our community to get the latest updates, Q&A, and technical discussions.
-
-- [QQ Group](https://qm.qq.com/q/KX3uJIFIYK)
-- [QQ Channel](https://pd.qq.com/s/8941to1p0)
-
-> When asking questions, please provide the **problem description** and **complete logs** so we can assist you better.
-
-## 💪 Support the Author
-
-This project is independently developed and maintained by [Scott Sloan](https://github.com/ScottSloan) in his spare time. The original intention is to provide everyone with a pure, ad-free, and efficient local Bilibili downloading tool.
-
-> **⭐️ Leave a Star**  
-> If this tool has saved your precious time, please consider giving it a **Star** in the top right corner of the project!  
-> Your support helps more people discover this project and is the greatest motivation for continuous updates.
-
-### ☕️ Buy the Author a Coffee
-
-Besides routine code maintenance, handling complex cross-platform environments and refactoring releases take a massive amount of time and energy. If the software has indeed helped you, you are welcome to buy the author a coffee via the sponsor QR code below. **This is the most practical recognition of open-source dedication!**
-
-<p align="center">
-    <img src="https://bili23.scott-sloan.cn/assets/sponsor_weixin.Bqpdl-if.png" alt="Sponsor QR Code" style="width: 300px; margin: 10px 0; border-radius: 8px;" />
-</p>

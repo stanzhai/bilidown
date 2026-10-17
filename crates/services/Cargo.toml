@@ -1,6 +1,6 @@
 [package]
 name = "services"
-description = "Bili23 Downloader app services: i18n, theme, logs, clipboard, notifications, window state, teaching tips, terms gate, history, Verhub update"
+description = "bilidown app services: i18n, theme, logs, clipboard, notifications, window state, teaching tips, terms gate, history, Verhub update"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

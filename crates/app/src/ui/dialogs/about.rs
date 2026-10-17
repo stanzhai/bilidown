@@ -10,34 +10,29 @@ pub struct AboutLink {
     pub url: &'static str,
 }
 
-pub const DOC_URL: &str = "https://bili23.scott-sloan.cn/doc/introduction.html";
-pub const GITHUB_URL: &str = "https://github.com/ScottSloan/Bili23-Downloader";
-pub const SPONSOR_URL: &str = "https://bili23.scott-sloan.cn/doc/about.html";
+pub const GITHUB_URL: &str = "https://github.com/stanzhai/bilidown";
 
-/// The footer links in Python's order: terms, privacy, documentation,
-/// github, sponsor (terms/privacy open the in-app pages; the urls are
-/// the doc-site fallbacks).
-pub fn links() -> [AboutLink; 5] {
+/// The footer links in Python's order minus the upstream sponsor link
+/// (upstream-specific; the fork collects no donations). Terms, privacy
+/// and documentation point at the repository, which replaces the
+/// upstream doc site.
+pub fn links() -> [AboutLink; 4] {
     [
         AboutLink {
             source: "Terms of Use",
-            url: DOC_URL,
+            url: GITHUB_URL,
         },
         AboutLink {
             source: "Privacy Policy",
-            url: DOC_URL,
+            url: GITHUB_URL,
         },
         AboutLink {
             source: "Documentation",
-            url: DOC_URL,
+            url: GITHUB_URL,
         },
         AboutLink {
             source: "Github",
             url: GITHUB_URL,
-        },
-        AboutLink {
-            source: "Sponsor",
-            url: SPONSOR_URL,
         },
     ]
 }
@@ -56,7 +51,7 @@ const CTX: &str = "AboutDialog";
 /// Localized "About {app_name}" title.
 pub fn title(c: &services::i18n::Catalog) -> String {
     c.tr(CTX, "About {app_name}")
-        .replace("{app_name}", "Bili23 Downloader")
+        .replace("{app_name}", "bilidown")
 }
 
 /// The localized body lines: version, license, copyright, sponsor
@@ -85,7 +80,7 @@ mod tests {
     #[test]
     fn title_and_version_fill_placeholders() {
         let c = catalog(ResolvedLanguage::ZhCn);
-        assert_eq!(title(c), "关于 Bili23 Downloader");
+        assert_eq!(title(c), "关于 bilidown");
         let body = body_lines(c);
         assert!(body[0].contains(crate::ui::dialogs::update::app_version()));
         assert!(body[2].contains("2022-"));
@@ -93,17 +88,15 @@ mod tests {
     }
 
     #[test]
-    fn links_cover_the_five_actions() {
+    fn links_cover_the_four_actions() {
         let ls = links();
-        assert_eq!(ls.len(), 5);
-        assert_eq!(ls[3].url, GITHUB_URL);
-        assert_eq!(ls[4].url, SPONSOR_URL);
+        assert_eq!(ls.len(), 4);
+        assert!(ls.iter().all(|l| l.url == GITHUB_URL));
     }
 
     #[test]
     fn link_labels_translate() {
         let c = catalog(ResolvedLanguage::ZhCn);
         assert_eq!(link_label(c, &links()[3]), "Github");
-        assert_eq!(link_label(c, &links()[4]), "赞助作者");
     }
 }

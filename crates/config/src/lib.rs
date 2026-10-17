@@ -1,5 +1,4 @@
-//! Bili23 Downloader 的配置存取：读写 Python 版写入的同一个 config.json，
-//! 迁移链与 Python 的 patch_config 逐步等价，首次运行静默升级旧配置。
+//! bilidown 的配置存取：读写 Python 版写入的同一个 config.json，
 //!
 //! 语义对齐 qfluentwidgets 的 QConfig：
 //! * 键序（保存格式）与默认值来自内置 defaults.json（由 Python 端真实保存路径
@@ -19,8 +18,12 @@ use serde_json::{Map, Value};
 /// 当前配置格式版本（与 Python 端 app_config_version 一致）。
 pub const APP_CONFIG_VERSION: i64 = 2200;
 
-/// 应用名，也是 User Data Directory 下的目录名。
-pub const APP_NAME: &str = "Bili23 Downloader";
+/// 应用名，也是 User Data Directory 下的目录名（旧名 "Bili23 Downloader"
+/// 的目录在定位时一次性改名迁移）。
+pub const APP_NAME: &str = "bilidown";
+
+/// Python 版（Bili23 Downloader）的数据目录名。
+const LEGACY_APP_NAME: &str = "Bili23 Downloader";
 
 /// `Advanced/user_agent` 缺省值（与 defaults.json / Python 端一致，Edge 变体）。
 pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0";
@@ -33,8 +36,17 @@ const DEFAULTS: &str = include_str!("defaults.json");
 const AKAMAI_HOST: &str = "upos-hz-mirrorakam.akamaized.net";
 
 /// Qt AppDataLocation 的无 Qt 等价（与 util/common/mcp/stdio_bridge.py 一致）。
+/// 目录从 "Bili23 Downloader" 改名为 bilidown 后，旧目录整体移动一次。
 fn default_config_dir() -> Option<PathBuf> {
-    dirs::data_dir().map(|d| d.join(APP_NAME))
+    let dir = dirs::data_dir().map(|d| d.join(APP_NAME))?;
+    if dir.is_dir() {
+        return Some(dir);
+    }
+    let legacy = dir.with_file_name(LEGACY_APP_NAME);
+    if legacy.is_dir() {
+        std::fs::rename(&legacy, &dir).ok();
+    }
+    Some(dir)
 }
 
 /// 配置存储：有序的 group -> item -> JSON 值，初值即默认值。
@@ -47,7 +59,7 @@ pub struct ConfigStore {
 }
 
 impl ConfigStore {
-    /// 生产构造：User Data Directory/Bili23 Downloader/config.json。
+    /// 生产构造：User Data Directory/bilidown/config.json。
     /// download_path 默认取系统下载目录（拿不到则退回家目录）。
     pub fn open() -> anyhow::Result<Self> {
         let dir = default_config_dir().context("无法定位 User Data Directory")?;

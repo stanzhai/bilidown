@@ -7,8 +7,8 @@ use urls::search::{build_search_url, extract_keyword, keyword_param, support_sea
 
 const SPACE: &str = "https://space.bilibili.com/123";
 const FAVLIST: &str = "https://space.bilibili.com/123/favlist";
-const WATCH_LATER: &str = "bili23://watch_later";
-const HISTORY: &str = "bili23://history";
+const WATCH_LATER: &str = "bilidown://watch_later";
+const HISTORY: &str = "bilidown://history";
 const VIDEO: &str = "https://www.bilibili.com/video/BV1xx411c7mD";
 const COLLECTION: &str = "https://www.bilibili.com/list/456";
 

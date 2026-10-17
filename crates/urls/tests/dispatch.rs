@@ -40,8 +40,8 @@ fn dispatch() {
             "list",
         ),
         // 程序内部使用的伪协议 internal pseudo-protocols
-        ("bili23://watch_later", "watch_later"),
-        ("bili23://history", "history"),
+        ("bilidown://watch_later", "watch_later"),
+        ("bilidown://history", "history"),
         // 裸 ID bare ids
         ("BV1xx411c7mD", "video"),
         ("av123", "video"),

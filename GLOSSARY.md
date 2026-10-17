@@ -1,4 +1,4 @@
-# Bili23 Downloader
+# bilidown
 
 Desktop downloader for Bilibili content (video, audio, danmaku, subtitles,
 covers, metadata). Single context: one app, one user-data directory.

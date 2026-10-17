@@ -16,7 +16,7 @@ use crate::protocol::{self, Dispatcher};
 pub const ENDPOINT_PATH: &str = "/mcp";
 pub const MAX_BODY_SIZE: usize = 1024 * 1024;
 
-const REALM: &str = r#"Bearer realm="Bili23 Downloader MCP""#;
+const REALM: &str = r#"Bearer realm="bilidown MCP""#;
 
 /// Everything the endpoint needs; built once by [`crate::start`].
 pub struct McpServer {
@@ -27,7 +27,7 @@ pub struct McpServer {
 fn plain_response(status: StatusCode, text: &str) -> Response {
     Response::builder()
         .status(status)
-        .header(header::SERVER, "Bili23-MCP")
+        .header(header::SERVER, "bilidown-mcp")
         .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
         .header(header::CONNECTION, "close")
         .body(Body::from(text.to_owned()))
@@ -37,7 +37,7 @@ fn plain_response(status: StatusCode, text: &str) -> Response {
 fn json_response(status: StatusCode, payload: Option<Value>) -> Response {
     let mut builder = Response::builder()
         .status(status)
-        .header(header::SERVER, "Bili23-MCP")
+        .header(header::SERVER, "bilidown-mcp")
         .header(header::CONNECTION, "close");
     let body = match payload {
         Some(value) => {
@@ -109,7 +109,7 @@ async fn handle(
     if !authorized {
         return Response::builder()
             .status(StatusCode::UNAUTHORIZED)
-            .header(header::SERVER, "Bili23-MCP")
+            .header(header::SERVER, "bilidown-mcp")
             .header(header::WWW_AUTHENTICATE, REALM)
             .header(header::CONNECTION, "close")
             .body(Body::empty())
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(
             headers.get(header::WWW_AUTHENTICATE).unwrap(),
-            r#"Bearer realm="Bili23 Downloader MCP""#
+            r#"Bearer realm="bilidown MCP""#
         );
 
         let (status, _, _) = post_json(&app, None, ping(), &[]).await;
@@ -428,6 +428,6 @@ mod tests {
         assert_eq!(status, StatusCode::ACCEPTED);
         assert!(value.is_none());
         assert_eq!(headers.get(header::CONNECTION).unwrap(), "close");
-        assert_eq!(headers.get(header::SERVER).unwrap(), "Bili23-MCP");
+        assert_eq!(headers.get(header::SERVER).unwrap(), "bilidown-mcp");
     }
 }

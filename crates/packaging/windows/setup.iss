@@ -7,10 +7,10 @@
 ; compiles get the defaults below.
 ;
 ; Exe is the self-contained Rust binary; no runtime/, no site-packages/.
-; Staged layout (relative to this script): .\Bili23-Downloader\ with
-; bili23-downloader.exe, bundle\ffmpeg.exe, LICENSE.
+; Staged layout (relative to this script): .\bilidown\ with
+; bilidown.exe, bundle\ffmpeg.exe, LICENSE.
 
-#define MyAppName "Bili23 Downloader"
+#define MyAppName "bilidown"
 #ifndef MyAppVersion
 #define MyAppVersion "2.21.0"
 #endif
@@ -18,8 +18,8 @@
 #define MyAppVersionName "2.21.0"
 #endif
 #define MyAppPublisher "Scott Sloan"
-#define MyAppURL "https://bili23.scott-sloan.cn"
-#define MyAppExeName "bili23-downloader.exe"
+#define MyAppURL "https://github.com/stanzhai/bilidown"
+#define MyAppExeName "bilidown.exe"
 
 [Setup]
 AppId={{B096F0C1-D105-4EF9-86E1-5E87DA884EA4}
@@ -38,7 +38,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 LicenseFile=.\LICENSE
 OutputDir=.\
-OutputBaseFilename=Bili23-Downloader_{#MyAppVersionName}_windows_x64
+OutputBaseFilename=bilidown_{#MyAppVersionName}_windows_x64
 SolidCompression=yes
 WizardStyle=modern dynamic
 ShowLanguageDialog=yes
@@ -53,20 +53,20 @@ Name: "zh_TW"; MessagesFile: "compiler:Languages\ChineseTraditional.isl"
 en_US.ConfirmUninstallOldVersion=An older version is already installed. Its installation folder will be deleted before setup can continue, so any files in that folder will also be removed. Please back up your files before installing. Delete it now?
 zh_CN.ConfirmUninstallOldVersion=检测到已安装的旧版本，安装程序将在继续前直接删除其安装目录，目录下的文件也会一并移除，请在安装前做好备份。是否现在删除旧版本的安装目录？
 zh_TW.ConfirmUninstallOldVersion=偵測到已安裝舊版本，安裝程式會在繼續前直接刪除其安裝目錄，目錄下的檔案也會一併移除，請在安裝前做好備份。是否現在刪除舊版本的安裝目錄？
-en_US.SetupAppRunningError=Setup has detected that Bili23 Downloader is currently running.%n%nPlease close all instances of it first.%nClick OK to retry, or Cancel to exit.
-zh_CN.SetupAppRunningError=安装程序发现 Bili23 Downloader 当前正在运行。%n%n请先关闭正在运行的程序，然后点击“确定”继续，或点击“取消”退出。
-zh_TW.SetupAppRunningError=安裝程式偵測到 Bili23 Downloader 目前正在執行。%n%n請先關閉正在執行的程式，然後按「確定」繼續，或按「取消」離開。
-en_US.UninstallAppRunningError=Uninstall has detected that Bili23 Downloader is currently running.%n%nPlease close all instances of it first.%nClick OK to retry, or Cancel to exit.
-zh_CN.UninstallAppRunningError=卸载程序发现 Bili23 Downloader 当前正在运行。请先关闭正在运行的程序，然后点击“确定”继续，或点击“取消”退出。
-zh_TW.UninstallAppRunningError=解除安裝偵測到 Bili23 Downloader 目前正在執行。請先關閉該程式後按「確定」繼續，或按「取消」離開。
+en_US.SetupAppRunningError=Setup has detected that bilidown is currently running.%n%nPlease close all instances of it first.%nClick OK to retry, or Cancel to exit.
+zh_CN.SetupAppRunningError=安装程序发现 bilidown 当前正在运行。%n%n请先关闭正在运行的程序，然后点击“确定”继续，或点击“取消”退出。
+zh_TW.SetupAppRunningError=安裝程式偵測到 bilidown 目前正在執行。%n%n請先關閉正在執行的程式，然後按「確定」繼續，或按「取消」離開。
+en_US.UninstallAppRunningError=Uninstall has detected that bilidown is currently running.%n%nPlease close all instances of it first.%nClick OK to retry, or Cancel to exit.
+zh_CN.UninstallAppRunningError=卸载程序发现 bilidown 当前正在运行。请先关闭正在运行的程序，然后点击“确定”继续，或点击“取消”退出。
+zh_TW.UninstallAppRunningError=解除安裝偵測到 bilidown 目前正在執行。請先關閉該程式後按「確定」繼續，或按「取消」離開。
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: ".\Bili23-Downloader\bili23-downloader.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".\Bili23-Downloader\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".\Bili23-Downloader\bundle\*"; DestDir: "{app}\bundle"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: ".\bilidown\bilidown.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: ".\bilidown\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: ".\bilidown\bundle\*"; DestDir: "{app}\bundle"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: {app}

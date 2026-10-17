@@ -251,7 +251,7 @@ def packager_manifest_matches_workflow_names():
     out = Path(tempfile.gettempdir()) / f"t29-packager-{mode}"
 
     shutil.rmtree(out, ignore_errors=True)
-    fake_bin = Path(tempfile.mkdtemp()) / "bili23-downloader"
+    fake_bin = Path(tempfile.mkdtemp()) / "bilidown"
     fake_bin.write_bytes(b"#!/bin/sh\nexit 0\n")
     fake_bin.chmod(0o755)
     fake_ffmpeg = fake_bin.parent / "ffmpeg"
@@ -277,7 +277,7 @@ def packager_manifest_matches_workflow_names():
     files = sorted(p.name for p in out.rglob("*") if p.is_file())
     # Without --isolate only the portable/zip layout is produced; the
     # staged tree must at minimum carry the runnable binary + ffmpeg.
-    assert any("bili23-downloader" in n for n in files), files
+    assert any("bilidown" in n for n in files), files
     assert any(n.startswith("ffmpeg") for n in files), files
 
 
@@ -287,8 +287,8 @@ def bundle_metadata_identity():
     plists = list(src)
     assert plists, "no Info.plist template under crates/packaging"
     text = plists[0].read_text(encoding="utf-8")
-    assert "com.scottsloan.bili23" in text, "CFBundleIdentifier must keep the app id"
-    assert "Bili23 Downloader" in text, "CFBundleName must keep the product name"
+    assert "cn.stanzhai.bilidown" in text, "CFBundleIdentifier must keep the app id"
+    assert "bilidown" in text, "CFBundleName must keep the product name"
     assert "__VERSION__" in text, "version placeholder must be injectable"
 
 
@@ -296,7 +296,7 @@ def bundle_metadata_identity():
 def inno_script_keeps_app_id_and_exes():
     text = (REPO / "crates" / "packaging" / "windows" / "setup.iss").read_text(encoding="utf-8")
     assert "B096F0C1-D105-4EF9-86E1-5E87DA884EA4" in text, "Inno AppId must be unchanged"
-    assert "MyAppExeName \"bili23-downloader.exe\"" in text
+    assert "MyAppExeName \"bilidown.exe\"" in text
     assert "bundle\\*" in text, "installer must ship bundle/ffmpeg"
 
 

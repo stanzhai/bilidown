@@ -703,7 +703,7 @@ async fn watch_later_requires_login() {
         &client,
         &server.uri(),
         &ctx,
-        "bili23://watch_later",
+        "bilidown://watch_later",
         &anonymous,
         1,
     )
@@ -732,7 +732,7 @@ async fn watch_later_uses_key_param_and_maps_bangumi() {
         &client,
         &server.uri(),
         &ctx,
-        "bili23://watch_later?key=%E6%B5%8B%E8%AF%95",
+        "bilidown://watch_later?key=%E6%B5%8B%E8%AF%95",
         &auth_state,
         1,
     )
@@ -793,7 +793,7 @@ async fn history_requires_login() {
         &client,
         &server.uri(),
         &ctx,
-        "bili23://history",
+        "bilidown://history",
         &auth::AuthState::default(),
         1,
     )
@@ -822,7 +822,7 @@ async fn history_maps_business_shapes_and_expired() {
         &client,
         &server.uri(),
         &ctx,
-        "bili23://history?keyword=%E6%B5%8B%E8%AF%95",
+        "bilidown://history?keyword=%E6%B5%8B%E8%AF%95",
         &auth_state,
         1,
     )

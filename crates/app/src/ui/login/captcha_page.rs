@@ -24,7 +24,7 @@ pub fn ensure_captcha_page() -> std::io::Result<String> {
 }
 
 fn captcha_page_path() -> std::io::Result<PathBuf> {
-    let dir = std::env::temp_dir().join("bili23");
+    let dir = std::env::temp_dir().join("bilidown");
     std::fs::create_dir_all(&dir)?;
     Ok(dir.join("captcha.html"))
 }
@@ -83,8 +83,8 @@ mod tests {
     #[test]
     fn file_uri_percent_encodes() {
         assert_eq!(
-            file_uri(std::path::Path::new("/tmp/bili23/captcha.html")),
-            "file:///tmp/bili23/captcha.html"
+            file_uri(std::path::Path::new("/tmp/bilidown/captcha.html")),
+            "file:///tmp/bilidown/captcha.html"
         );
         assert_eq!(
             file_uri(std::path::Path::new("/tmp/a b/c.html")),

@@ -111,8 +111,8 @@ jobs:
         with:
           name: rust-windows-artifacts
           path: |
-            dist/Bili23-Downloader_*_windows_x64_portable.zip
-            dist/Bili23-Downloader_*_windows_x64.exe
+            dist/bilidown_*_windows_x64_portable.zip
+            dist/bilidown_*_windows_x64.exe
 
   macos-build:
     needs: get-version
@@ -155,7 +155,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: rust-macos-${{ matrix.arch }}-artifacts
-          path: dist/Bili23-Downloader_*_macos_*.dmg
+          path: dist/bilidown_*_macos_*.dmg
 
   linux-build:
     needs: get-version
@@ -187,7 +187,7 @@ jobs:
         run: |
           # --no-net: local spec validation only; screenshot URLs stay
           # unrerenced so the build never depends on site reachability
-          appstreamcli validate --no-net assets/com.scottsloan.bili23.metainfo.xml
+          appstreamcli validate --no-net assets/cn.stanzhai.bilidown.metainfo.xml
 
       - name: Build release binary
         run: cargo build --release -p app --manifest-path crates/Cargo.toml
@@ -203,7 +203,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: rust-linux-artifacts
-          path: dist/Bili23-Downloader_*_linux_*.AppImage
+          path: dist/bilidown_*_linux_*.AppImage
 
   packaging-checks:
     needs: get-version

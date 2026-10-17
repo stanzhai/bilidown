@@ -240,9 +240,8 @@ impl Shell {
                 // The dialog itself is the doc link; the shell has no
                 // browser abstraction, so mark-and-continue keeps the
                 // once-flag behavior identical.
-                self.status_note = Some(
-                    "Welcome! See https://bili23.scott-sloan.cn/doc/introduction.html".to_owned(),
-                );
+                self.status_note =
+                    Some("Welcome! See https://github.com/stanzhai/bilidown".to_owned());
             }
             services::tips::PendingTip::SelectAreaDialog => {
                 services::tips::mark_area_dialog_shown(&mut cfg);
@@ -328,7 +327,7 @@ impl Shell {
     }
 }
 
-/// 任务数据库路径：User Data/Bili23 Downloader/task.db（Python appdata 推导）。
+/// 任务数据库路径：User Data/bilidown/task.db（Python appdata 推导）。
 fn task_db_path() -> Option<std::path::PathBuf> {
     dirs::data_dir().map(|d| d.join(config::APP_NAME).join("task.db"))
 }

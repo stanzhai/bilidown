@@ -9,7 +9,7 @@ pub use ui::{Screen, Shell};
 
 /// Product identity line used by the About surface and smoke checks.
 pub fn version_line() -> String {
-    format!("Bili23 Downloader v{}", env!("CARGO_PKG_VERSION"))
+    format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
 }
 
 /// Saved window bounds (F2): `Behavior/window_state` when
@@ -81,11 +81,10 @@ fn main() {
 mod tests {
     #[test]
     fn version_line_reports_app_identity() {
-        // Product identity unchanged (spec): same name, continues the
-        // v2.21.0 version line.
+        // Product renamed bilidown; version line continues the v2.21.0 line.
         assert_eq!(
             crate::version_line(),
-            format!("Bili23 Downloader v{}", env!("CARGO_PKG_VERSION"))
+            format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
         );
     }
 }

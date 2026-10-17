@@ -5,9 +5,9 @@
   releases 段的版本号与发布日期由 .github/workflows/publish.yml 在构建时替换。
 -->
 <component type="desktop-application">
-  <id>com.scottsloan.bili23</id>
+  <id>cn.stanzhai.bilidown</id>
 
-  <name>Bili23 Downloader</name>
+  <name>bilidown</name>
   <summary>A cross-platform video downloader for Bilibili</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -15,13 +15,14 @@
 
   <!-- 用 developer_name 而非 AppStream 1.0 的 developer 元素：前者新旧版本都能解析，
        后者在 0.15.x 的发行版上会被当作未知标签直接忽略，开发者名字会丢失 -->
-  <developer_name>Scott Sloan</developer_name>
+  <developer_name>stanzhai</developer_name>
 
   <description>
     <p>
-      Bili23 Downloader is a cross-platform desktop application for downloading videos
-      from Bilibili. It parses a shared link or ID and lets you pick exactly which
-      episodes, quality and extra content to save.
+      bilidown is a cross-platform desktop application for downloading videos
+      from Bilibili. It parses a shared link or ID and lets you pick exactly
+      which episodes, quality and extra content to save. Fork of
+      Bili23 Downloader, rewritten in Rust.
     </p>
     <p>Features:</p>
     <ul>
@@ -33,26 +34,19 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">bili23-downloader.desktop</launchable>
+  <launchable type="desktop-id">bilidown.desktop</launchable>
 
   <categories>
     <category>Utility</category>
   </categories>
 
-  <url type="homepage">https://bili23.scott-sloan.cn</url>
-  <url type="bugtracker">https://github.com/ScottSloan/Bili23-Downloader/issues</url>
-  <url type="help">https://bili23.scott-sloan.cn/doc/faq.html</url>
+  <url type="homepage">https://github.com/stanzhai/bilidown</url>
+  <url type="bugtracker">https://github.com/stanzhai/bilidown/issues</url>
+  <url type="help">https://github.com/stanzhai/bilidown#readme</url>
 
   <provides>
-    <binary>bili23-downloader</binary>
+    <binary>bilidown</binary>
   </provides>
-
-  <screenshots>
-    <screenshot type="default">
-      <image>https://bili23.scott-sloan.cn/main_interface_cn.png</image>
-      <caption>Main window</caption>
-    </screenshot>
-  </screenshots>
 
   <content_rating type="oars-1.1"/>
 

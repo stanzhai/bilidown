@@ -1,5 +1,5 @@
 //! Drop-in SQLite persistence for the three databases the Python build keeps
-//! in `Bili23 Downloader/`: `task.db`, `thumbnail.db`, `history.db`.
+//! in the app data dir: `task.db`, `thumbnail.db`, `history.db`.
 //!
 //! Schemas, column names, WAL mode and `PRAGMA user_version` rehash
 //! migration semantics are identical to the Python build, so both versions
