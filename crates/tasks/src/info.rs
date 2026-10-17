@@ -211,9 +211,13 @@ pub fn trim_download_type(task_info: &mut TaskInfo) {
 
 /// `__freeze_naming_rule` + `__update_file_name_info` fused: store the
 /// rule snapshot verbatim and the caller-supplied formatted path. With no
-/// formatted path the task keeps empty name/folder (the naming engine
-/// ticket owns formatting; callers without it pass `None`).
-pub fn apply_naming(task_info: &mut TaskInfo, naming: &NamingInput) -> anyhow::Result<()> {
+/// formatted path the rule is frozen from config and rendered through the
+/// naming engine (Python always names at creation).
+pub fn apply_naming(
+    task_info: &mut TaskInfo,
+    naming: &NamingInput,
+    config: &ConfigStore,
+) -> anyhow::Result<()> {
     task_info.Naming.rule_id = naming.rule_id.clone();
     task_info.Naming.rule = naming.rule.clone();
     task_info.Naming.type_id = naming.type_id;
@@ -227,11 +231,19 @@ pub fn apply_naming(task_info: &mut TaskInfo, naming: &NamingInput) -> anyhow::R
         task_info.File.name = name.to_string();
         task_info.File.folder = folder.to_string();
     } else {
-        // Python raises when the rule yields no file name; without a
-        // naming engine there is no rule to fail, so the task simply
-        // carries an empty path for a later step to fill.
-        task_info.File.name = String::new();
-        task_info.File.folder = String::new();
+        // Python always freezes + formats at creation
+        // (`__freeze_naming_rule` → `__update_file_name_info`). Callers
+        // that supply no formatted path (the UI default) get the same
+        // treatment here from the config's rule store.
+        let store = naming::naming_rules::RuleStore::from_config_value(
+            config.get("File Naming", "naming_rule_list"),
+        );
+        if task_info.Naming.rule.as_deref().unwrap_or("").is_empty() {
+            naming::task_naming::freeze_naming_rule(task_info, None, &store, &Default::default());
+        }
+        if let Err(e) = naming::task_naming::update_file_name_info(task_info, &store) {
+            return Err(anyhow::anyhow!("{e}"));
+        }
     }
     Ok(())
 }
@@ -336,7 +348,7 @@ pub fn episode_to_task_info(
         .to_string();
 
     // NamingInfo
-    apply_naming(&mut task_info, naming)?;
+    apply_naming(&mut task_info, naming, config)?;
 
     Ok(task_info)
 }

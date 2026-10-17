@@ -14,6 +14,7 @@ parsers = { path = "../parsers" }
 config = { path = "../config" }
 network = { path = "../network" }
 ffmpeg = { path = "../ffmpeg" }
+naming = { path = "../naming" }
 tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
 anyhow.workspace = true
 parking_lot.workspace = true
