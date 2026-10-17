@@ -23,6 +23,10 @@ use tasks::TaskManager;
 /// Default `Mcp.mcp_port` (Python `MCP_PORT`).
 pub const DEFAULT_PORT: u16 = 23330;
 
+/// Production API base: the real bilibili hosts (`swap_host` keeps an
+/// empty base untouched); tests inject a wiremock base instead.
+const PRODUCTION_API_BASE: &str = "";
+
 /// Auto-generated token size in bytes (32 → 43 URL-safe base64 chars).
 const TOKEN_BYTES: usize = 32;
 
@@ -87,7 +91,7 @@ pub async fn start(
         configured_token
     };
 
-    let state = Arc::new(McpState::new(config, manager, ""));
+    let state = Arc::new(McpState::new(config, manager, PRODUCTION_API_BASE));
     let app = server::app(Arc::new(server::McpServer {
         dispatcher: Arc::new(protocol::Dispatcher::new(tools::register_all(
             state.clone(),
