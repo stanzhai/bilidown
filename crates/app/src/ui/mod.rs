@@ -98,6 +98,12 @@ impl Shell {
             .and_then(|v| v.as_str())
             .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
+        // config.json Cookie section (auth stack's persistence point);
+        // read before the auth client so the visitor + login sets are
+        // seeded the moment it exists (ticket 34).
+        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
+            .unwrap_or_default();
+        let is_login = auth_state.is_login;
         let client = Arc::new(
             network::HttpClient::new(network::ClientOptions {
                 user_agent: user_agent.clone(),
@@ -107,12 +113,8 @@ impl Shell {
             })
             .expect("rustls client builds with a valid UA"),
         );
+        auth::seed_client_cookies(&client, &auth_state);
         let wbi = Arc::new(auth::WbiKeyStore::new());
-
-        // config.json Cookie section (auth stack's persistence point)
-        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
-            .unwrap_or_default();
-        let is_login = auth_state.is_login;
 
         // TaskManager 不可用（无 DB / 只读目录）时下载页降级为空表；
         // 其余屏幕不受影响。

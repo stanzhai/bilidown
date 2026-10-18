@@ -90,6 +90,15 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
         signer: None,
     })
     .expect("driver client builds");
+    // Ticket 34: playurl calls in the pipeline are cookie-gated; seed
+    // the persisted visitor + login sets.
+    let state = config
+        .path()
+        .parent()
+        .map(auth::session::config_path)
+        .and_then(|p| auth::AuthState::from_config_file(&p))
+        .unwrap_or_default();
+    auth::seed_client_cookies(&client, &state);
     let apis = parsers::playurl::PlayurlApis::default();
     let install_root = std::env::current_exe()
         .ok()

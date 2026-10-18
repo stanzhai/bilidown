@@ -904,6 +904,15 @@ pub fn open_download_options(
             .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
         let priorities = crate::download_pipeline::priorities_from_config(cfg);
+        // Ticket 34: playurl preview queries are cookie-gated; read the
+        // persisted auth state here (the shell lease is held, so the
+        // entity must not be re-read) and seed the worker's client.
+        let auth_state = cfg
+            .path()
+            .parent()
+            .map(auth::session::config_path)
+            .and_then(|p| auth::AuthState::from_config_file(&p))
+            .unwrap_or_default();
         let spawn_dialog = dialog.clone();
         window
             .spawn(cx, async move |cx: &mut gpui_kit::AsyncWindowContext| {
@@ -916,6 +925,7 @@ pub fn open_download_options(
                 }) else {
                     return;
                 };
+                auth::seed_client_cookies(&client, &auth_state);
                 let apis = parsers::playurl::PlayurlApis::default();
                 let mut preview = parsers::preview::Preview::new(priorities);
                 let mut adopted = false;
