@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use gpui_kit::*;
 
 mod bootstrap;
@@ -12,26 +14,32 @@ pub fn version_line() -> String {
     format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
 }
 
-/// Saved window bounds (F2): `Behavior/window_state` when
-/// `remember_window_state` is on and the state validates; centered
-/// 950×600 otherwise. No screens are queryable through gpui-pre, so the
-/// title-bar-intersects-a-screen check uses the primary monitor bounds
-/// the platform exposes at window creation.
-fn saved_window_bounds(cfg: &config::ConfigStore, cx: &App) -> Option<WindowBounds> {
+/// Window bounds for startup: saved state (F2) when
+/// `Behavior/window_state` is remembered and validates; otherwise the
+/// first-run default (2/3 of the main display, centered, ≥ 950×600).
+/// No screens are queryable through gpui-pre, so the
+/// title-bar-intersects-a-screen check uses the monitor bounds the
+/// platform exposes at window creation.
+fn startup_bounds(cfg: &config::ConfigStore, cx: &App) -> Option<WindowBounds> {
+    let rect = |d: &Rc<dyn PlatformDisplay>| {
+        let b = d.bounds();
+        services::window_state::ScreenRect {
+            x: b.origin.x.as_f32() as i64,
+            y: b.origin.y.as_f32() as i64,
+            width: b.size.width.as_f32() as i64,
+            height: b.size.height.as_f32() as i64,
+        }
+    };
     let screens = cx
         .displays()
         .iter()
-        .map(|d| {
-            let b = d.bounds();
-            services::window_state::ScreenRect {
-                x: b.origin.x.as_f32() as i64,
-                y: b.origin.y.as_f32() as i64,
-                width: b.size.width.as_f32() as i64,
-                height: b.size.height.as_f32() as i64,
-            }
-        })
+        .map(|d| rect(d))
         .collect::<Vec<_>>();
-    let state = services::window_state::saved_state(cfg, &screens)?;
+    let state = services::window_state::saved_state(cfg, &screens).or_else(|| {
+        // First-run fallback (37): 2/3 of the main display, centered.
+        cx.primary_display()
+            .map(|d| services::window_state::default_state(rect(&d)))
+    })?;
     let bounds = Bounds {
         origin: point(px(state.x as f32), px(state.y as f32)),
         size: size(px(state.width as f32), px(state.height as f32)),
@@ -59,12 +67,13 @@ pub fn run() -> anyhow::Result<()> {
         .run(move |cx| {
             // Must be called before using any GPUI Component features.
             gpui_kit::init(cx);
-            // F2 restore: saved bounds need displays, which only exist in
-            // the app context.
+            // F2 restore + first-run default: both need displays, which
+            // only exist in the app context.
             let mut options = WindowOptions::default();
-            if let Some(bounds) = saved_window_bounds(&cfg, cx) {
+            if let Some(bounds) = startup_bounds(&cfg, cx) {
                 options.window_bounds = Some(bounds);
             }
+
             gpui_kit::open_window(options, cx, |window, cx| {
                 cx.new(|cx| Shell::new(window, cx))
             })

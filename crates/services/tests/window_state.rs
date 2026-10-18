@@ -3,7 +3,8 @@
 
 use config::ConfigStore;
 use services::window_state::{
-    save_state, saved_state, ScreenRect, WindowState, DEFAULT_HEIGHT, DEFAULT_WIDTH,
+    default_state, save_state, saved_state, ScreenRect, WindowState, DEFAULT_HEIGHT,
+    DEFAULT_WIDTH,
 };
 
 fn full_screen() -> Vec<ScreenRect> {
@@ -213,5 +214,42 @@ fn save_then_reload_from_disk() {
     assert_eq!(
         saved_state(&reloaded, &full_screen()),
         Some(state(42, 24, 1280, 720, false))
+    );
+}
+
+#[test]
+fn default_is_two_thirds_of_screen_centered() {
+    // 2560×1440 → 1706×960 centered: (2560-1706)/2, (1440-960)/2
+    assert_eq!(
+        default_state(full_screen()[0]),
+        state(427, 240, 1706, 960, false)
+    );
+}
+
+#[test]
+fn default_floors_sub_minimum_two_thirds_at_950x600() {
+    // 1200×750 → 2/3 = 800×500, below the 950×600 floor
+    assert_eq!(
+        default_state(ScreenRect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 750,
+        }),
+        state(125, 75, 950, 600, false)
+    );
+}
+
+#[test]
+fn default_centers_on_an_offset_display() {
+    // 1920×1080 at (1000, 200) → 1280×720 at (1000+320, 200+180)
+    assert_eq!(
+        default_state(ScreenRect {
+            x: 1000,
+            y: 200,
+            width: 1920,
+            height: 1080,
+        }),
+        state(1320, 380, 1280, 720, false)
     );
 }
