@@ -28,6 +28,7 @@ danmaku = { path = "../danmaku" }
 mux = { path = "../mux" }
 ffmpeg = { path = "../ffmpeg" }
 mcp = { path = "../mcp" }
+libc.workspace = true
 parking_lot.workspace = true
 qrcode = "=0.14.1"
 image = { version = "=0.25.10", default-features = false, features = ["png"] }

@@ -450,9 +450,10 @@ impl ParseScreen {
                         shell.parse.record_history(cx);
                     }
                     Err(e) => {
-                        let t = c.tr("ParseInterface", "Parse failed: {error}");
-                        shell.parse.status =
-                            t.replace("{error}", &e.to_string());
+                        shell.parse.status = crate::ui::dialogs::format_tr(
+                            c.tr("ParseInterface", "Parse failed: {error}"),
+                            &[("error", &e.to_string())],
+                        );
                         cx.notify();
                     }
                 }
@@ -601,8 +602,10 @@ impl ParseScreen {
                         shell.parse.apply_parse_result(&output, cx);
                     }
                     Err(e) => {
-                        let t = c.tr("ParseInterface", "Batch parse failed: {error}");
-                        shell.parse.status = t.replace("{error}", &e.to_string());
+                        shell.parse.status = crate::ui::dialogs::format_tr(
+                            c.tr("ParseInterface", "Batch parse failed: {error}"),
+                            &[("error", &e.to_string())],
+                        );
                         cx.notify();
                     }
                 }
@@ -687,8 +690,10 @@ impl ParseScreen {
                     cx.notify();
                 }
                 Err(e) => {
-                    let t = c.tr("ParseInterface", "Auto-parse failed: {error}");
-                    shell.parse.status = t.replace("{error}", &e.to_string());
+                    shell.parse.status = crate::ui::dialogs::format_tr(
+                        c.tr("ParseInterface", "Auto-parse failed: {error}"),
+                        &[("error", &e.to_string())],
+                    );
                     cx.notify();
                 }
             })
@@ -910,23 +915,27 @@ impl ParseScreen {
             Ok(result) => {
                 self.status = format!(
                     "{}{}",
-                    {
-                        let t = c.tr("ParseInterface", "Queued {count} task(s)");
-                        t.replace("{count}", &result.created.len().to_string())
-                    },
+                    crate::ui::dialogs::format_tr(
+                        c.tr("ParseInterface", "Queued {count} task(s)"),
+                        &[("count", &result.created.len().to_string())],
+                    ),
                     if result.skipped_duplicates.is_empty() {
                         String::new()
                     } else {
-                        let t = c.tr("ParseInterface", " ({count} duplicate(s) skipped)");
-                        t.replace("{count}", &result.skipped_duplicates.len().to_string())
+                        crate::ui::dialogs::format_tr(
+                            c.tr("ParseInterface", " ({count} duplicate(s) skipped)"),
+                            &[("count", &result.skipped_duplicates.len().to_string())],
+                        )
                     }
                 );
                 // Leave checked rows visibly downloaded.
                 self.refresh_tree(cx);
             }
             Err(e) => {
-                let t = c.tr("ParseInterface", "Task creation failed: {error}");
-                self.status = t.replace("{error}", &e.to_string());
+                self.status = crate::ui::dialogs::format_tr(
+                    c.tr("ParseInterface", "Task creation failed: {error}"),
+                    &[("error", &e.to_string())],
+                );
             }
         }
         cx.notify();
@@ -1024,13 +1033,16 @@ impl ParseScreen {
                     tasks::info::NamingInput::default()
                 }) {
                     Ok(result) => {
-                        let t = c.tr("ParseInterface", "Queued {count} task(s)");
-                        shell.parse.status =
-                            t.replace("{count}", &result.created.len().to_string());
+                        shell.parse.status = crate::ui::dialogs::format_tr(
+                            c.tr("ParseInterface", "Queued {count} task(s)"),
+                            &[("count", &result.created.len().to_string())],
+                        );
                     }
                     Err(e) => {
-                        let t = c.tr("ParseInterface", "Task creation failed: {error}");
-                        shell.parse.status = t.replace("{error}", &e.to_string());
+                        shell.parse.status = crate::ui::dialogs::format_tr(
+                            c.tr("ParseInterface", "Task creation failed: {error}"),
+                            &[("error", &e.to_string())],
+                        );
                     }
                 }
             }
@@ -1139,38 +1151,38 @@ impl ParseScreen {
                                         Ok(result) => {
                                             shell.parse.status = format!(
                                                 "{}{}",
-                                                {
-                                                    let t = c.tr(
+                                                crate::ui::dialogs::format_tr(
+                                                    c.tr(
                                                         "ParseInterface",
                                                         "Queued {count} task(s)",
-                                                    );
-                                                    t.replace(
-                                                        "{count}",
-                                                        &result.created.len().to_string(),
-                                                    )
-                                                },
+                                                    ),
+                                                    &[("count", &result.created.len().to_string())],
+                                                ),
                                                 if result.skipped_duplicates.is_empty() {
                                                     String::new()
                                                 } else {
-                                                    let t = c.tr(
-                                                        "ParseInterface",
-                                                        " ({count} duplicate(s) skipped)",
-                                                    );
-                                                    t.replace(
-                                                        "{count}",
-                                                        &result.skipped_duplicates.len().to_string(),
+                                                    crate::ui::dialogs::format_tr(
+                                                        c.tr(
+                                                            "ParseInterface",
+                                                            " ({count} duplicate(s) skipped)",
+                                                        ),
+                                                        &[(
+                                                            "count",
+                                                            &result.skipped_duplicates.len().to_string(),
+                                                        )],
                                                     )
                                                 }
                                             );
                                         }
                                         Err(e) => {
-                                            let t = c
-                                                .tr(
-                                                    "ParseInterface",
-                                                    "Task creation failed: {error}",
-                                                );
                                             shell.parse.status =
-                                                t.replace("{error}", &e.to_string());
+                                                crate::ui::dialogs::format_tr(
+                                                    c.tr(
+                                                        "ParseInterface",
+                                                        "Task creation failed: {error}",
+                                                    ),
+                                                    &[("error", &e.to_string())],
+                                                );
                                         }
                                     }
                                     cx.notify();

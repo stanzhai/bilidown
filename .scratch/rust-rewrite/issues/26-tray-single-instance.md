@@ -23,14 +23,20 @@ included; exit dialog integration with minimize-to-tray.
   background threads, drained by a foreground `cx.spawn` pump (50ms tick) so
   all UI work stays on the main loop.
 - Single instance: lock file under the app-data dir with staleness detection
-  (mtime probe + PID liveness), local socket for the wake protocol; a second
-  launch writes a wake event and exits — socket wake brings the primary window
-  forward. Interop paths match the Python build (same data-dir layout).
+  (mtime probe + content age + PID liveness via signal-0 kill /
+  OpenProcess), local socket for the wake protocol; a second launch writes
+  a wake event and exits — socket wake brings the primary window forward.
+  The lock is released on quit (`AppInstance::release`, wired to the exit
+  dialog / tray Exit path and run()'s return), so quit → immediate
+  relaunch opens a window. Interop paths match the Python build (same
+  data-dir layout).
 - Exit integration: `Shell::ask_exit` (ticket 22's dialog) wired into
   `on_window_should_close`; `when_close` config (minimize/exit/ask) decides,
   "remember" persisted by the dialog itself.
 - Tests: close_decision matrix, when_close config read, lock-file location,
-  socket wake, version line — 5 in main.rs, all green on spec-batch-32.
+  socket wake, version line in main.rs, plus lock round-trip, staleness
+  (age/mtime/dead-PID), exclusive create, wake-command mapping and
+  release-on-exit in single_instance.rs — all green on spec-batch-32.
 
 Compile-pathology fix (worth knowing repo-wide): `use gpui_kit::*` and
 `use gpui_kit::gpui::*` both re-export gpui's `test` attribute macro, which

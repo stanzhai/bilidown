@@ -870,15 +870,32 @@ fn parse_hex(hex: &str) -> gpui_kit::Hsla {
     rgb(n).into()
 }
 
-/// The catalog the descriptions render against; resolves the app-wide
-/// `Interface.language` choice from the config store.
+/// The catalog the descriptions render against: the app-global
+/// `ShellI18n` set at startup and kept current by the language setting
+/// (ticket 36 instant apply). No config file read per call — the old
+/// `ConfigStore::open()` ran a full file read+parse at every one of the
+/// ~30 render sites.
 fn cx_of_catalog() -> &'static services::i18n::Catalog {
-    let lang = ConfigStore::open()
-        .ok()
-        .and_then(|cfg| cfg.get("Interface", "language").cloned())
-        .and_then(|v| v.as_str().map(str::to_string))
-        .unwrap_or_else(|| "Auto".into());
-    services::i18n::catalog(services::i18n::Language::from_config(&lang).resolve())
+    services::i18n::catalog(shell_lang().resolve())
+}
+
+/// Render language, resolved once per launch and flipped by the settings
+/// screen (ticket 36 instant apply) — zero config reads on the render path.
+fn shell_lang() -> services::i18n::Language {
+    SHELL_LANG.with(std::cell::Cell::get)
+}
+
+thread_local! {
+    /// Mirror of the `ShellI18n` app global, readable from the plain
+    /// helper fns above (they have no `cx`). `Shell::new` installs it;
+    /// `apply_language` keeps it current.
+    static SHELL_LANG: std::cell::Cell<services::i18n::Language> =
+        std::cell::Cell::new(services::i18n::Language::from_config("Auto"));
+}
+
+/// Install the render language (`Shell::new` and every language change).
+pub fn set_shell_lang(lang: services::i18n::Language) {
+    SHELL_LANG.with(|slot| slot.set(lang));
 }
 
 /// Open the dialog on a window: builds the entity first (per the builder

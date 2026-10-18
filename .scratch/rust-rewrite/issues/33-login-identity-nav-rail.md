@@ -24,9 +24,8 @@ run its regression test and record the result in the Answer.
 - [x] Ticket-32 item 3 (`collect_row_meta_matches_display_rows` or
       equivalent) test located and passing; result recorded here
 
-## Comments
-
 ## Answer
+
 
 Implemented on `ticket-33` (worktree `/tmp/bd-33`), merged with the
 latest `spec-batch-32` tip before verification; build, tests, clippy
@@ -65,3 +64,5 @@ every checkbox/action by one row. Wrote
 (failed 6 vs 5 — the off-by-one, proving the bug live on main), then
 fixed `collect_row_meta` to walk children only, matching `flatten`'s
 shape. Test now passes; `cargo test -p app` 189 passed / 0 failed.
+
+## Comments

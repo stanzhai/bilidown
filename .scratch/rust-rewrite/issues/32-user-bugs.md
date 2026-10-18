@@ -8,13 +8,13 @@ as icon sidebar, default window 2/3 screen centered.
 
 **Status:** resolved
 
-- [ ] Login status shows the account's `uname`
-- [ ] Playurl clients carry visitor + login cookies (4K gated on them)
-- [ ] Checkbox alignment (issue 3, prior session)
-- [ ] All UI strings route through the i18n catalog
-- [ ] Theme + language apply instantly; startup reads configured theme
-- [ ] Main nav is a collapsed icon rail with a login footer button
-- [ ] First-run window = 2/3 of main display, centered, min 950x600
+- [x] Login status shows the account's `uname`
+- [x] Playurl clients carry visitor + login cookies (4K gated on them)
+- [x] Checkbox alignment (issue 3, prior session)
+- [x] All UI strings route through the i18n catalog
+- [x] Theme + language apply instantly; startup reads configured theme
+- [x] Main nav is a collapsed icon rail with a login footer button
+- [x] First-run window = 2/3 of main display, centered, min 950x600
 
 ## Answer
 

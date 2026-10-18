@@ -5194,6 +5194,12 @@ Under no circumstances shall the developer be liable for any direct, indirect, i
     // .ts extraction, added by hand for the i18n sweep. Same shape as
     // the generated block above; both zh columns required. ----------
     (
+        r#"SettingInterface"#,
+        r#"Save failed: {error}"#,
+        r#"保存失败：{error}"#,
+        r#"儲存失敗：{error}"#,
+    ),
+    (
         r#"ParseInterface"#,
         r#"Paste a Bilibili link"#,
         r#"粘贴 Bilibili 链接"#,

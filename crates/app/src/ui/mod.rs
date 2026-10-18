@@ -69,6 +69,9 @@ pub struct Shell {
     pub clipboard_ticks: u32,
     /// Transient shell-level note (tips, area result).
     pub status_note: Option<String>,
+    /// Render language the login placeholders were built for (refreshed
+    /// in `render` when the language setting flips).
+    pub login_placeholders_lang: services::i18n::Language,
 }
 
 impl Shell {
@@ -92,6 +95,7 @@ impl Shell {
                 .unwrap_or("auto"),
         );
         cx.set_global(ShellI18n { lang });
+        crate::ui::download_options::set_shell_lang(lang);
 
         let user_agent = cfg
             .get("Advanced", "user_agent")
@@ -208,6 +212,7 @@ impl Shell {
             clipboard: services::clipboard::ClipboardMonitor::new(),
             clipboard_ticks: 0,
             status_note: None,
+            login_placeholders_lang: lang,
         }
     }
 
@@ -389,6 +394,14 @@ fn task_db_path() -> Option<std::path::PathBuf> {
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         use gpui_kit::assets::IconName;
+
+        // Login placeholders are baked into `InputState` at construction;
+        // re-derive them whenever the render language moves (ticket 36).
+        let render_lang = cx.read_global::<ShellI18n, _>(|i18n, _| i18n.lang);
+        if render_lang != self.login_placeholders_lang {
+            self.login_placeholders_lang = render_lang;
+            self.login.refresh_placeholders(window, cx);
+        }
 
         let screen = self.screen;
         let is_login = self.login.is_login;

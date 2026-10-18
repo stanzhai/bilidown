@@ -16,7 +16,7 @@ mod tray;
 mod ui;
 
 use config::ConfigStore;
-use single_instance::{AppInstance, ENSURE_RUNNING_FLAG, InstanceOutcome, WakeEvent};
+use single_instance::{AppInstance, ENSURE_RUNNING_FLAG, WakeEvent};
 pub use ui::{Screen, Shell};
 
 const APP_DISPLAY_NAME: &str = "bilidown";
@@ -64,19 +64,14 @@ fn close_decision(when_close: i64, force: bool) -> CloseDecision {
 }
 
 /// Live displays as `services::window_state::ScreenRect`s.
-fn screen_rects(cx: &App) -> Vec<services::window_state::ScreenRect> {
-    cx.displays()
-        .iter()
-        .map(|d| {
-            let b = d.bounds();
-            services::window_state::ScreenRect {
-                x: b.origin.x.as_f32() as i64,
-                y: b.origin.y.as_f32() as i64,
-                width: b.size.width.as_f32() as i64,
-                height: b.size.height.as_f32() as i64,
-            }
-        })
-        .collect()
+fn display_rect(d: &Rc<dyn PlatformDisplay>) -> services::window_state::ScreenRect {
+    let b = d.bounds();
+    services::window_state::ScreenRect {
+        x: b.origin.x.as_f32() as i64,
+        y: b.origin.y.as_f32() as i64,
+        width: b.size.width.as_f32() as i64,
+        height: b.size.height.as_f32() as i64,
+    }
 }
 
 /// Loaded config store shared across the app.
@@ -135,24 +130,11 @@ fn apply_configured_theme(cfg: &ConfigStore, cx: &mut App) {
 /// `Behavior/window_state` is remembered and validates; otherwise the
 /// first-run default (2/3 of the main display, centered, ≥ 950×600).
 fn startup_bounds(cfg: &ConfigStore, cx: &App) -> Option<WindowBounds> {
-    let rect = |d: &Rc<dyn PlatformDisplay>| {
-        let b = d.bounds();
-        services::window_state::ScreenRect {
-            x: b.origin.x.as_f32() as i64,
-            y: b.origin.y.as_f32() as i64,
-            width: b.size.width.as_f32() as i64,
-            height: b.size.height.as_f32() as i64,
-        }
-    };
-    let screens = cx
-        .displays()
-        .iter()
-        .map(&rect)
-        .collect::<Vec<_>>();
+    let screens = cx.displays().iter().map(|d| display_rect(d)).collect::<Vec<_>>();
     let state = services::window_state::saved_state(cfg, &screens).or_else(|| {
         // First-run fallback (37): 2/3 of the main display, centered.
         cx.primary_display()
-            .map(|d| services::window_state::default_state(rect(&d)))
+            .map(|d| services::window_state::default_state(display_rect(&d)))
     })?;
     let bounds = Bounds {
         origin: point(px(state.x as f32), px(state.y as f32)),
@@ -181,14 +163,17 @@ pub fn run() -> anyhow::Result<()> {
     // --- single instance gate, before any UI -----------------------------
     let (wake_tx, wake_rx) = channel::<WakeEvent>();
     let (tray_tx, tray_rx) = channel::<tray::TrayAction>();
-    let outcome = AppInstance::acquire(ensure_running, wake_tx)
-        .context("single-instance gate failed")?;
-    if outcome != InstanceOutcome::Primary {
-        // Secondary launch: the primary was woken (or is dead but unwakeable,
-        // same as Python logging and exiting 0).
-        return Ok(());
-    }
-
+    // The guard owns the lock file + Windows mutex for the whole process;
+    // held on this stack frame until `run` returns, then dropped below
+    // (Python's `instance_lock.unlock()` on quit).
+    let mut guard = match AppInstance::acquire(ensure_running, wake_tx)
+        .context("single-instance gate failed")?
+    {
+        Ok(guard) => guard,
+        // Secondary launch: the primary was woken (or is dead but
+        // unwakeable, same as Python logging and exiting 0).
+        Err(_) => return Ok(()),
+    };
     gpui_kit::application()
         .with_assets(gpui_kit::assets::AllAssets)
         .run(move |cx| {
@@ -307,6 +292,9 @@ pub fn run() -> anyhow::Result<()> {
             .detach();
             Shell::boot(&shell, cx);
         });
+    // Python `cleanup()` → `instance_lock.unlock()`: the lock file is gone
+    // before this returns, so an immediate relaunch opens a window.
+    guard.release();
     Ok(())
 }
 

@@ -88,7 +88,10 @@ impl SettingsUi {
     /// Write-through: set + atomic save. Save errors surface as a notice.
     fn put(&mut self, group: &str, item: &str, value: Value) {
         if let Err(e) = model::set_and_save(&mut self.cfg, group, item, value) {
-            self.notice = Some(format!("Save failed: {e}"));
+            self.notice = Some(crate::ui::dialogs::format_tr(
+                self.tr("SettingInterface", "Save failed: {error}").as_str(),
+                &[("error", &e.to_string())],
+            ));
         }
     }
 
@@ -257,9 +260,9 @@ fn apply_theme_now(v: &str, cx: &mut App) {
 fn apply_language(ui: &mut SettingsUi, cx: &mut App, value: &str) {
     ui.put("Interface", "language", Value::from(value));
     ui.lang = Lang::from_config(value);
-    cx.set_global(crate::ui::ShellI18n {
-        lang: services::i18n::Language::from_config(value),
-    });
+    let lang = services::i18n::Language::from_config(value);
+    cx.set_global(crate::ui::ShellI18n { lang });
+    crate::ui::download_options::set_shell_lang(lang);
 }
 
 /// Switch bound to a bool config key (write-through).

@@ -105,6 +105,22 @@ impl LoginState {
         self.start_qr(cx);
     }
 
+    /// Re-derive the input placeholders from the active language (ticket
+    /// 36: `LoginState::new` bakes them once, so a language flip left
+    /// stale strings until relaunch).
+    pub fn refresh_placeholders(&mut self, window: &mut Window, cx: &mut Context<crate::ui::Shell>) {
+        let tel = Self::tr(cx, CTX, "Enter phone number");
+        let code = Self::tr(cx, CTX, "Enter verification code");
+        let cookie = Self::tr(
+            cx,
+            CTX_COOKIE,
+            "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx",
+        );
+        self.tel.update(cx, |s, cx| s.set_placeholder(tel, window, cx));
+        self.code.update(cx, |s, cx| s.set_placeholder(code, window, cx));
+        self.cookie_text.update(cx, |s, cx| s.set_placeholder(cookie, window, cx));
+    }
+
     /// Python `showEvent` → `QRCodeLogin.generate` + `start_polling`.
     fn start_qr(&mut self, cx: &mut Context<crate::ui::Shell>) {
         let generation = self.generation;

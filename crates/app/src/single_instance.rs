@@ -100,7 +100,7 @@ fn try_create(path: &std::path::Path) -> std::io::Result<bool> {
 
 /// Staleness test, Python `QLockFile` semantics: stale when the file is older
 /// than [`INSTANCE_LOCK_TIMEOUT_MS`] by mtime, or its contents predate the
-/// cutoff, or it is unreadable garbage that nonetheless parses nowhere.
+/// cutoff, or the recorded PID is no longer alive (crash without cleanup).
 pub fn lock_is_stale(path: &std::path::Path, now_unix_ms: u128) -> bool {
     let Ok(meta) = fs::metadata(path) else {
         return true; // gone → nothing to keep
@@ -111,11 +111,50 @@ pub fn lock_is_stale(path: &std::path::Path, now_unix_ms: u128) -> bool {
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .is_some_and(|d| d.as_millis() <= cutoff);
-    let content_old = fs::read_to_string(path)
-        .ok()
-        .and_then(|s| LockContents::parse(&s))
-        .is_some_and(|c| c.started_unix_ms <= cutoff);
-    mtime_old || content_old
+    let contents = fs::read_to_string(path).ok();
+    let parsed = contents.as_deref().and_then(LockContents::parse);
+    let content_old = parsed.as_ref().is_some_and(|c| c.started_unix_ms <= cutoff);
+    let pid_dead = parsed.as_ref().is_some_and(|c| c.pid != 0 && !pid_is_alive(c.pid));
+    mtime_old || content_old || pid_dead
+}
+
+/// Signal-0 liveness probe for the PID recorded in the lock file.
+fn pid_is_alive(pid: u32) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        // OpenProcess with PROCESS_QUERY_LIMITED_INFORMATION; a stale
+        // kernel PID may be reused, so also check it still exits as us.
+        use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+        use windows_sys::Win32::System::Threading::{
+            GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+        let Ok(h) = (|| {
+            let h = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+            if h.is_null() {
+                return Err(());
+            }
+            let mut code: u32 = 0;
+            if unsafe { GetExitCodeProcess(h, &mut code) } == 0 {
+                return Err(());
+            }
+            unsafe { CloseHandle(h) };
+            if code == windows_sys::Win32::Foundation::STILL_ACTIVE {
+                Ok(())
+            } else {
+                Err(())
+            }
+        }) else {
+            return false;
+        };
+        let _ = h;
+        true
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // kill(pid, 0): 0 = alive, ESRCH = no such process, EPERM =
+        // alive but owned by someone else.
+        unsafe { libc::kill(pid as libc::pid_t, 0) == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) }
+    }
 }
 
 /// Connect to the running instance's wake server and send `command`.
@@ -148,15 +187,21 @@ impl AppMutex {
         let handle = unsafe { CreateMutexW(std::ptr::null(), 0, wide.as_ptr()) };
         Self((handle as HANDLE != 0).then_some(handle))
     }
+
+    /// Close the handle; the OS releases the mutex when the last handle
+    /// in this process closes.
+    pub fn release(&mut self) {
+        if let Some(h) = self.0.take() {
+            use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+            unsafe { CloseHandle(h as HANDLE) };
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
 impl Drop for AppMutex {
     fn drop(&mut self) {
-        use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
-        if let Some(h) = self.0.take() {
-            unsafe { CloseHandle(h as HANDLE) };
-        }
+        self.release();
     }
 }
 
@@ -170,6 +215,8 @@ impl AppMutex {
     pub fn create() -> Self {
         Self
     }
+
+    pub fn release(&mut self) {}
 }
 
 /// One `activate`-command delivery from the wake server to the UI.
@@ -249,10 +296,16 @@ pub fn decide(acquired: bool, woke: bool) -> InstanceOutcome {
 
 /// Full acquisition flow for the app entry point. Runs before the GUI:
 /// a second instance never opens a window.
+///
+/// The guard must outlive the window: it holds the Windows named mutex
+/// (released when dropped) and removes the lock file on exit so a quit
+/// followed by an immediate relaunch opens a window instead of seeing
+/// the dead lock. Python's `Application.cleanup` calls
+/// `instance_lock.unlock()` on quit — [`Drop`] is that call here.
 pub struct AppInstance {
-    #[allow(dead_code)] // dropped at process exit by the owner
     mutex: AppMutex,
-    _wake_guard: (),
+    lock: PathBuf,
+    released: bool,
 }
 
 impl AppInstance {
@@ -260,7 +313,13 @@ impl AppInstance {
     ///
     /// `tx` receives wake commands when we win; the secondary path writes to
     /// the existing instance instead and returns a non-Primary outcome.
-    pub fn acquire(ensure_running: bool, tx: Sender<WakeEvent>) -> anyhow::Result<InstanceOutcome> {
+    /// On success the returned guard owns the lock file and the mutex for
+    /// the process lifetime — keep it alive until the app exits (its
+    /// [`Drop`] is Python's `instance_lock.unlock()` on quit).
+    pub fn acquire(
+        ensure_running: bool,
+        tx: Sender<WakeEvent>,
+    ) -> anyhow::Result<Result<AppInstance, InstanceOutcome>> {
         let mutex = AppMutex::create();
 
         let Some(lock) = lock_path() else {
@@ -282,15 +341,28 @@ impl AppInstance {
         if !acquired {
             let command = if ensure_running { COMMAND_ENSURE_RUNNING } else { COMMAND_ACTIVATE };
             let woke = wake_existing_instance(command);
-            return Ok(decide(false, woke));
+            return Ok(Err(decide(false, woke)));
         }
 
         start_wake_server(tx)?;
-        Ok(Self { mutex, _wake_guard: () }.prime())
+        Ok(Ok(AppInstance { mutex, lock, released: false }))
     }
 
-    fn prime(self) -> InstanceOutcome {
-        InstanceOutcome::Primary
+    /// Python `instance_lock.unlock()`: remove the lock file and release the
+    /// mutex. Idempotent; called on quit (also runs from [`Drop`], which
+    /// covers panic exits and forgotten release calls).
+    pub fn release(&mut self) {
+        if !self.released {
+            let _ = fs::remove_file(&self.lock);
+            self.released = true;
+        }
+        AppMutex::release(&mut self.mutex);
+    }
+}
+
+impl Drop for AppInstance {
+    fn drop(&mut self) {
+        self.release();
     }
 }
 
@@ -313,10 +385,28 @@ mod tests {
         let now = 10_000_000_u128;
         fs::write(&p, "123:0").unwrap(); // started far before cutoff
         assert!(lock_is_stale(&p, now));
-        let fresh = LockContents { pid: 5, started_unix_ms: now - 1_000 };
+        let fresh = LockContents { pid: std::process::id(), started_unix_ms: now - 1_000 };
         fs::write(&p, fresh.to_line()).unwrap();
-        assert!(!lock_is_stale(&p, now)); // within window → live
+        // Within the window AND the owning PID (this test process) is
+        // alive → live.
+        assert!(!lock_is_stale(&p, now));
         assert!(lock_is_stale(&p, now + INSTANCE_LOCK_TIMEOUT_MS as u128 + 5_000));
+    }
+
+    #[test]
+    fn stale_when_owning_pid_is_dead() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join(INSTANCE_LOCK_NAME);
+        // A fresh timestamp (within the window) but a PID that cannot
+        // exist: the liveness probe must mark the lock stale so a
+        // crashed instance never blocks the next launch.
+        let dead = LockContents { pid: 4_000_000, started_unix_ms: unix_ms() };
+        fs::write(&p, dead.to_line()).unwrap();
+        assert!(lock_is_stale(&p, unix_ms()), "dead PID ⇒ stale");
+        // PID 0 is never probed (kernel/unset sentinel) — only age rules.
+        let zero = LockContents { pid: 0, started_unix_ms: unix_ms() };
+        fs::write(&p, zero.to_line()).unwrap();
+        assert!(!lock_is_stale(&p, unix_ms()));
     }
 
     #[test]
@@ -328,6 +418,21 @@ mod tests {
         // Stale removal unblocks the next creator.
         fs::remove_file(&p).unwrap();
         assert!(try_create(&p).unwrap());
+    }
+
+    /// Quit → immediate relaunch: releasing the guard removes the lock
+    /// file, so `try_create` wins again without waiting for staleness.
+    #[test]
+    fn release_removes_lock_so_relaunch_wins() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join(INSTANCE_LOCK_NAME);
+        assert!(try_create(&p).unwrap());
+        let mut guard = AppInstance { mutex: AppMutex::create(), lock: p.clone(), released: false };
+        guard.release();
+        assert!(!p.exists(), "release removes the lock file");
+        assert!(try_create(&p).unwrap(), "relaunch acquires immediately");
+        // Idempotent: a second release (Drop after explicit release) is fine.
+        guard.release();
     }
 
     #[test]

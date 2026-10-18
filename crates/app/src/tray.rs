@@ -105,9 +105,9 @@ fn tray_menu(show_label: &str, exit_label: &str) -> Menu {
     menu
 }
 
-/// Block until the next tray action. Used by tests and non-GPUI callers.
-#[cfg_attr(not(test), allow(dead_code))]
-pub fn next_action(rx: &Receiver<TrayAction>) -> Option<TrayAction> {
+/// Block until the next tray action (test helper).
+#[cfg(test)]
+pub(crate) fn next_action(rx: &Receiver<TrayAction>) -> Option<TrayAction> {
     rx.recv().ok()
 }
 
