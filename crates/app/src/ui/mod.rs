@@ -9,7 +9,7 @@ pub mod parse;
 pub mod screens;
 pub mod settings;
 
-use gpui_kit::base::Disableable;
+use gpui_kit::component::button::Button;
 use gpui_kit::component::sidebar::{Sidebar, SidebarMenuItem};
 use gpui_kit::{div, prelude::*, Context, Global, Render, Window};
 use std::sync::Arc;
@@ -98,6 +98,12 @@ impl Shell {
             .and_then(|v| v.as_str())
             .unwrap_or(config::DEFAULT_USER_AGENT)
             .to_string();
+        // config.json Cookie section (auth stack's persistence point);
+        // read before the auth client so the visitor + login sets are
+        // seeded the moment it exists (ticket 34).
+        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
+            .unwrap_or_default();
+        let is_login = auth_state.is_login;
         let client = Arc::new(
             network::HttpClient::new(network::ClientOptions {
                 user_agent: user_agent.clone(),
@@ -107,12 +113,8 @@ impl Shell {
             })
             .expect("rustls client builds with a valid UA"),
         );
+        auth::seed_client_cookies(&client, &auth_state);
         let wbi = Arc::new(auth::WbiKeyStore::new());
-
-        // config.json Cookie section (auth stack's persistence point)
-        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
-            .unwrap_or_default();
-        let is_login = auth_state.is_login;
 
         // TaskManager 不可用（无 DB / 只读目录）时下载页降级为空表；
         // 其余屏幕不受影响。
@@ -296,10 +298,54 @@ impl Shell {
         self.login.open(window, cx);
     }
 
-    /// Any login success: flip the shell flag (sidebar button reflects it).
+    /// Any login success: flip the shell flag (sidebar button reflects it)
+    /// and refresh the account uname for the footer tooltip.
     pub fn on_login_success(&mut self, cx: &mut Context<Self>) {
         self.login.is_login = true;
+        self.refresh_uname(cx);
         cx.notify();
+    }
+
+    /// Fetch `uname` from nav and persist it — the login footer's tooltip
+    /// data source. No-op while logged out; a failed fetch keeps the
+    /// persisted value.
+    pub fn refresh_uname(&mut self, cx: &mut Context<Self>) {
+        if !self.auth_state.is_login {
+            return;
+        }
+        cx.spawn(async move |shell, cx| {
+            let _tokio = crate::bootstrap::tokio_context();
+            let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
+                return;
+            };
+            let Ok(uname) =
+                auth::login::fetch_uname(client.as_ref(), auth::wbi::NAV_API).await
+            else {
+                return; // offline startup keeps the persisted uname
+            };
+            shell
+                .update(cx, |shell, cx| {
+                    if uname.is_empty() {
+                        return;
+                    }
+                    shell.auth_state.uname = uname;
+                    let dir = config::ConfigStore::open()
+                        .ok()
+                        .and_then(|c| c.path().parent().map(|p| p.to_path_buf()))
+                        .unwrap_or_default();
+                    let _ = login::controller::persist(&shell.auth_state, &dir);
+                    cx.notify();
+                })
+                .ok();
+        })
+        .detach();
+    }
+
+    /// Startup pass piped in `main.rs` right after `open_window`: with a
+    /// persisted session, refresh the uname so the footer shows the
+    /// account name instead of a stale "Log In".
+    pub fn boot(shell: &gpui_kit::Entity<Self>, cx: &mut gpui_kit::App) {
+        shell.update(cx, |shell, cx| shell.refresh_uname(cx));
     }
 
     /// Capture a login-updated auth state: keep the in-memory copy in
@@ -338,31 +384,59 @@ impl Render for Shell {
 
         let screen = self.screen;
         let is_login = self.login.is_login;
+        let uname = self.auth_state.uname.clone();
+        let tooltip = if is_login && !uname.is_empty() {
+            uname
+        } else {
+            "Log In".to_owned()
+        };
+        let login_icon = if is_login {
+            IconName::CircleUser
+        } else {
+            IconName::LogIn
+        };
         div()
             .size_full()
             .flex()
             .child(
-                Sidebar::new("nav").children(
-                    [
-                        (Screen::Parse, "Parse", IconName::Search),
-                        (Screen::Downloads, "Downloads", IconName::CloudDownload),
-                        (Screen::Favorites, "Favorites", IconName::Star),
-                        (Screen::About, "About", IconName::Info),
-                        (Screen::Settings, "Settings", IconName::Settings),
-                    ]
-                    .map(|(s, label, icon)| {
-                        SidebarMenuItem::new(label)
-                            .icon(icon)
-                            .active(screen == s)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.screen = s;
-                                if s == Screen::Downloads {
-                                    this.downloads.refresh(cx);
+                // Icon rail (ticket 33): labels stay reachable via the
+                // menu tooltips; the login entry lives in the footer.
+                Sidebar::new("nav")
+                    .collapsed(true)
+                    .children(
+                        [
+                            (Screen::Parse, "Parse", IconName::Search),
+                            (Screen::Downloads, "Downloads", IconName::CloudDownload),
+                            (Screen::Favorites, "Favorites", IconName::Star),
+                            (Screen::About, "About", IconName::Info),
+                            (Screen::Settings, "Settings", IconName::Settings),
+                        ]
+                        .map(|(s, label, icon)| {
+                            SidebarMenuItem::new(label)
+                                .icon(icon)
+                                .active(screen == s)
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.screen = s;
+                                    if s == Screen::Downloads {
+                                        this.downloads.refresh(cx);
+                                    }
+                                    cx.notify();
+                                }))
+                        }),
+                    )
+                    .footer(
+                        // login entry (Python: the avatar button on the
+                        // main page) — always clickable, opens the login
+                        // dialog while logged out.
+                        Button::new("shell-login-button")
+                            .icon(login_icon)
+                            .tooltip(tooltip)
+                            .on_click(cx.listener(|shell, _, window, cx| {
+                                if !shell.login.is_login {
+                                    shell.open_login(window, cx);
                                 }
-                                cx.notify();
-                            }))
-                    }),
-                ),
+                            })),
+                    ),
             )
             .child(match screen {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
@@ -371,24 +445,6 @@ impl Render for Shell {
                 Screen::About => screens::about::render_about(cx).into_any_element(),
                 Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
-            .child(
-                // login entry (Python: the avatar button on the main page)
-                div()
-                    .id("shell-login")
-                    .absolute()
-                    .bottom_4()
-                    .left_4()
-                    .child(
-                        gpui_kit::component::button::Button::new("shell-login-button")
-                            .label(if is_login { "Logged in" } else { "Log In" })
-                            .disabled(is_login)
-                            .on_click(cx.listener(|shell, _, window, cx| {
-                                if !shell.login.is_login {
-                                    shell.open_login(window, cx);
-                                }
-                            })),
-                    ),
-            )
             .child(self.login.render(cx))
     }
 }

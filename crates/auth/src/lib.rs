@@ -7,5 +7,8 @@ pub mod murmur3;
 pub mod session;
 pub mod wbi;
 
-pub use session::{AuthError, AuthState, Session};
+pub use session::{
+    AuthError, AuthState, Session, login_cookie_entries, seed_client_cookies,
+    visitor_cookie_entries,
+};
 pub use wbi::{WbiKeyStore, WbiSigner};

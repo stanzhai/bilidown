@@ -75,6 +75,8 @@ pub struct AuthState {
     pub img_key: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub sub_key: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub uname: String,
 }
 
 impl AuthState {
@@ -279,22 +281,7 @@ impl Session<'_> {
     /// `update_cookies` — install the anonymous set (login cookies are
     /// installed by the login flows' `capture_login_cookies`).
     pub fn sync_anonymous_cookies(&self) {
-        let entries: Vec<(&str, String)> = vec![
-            ("_uuid", self.state.uuid.clone()),
-            ("b_lsid", self.state.b_lsid.clone()),
-            ("b_nut", self.state.b_nut.to_string()),
-            ("bili_ticket", self.state.bili_ticket.clone()),
-            (
-                "bili_ticket_expires",
-                self.state.bili_ticket_expires.to_string(),
-            ),
-            ("buvid_fp", self.state.buvid_fp.clone()),
-            ("buvid3", self.state.buvid3.clone()),
-            ("buvid4", self.state.buvid4.clone()),
-            ("CURRENT_FNVAL", "4048".to_owned()),
-            ("CURRENT_QUALITY", "0".to_owned()),
-        ];
-        for (name, value) in entries {
+        for (name, value) in visitor_cookie_entries(self.state) {
             self.client.set_cookie(name, &value, self.domain, "/");
         }
         if self.state.is_login {
@@ -304,13 +291,7 @@ impl Session<'_> {
 
     /// Login-only cookies (`get_cookies`' `is_login` branch).
     pub fn sync_login_cookies(&self) {
-        let entries: Vec<(&str, String)> = vec![
-            ("bili_jct", self.state.bili_jct.clone()),
-            ("DedeUserID", self.state.dede_user_id.clone()),
-            ("DedeUserID__ckMd5", self.state.dede_user_id_ck_md5.clone()),
-            ("SESSDATA", self.state.sessdata.clone()),
-        ];
-        for (name, value) in entries {
+        for (name, value) in login_cookie_entries(self.state) {
             self.client.set_cookie(name, &value, self.domain, "/");
         }
     }
@@ -339,6 +320,51 @@ impl Session<'_> {
         self.state.dede_user_id.clear();
         self.state.dede_user_id_ck_md5.clear();
         self.state.sessdata.clear();
+        self.state.uname.clear();
+    }
+}
+
+/// `get_cookies` (visitor half) — the persisted anonymous set every
+/// bilibili-facing client must carry, including the fixed
+/// `CURRENT_FNVAL`/`CURRENT_QUALITY` pair.
+pub fn visitor_cookie_entries(state: &AuthState) -> Vec<(&'static str, String)> {
+    vec![
+        ("_uuid", state.uuid.clone()),
+        ("b_lsid", state.b_lsid.clone()),
+        ("b_nut", state.b_nut.to_string()),
+        ("bili_ticket", state.bili_ticket.clone()),
+        ("bili_ticket_expires", state.bili_ticket_expires.to_string()),
+        ("buvid_fp", state.buvid_fp.clone()),
+        ("buvid3", state.buvid3.clone()),
+        ("buvid4", state.buvid4.clone()),
+        ("CURRENT_FNVAL", "4048".to_owned()),
+        ("CURRENT_QUALITY", "0".to_owned()),
+    ]
+}
+
+/// `get_cookies` (`is_login` half) — the login-only set.
+pub fn login_cookie_entries(state: &AuthState) -> Vec<(&'static str, String)> {
+    vec![
+        ("bili_jct", state.bili_jct.clone()),
+        ("DedeUserID", state.dede_user_id.clone()),
+        ("DedeUserID__ckMd5", state.dede_user_id_ck_md5.clone()),
+        ("SESSDATA", state.sessdata.clone()),
+    ]
+}
+
+/// Python `update_cookies` against a client that was not provisioned by
+/// [`Session`] — the single-purpose playurl/parse/download clients
+/// built outside the shell's auth stack. Installs the persisted visitor
+/// set plus, when logged in, the login set, on `BILIBILI_DOMAIN`.
+pub fn seed_client_cookies(client: &HttpClient, state: &AuthState) {
+    let entries = visitor_cookie_entries(state);
+    for (name, value) in entries {
+        client.set_cookie(name, &value, BILIBILI_DOMAIN, "/");
+    }
+    if state.is_login {
+        for (name, value) in login_cookie_entries(state) {
+            client.set_cookie(name, &value, BILIBILI_DOMAIN, "/");
+        }
     }
 }
 

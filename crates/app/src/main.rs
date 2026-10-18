@@ -131,7 +131,7 @@ fn startup_bounds(cfg: &ConfigStore, cx: &App) -> Option<WindowBounds> {
     let screens = cx
         .displays()
         .iter()
-        .map(|d| rect(d))
+        .map(&rect)
         .collect::<Vec<_>>();
     let state = services::window_state::saved_state(cfg, &screens).or_else(|| {
         // First-run fallback (37): 2/3 of the main display, centered.
@@ -222,6 +222,7 @@ pub fn run() -> anyhow::Result<()> {
             // --- close → exit dialog / minimize-to-tray ---------------------
             // Ticket 22's `Shell::ask_exit` owns the dialog; it writes
             // `Behavior.when_close_window` itself when "remember" is checked.
+            let shell_for_pump = shell.clone();
             window
                 .update(cx, |_, window, cx| {
                     window.on_window_should_close(cx, move |window, cx| {
@@ -247,7 +248,7 @@ pub fn run() -> anyhow::Result<()> {
                                 // exit/minimize work is deferred through
                                 // the tray pump (same code path as the
                                 // tray Exit item).
-                                shell.update(cx, |shell, cx| {
+                                shell_for_pump.update(cx, |shell, cx| {
                                     let dialog_tx = dialog_tx.clone();
                                     shell.ask_exit(window, cx, move |exit, _remembered| {
                                         let action = if exit {
@@ -283,6 +284,7 @@ pub fn run() -> anyhow::Result<()> {
                 }
             })
             .detach();
+            Shell::boot(&shell, cx);
         });
     Ok(())
 }

@@ -315,6 +315,15 @@ pub async fn logout(client: &HttpClient, session: &mut Session<'_>) -> Result<()
     Ok(())
 }
 
+/// `UserManager.get_uname` — GET `x/web-interface/nav`, read
+/// `data.uname` (the login-status tooltip's data source). `nav_url` is
+/// the wiremock seam (`crate::wbi::NAV_API` in production).
+pub async fn fetch_uname(client: &HttpClient, nav_url: &str) -> Result<String, AuthError> {
+    let response: serde_json::Value = client.get_json(nav_url, &[]).await?;
+    check_response(&response)?;
+    Ok(response["data"]["uname"].as_str().unwrap_or_default().to_owned())
+}
+
 fn check_response(response: &serde_json::Value) -> Result<(), AuthError> {
     let code = response.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
     if code != 0 {
@@ -325,4 +334,59 @@ fn check_response(response: &serde_json::Value) -> Result<(), AuthError> {
         return Err(AuthError::Response(message.to_owned()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use network::{ClientOptions, ProxyConfig};
+
+    fn mock_client() -> HttpClient {
+        HttpClient::new(ClientOptions {
+            user_agent: String::new(),
+            proxy: ProxyConfig::none(),
+            cookies_from_persistence: Vec::new(),
+            signer: None,
+        })
+        .expect("rustls client builds")
+    }
+
+    fn swap_host(api: &str, base: &str) -> String {
+        let path = api
+            .strip_prefix("https://")
+            .and_then(|rest| rest.find('/').map(|i| &rest[i..]))
+            .unwrap_or(api);
+        format!("{base}{path}")
+    }
+
+    #[tokio::test]
+    async fn fetch_uname_reads_nav_data() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(wiremock::matchers::path("/x/web-interface/nav"))
+            .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "code": 0,
+                "data": {"isLogin": true, "uname": "bili用户"}
+            })))
+            .mount(&server)
+            .await;
+
+        let url = swap_host(crate::wbi::NAV_API, &server.uri());
+        let client = mock_client();
+        assert_eq!(fetch_uname(&client, &url).await.unwrap(), "bili用户");
+    }
+
+    #[test]
+    fn uname_round_trips_through_config_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        let mut state = crate::session::AuthState::default();
+        state.is_login = true;
+        state.uname = "bili用户".to_owned();
+        state.save_to_config_file(&path).unwrap();
+
+        let loaded = crate::session::AuthState::from_config_file(&path).unwrap();
+        assert_eq!(loaded.uname, "bili用户");
+        assert!(loaded.is_login);
+    }
 }

@@ -213,6 +213,16 @@ impl ParseService {
             signer: Some(signer),
         })
         .expect("rustls client builds with a valid UA");
+        // Ticket 34: playurl/quality APIs are cookie-gated; seed the
+        // persisted visitor + login sets (config.json's Cookie section)
+        // before any parse/playurl call runs on this client.
+        let state = cfg
+            .path()
+            .parent()
+            .map(auth::session::config_path)
+            .and_then(|p| auth::AuthState::from_config_file(&p))
+            .unwrap_or_default();
+        auth::seed_client_cookies(&client, &state);
         Self {
             client: Arc::new(client),
             ctx: ListParseContext::new(),
