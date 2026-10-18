@@ -33,7 +33,7 @@ fn startup_bounds(cfg: &config::ConfigStore, cx: &App) -> Option<WindowBounds> {
     let screens = cx
         .displays()
         .iter()
-        .map(|d| rect(d))
+        .map(&rect)
         .collect::<Vec<_>>();
     let state = services::window_state::saved_state(cfg, &screens).or_else(|| {
         // First-run fallback (37): 2/3 of the main display, centered.
@@ -73,11 +73,11 @@ pub fn run() -> anyhow::Result<()> {
             if let Some(bounds) = startup_bounds(&cfg, cx) {
                 options.window_bounds = Some(bounds);
             }
-
-            gpui_kit::open_window(options, cx, |window, cx| {
+            let (_, shell) = gpui_kit::open_window(options, cx, |window, cx| {
                 cx.new(|cx| Shell::new(window, cx))
             })
             .expect("Failed to open window");
+            Shell::boot(&shell, cx);
         });
     Ok(())
 }

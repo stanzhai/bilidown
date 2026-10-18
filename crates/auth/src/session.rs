@@ -75,6 +75,8 @@ pub struct AuthState {
     pub img_key: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub sub_key: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub uname: String,
 }
 
 impl AuthState {
@@ -318,6 +320,7 @@ impl Session<'_> {
         self.state.dede_user_id.clear();
         self.state.dede_user_id_ck_md5.clear();
         self.state.sessdata.clear();
+        self.state.uname.clear();
     }
 }
 

@@ -1136,17 +1136,20 @@ struct RowMeta {
 }
 
 fn collect_row_meta(item: &parsers::tree::TreeItem, out: &mut Vec<RowMeta>) {
-    let id = super::model::display_row_id(item);
-    out.push(RowMeta {
-        url: item.url.clone(),
-        leaf: item.children.is_empty(),
-        multi_part: item
-            .has_attribute(parsers::tree::Attribute::FAVORITE_WITH_MULTI_PART_VIDEO_BIT),
-        cover: item.cover.clone(),
-        checked: matches!(item.checked, parsers::tree::CheckState::Checked),
-        id,
-    });
+    // Children only: `model::flatten` skips the invisible wrapper root,
+    // so the metadata table must too or every row is off by one
+    // (ticket 32 item 3).
     for child in &item.children {
+        let id = super::model::display_row_id(child);
+        out.push(RowMeta {
+            url: child.url.clone(),
+            leaf: child.children.is_empty(),
+            multi_part: child
+                .has_attribute(parsers::tree::Attribute::FAVORITE_WITH_MULTI_PART_VIDEO_BIT),
+            cover: child.cover.clone(),
+            checked: matches!(child.checked, parsers::tree::CheckState::Checked),
+            id,
+        });
         collect_row_meta(child, out);
     }
 }
@@ -1163,4 +1166,52 @@ fn find_item_by_url<'a>(
     item.children
         .iter_mut()
         .find_map(|child| find_item_by_url(child, url))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parsers::tree::{Number, TreeItem};
+
+    fn item(bvid: &str, number: i64, title: &str) -> TreeItem {
+        let mut it = TreeItem::empty();
+        it.bvid = bvid.into();
+        it.title = title.into();
+        it.number = Number::Int(number);
+        it
+    }
+
+    /// Ticket 32 item 3: the per-row metadata table must line up with
+    /// `model.rows()` one-for-one — same length, same order, same
+    /// leaf-ness — or every checkbox/action lands on the wrong row.
+    #[test]
+    fn collect_row_meta_matches_display_rows() {
+        // Bangumi shape: wrapper root > season > episodes.
+        let mut root = TreeItem::empty();
+        let mut season = TreeItem::root(Number::Text("正片".into()), "正片");
+        season.add_child(item("BV1", 1, "EP1"));
+        season.add_child(item("BV2", 2, "EP2"));
+        root.add_child(season);
+        let mut plain = TreeItem::root(Number::Text("收藏".into()), "收藏");
+        plain.add_child(item("BV3", 1, "P1"));
+        root.add_child(plain);
+
+        let mut model = super::super::model::ParseViewModel::new();
+        model.list.update_tree(root, None).unwrap();
+        model.refresh_rows();
+
+        let mut meta = Vec::new();
+        collect_row_meta(model.list.root(), &mut meta);
+        let rows = model.rows();
+
+        assert_eq!(
+            meta.len(),
+            rows.len(),
+            "row_meta and display rows must be parallel arrays"
+        );
+        for (ix, (m, r)) in meta.iter().zip(rows).enumerate() {
+            assert_eq!(m.id, r.id, "row {ix} id mismatch");
+            assert_eq!(m.leaf, r.is_leaf, "row {ix} leaf mismatch");
+        }
+    }
 }
