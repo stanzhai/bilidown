@@ -99,9 +99,14 @@ impl LoginState {
     fn start_qr(&mut self, cx: &mut Context<crate::ui::Shell>) {
         let generation = self.generation;
         let endpoints = LoginEndpoints::default();
-        let client = shell_client(cx);
         cx.spawn(async move |shell, cx| {
             let _tokio = crate::bootstrap::tokio_context();
+            // Read the shell from the async context: at call time we are
+            // inside the Shell update lease (click handler), where a
+            // synchronous entity read would panic (double lease).
+            let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
+                return;
+            };
             let Ok((png, key)) = controller::qr_start(&client, &endpoints).await else {
                 return;
             };
@@ -194,9 +199,14 @@ impl LoginState {
             self.take_toast(cx);
             return;
         }
-        let client = shell_client(cx);
         cx.spawn(async move |shell, cx| {
             let _tokio = crate::bootstrap::tokio_context();
+            // Same double-lease hazard as start_qr: this runs inside the
+            // Shell's click-handler update, so read the client from the
+            // async context instead.
+            let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
+                return;
+            };
             match controller::captcha_start(&client).await {
                 Ok(server) => {
                     let _ = shell.update(cx, |shell, cx| {
@@ -596,12 +606,6 @@ impl Drop for LoginState {
 #[allow(dead_code)]
 fn _cid_table_is_used() -> &'static [(&'static str, &'static str)] {
     cid::CID_LIST
-}
-
-/// The shell's shared auth client (cookie jar survives across dialogs).
-fn shell_client(cx: &Context<crate::ui::Shell>) -> Arc<network::HttpClient> {
-    cx.entity()
-        .read_with(cx, |shell: &crate::ui::Shell, _| shell.auth_client.clone())
 }
 
 #[cfg(test)]

@@ -42,3 +42,4 @@ uuid = { version = "=1.28.0", features = ["v4"] }
 [dev-dependencies]
 wiremock = "=0.6.5"
 tempfile = "=3.27.0"
+gpui-pre = { version = "=0.3.9", features = ["test-support"] }
