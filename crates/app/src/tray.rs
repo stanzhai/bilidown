@@ -5,7 +5,9 @@
 //! Events are forwarded through a channel that the GPUI main loop drains; the
 //! tray lives for the whole process (dropped only on exit, matching Python).
 
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Sender;
+#[cfg(test)]
+use std::sync::mpsc::Receiver;
 
 use muda::accelerator::Accelerator;
 use muda::{Menu, MenuItem, PredefinedMenuItem};

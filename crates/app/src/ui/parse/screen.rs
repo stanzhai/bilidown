@@ -469,7 +469,7 @@ impl ParseScreen {
         cx: &mut Context<Shell>,
     ) {
         self.model.category_key = output.category.to_string();
-        self.model.category_name = services::i18n::episode_type(Self::catalog(cx), &output.category)
+        self.model.category_name = services::i18n::episode_type(Self::catalog(cx), output.category)
             .unwrap_or_else(|| output.category.to_string());
         if output.extra.pagination.is_some() {
             self.model.pagination = output
@@ -827,7 +827,7 @@ impl ParseScreen {
                     };
                     shell.parse.model.category_key = output.category.to_string();
                     shell.parse.model.category_name =
-                        services::i18n::episode_type(c, &output.category)
+                        services::i18n::episode_type(c, output.category)
                             .unwrap_or_else(|| output.category.to_string());
                     shell.parse.model.pagination = None;
                     shell.parse.model.server_search = false;

@@ -130,7 +130,7 @@ fn apply_configured_theme(cfg: &ConfigStore, cx: &mut App) {
 /// `Behavior/window_state` is remembered and validates; otherwise the
 /// first-run default (2/3 of the main display, centered, ≥ 950×600).
 fn startup_bounds(cfg: &ConfigStore, cx: &App) -> Option<WindowBounds> {
-    let screens = cx.displays().iter().map(|d| display_rect(d)).collect::<Vec<_>>();
+    let screens = cx.displays().iter().map(display_rect).collect::<Vec<_>>();
     let state = services::window_state::saved_state(cfg, &screens).or_else(|| {
         // First-run fallback (37): 2/3 of the main display, centered.
         cx.primary_display()
@@ -279,10 +279,10 @@ pub fn run() -> anyhow::Result<()> {
             cx.spawn(async move |cx| {
                 loop {
                     while let Ok(ev) = tray_rx.try_recv() {
-                        handle_tray_action(ev, window, &cx).await;
+                        handle_tray_action(ev, window, cx).await;
                     }
                     while let Ok(ev) = wake_rx.try_recv() {
-                        handle_wake_event(ev, window, &cx).await;
+                        handle_wake_event(ev, window, cx).await;
                     }
                     cx.background_executor()
                         .timer(Duration::from_millis(50))
@@ -311,7 +311,7 @@ fn minimize_to_tray(window: &mut Window) {
 }
 
 async fn handle_tray_action(action: tray::TrayAction, window: AnyWindowHandle, cx: &AsyncApp) {
-    let _ = cx.update(|cx| match action {
+    cx.update(|cx| match action {
         tray::TrayAction::Show => activate_main_window(window, cx),
         tray::TrayAction::Exit => {
             // Forced path: no exit dialog (Python `request_exit(fast=True)`).
@@ -328,7 +328,7 @@ async fn handle_tray_action(action: tray::TrayAction, window: AnyWindowHandle, c
 async fn handle_wake_event(ev: WakeEvent, window: AnyWindowHandle, cx: &AsyncApp) {
     match ev {
         WakeEvent::Activate => {
-            let _ = cx.update(|cx| activate_main_window(window, cx));
+            cx.update(|cx| activate_main_window(window, cx));
         }
         // Python: probe only, never steals focus.
         WakeEvent::EnsureRunning => {}

@@ -380,9 +380,11 @@ mod tests {
     fn uname_round_trips_through_config_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
-        let mut state = crate::session::AuthState::default();
-        state.is_login = true;
-        state.uname = "bili用户".to_owned();
+        let state = crate::session::AuthState {
+            is_login: true,
+            uname: "bili用户".to_owned(),
+            ..Default::default()
+        };
         state.save_to_config_file(&path).unwrap();
 
         let loaded = crate::session::AuthState::from_config_file(&path).unwrap();
