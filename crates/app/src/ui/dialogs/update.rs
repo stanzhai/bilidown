@@ -274,7 +274,7 @@ mod tests {
                 "comparable_version": "2.20.0",
                 "title": "2.20.0",
                 "content": "release notes",
-                "download_url": "https://bili23.scott-sloan.cn/doc/releases.html",
+                "download_url": "https://github.com/stanzhai/bilidown/releases",
                 "forced": false,
                 "is_preview": false
             },
@@ -287,7 +287,7 @@ mod tests {
         assert_eq!(info.content, "release notes");
         assert_eq!(
             info.update_url,
-            "https://bili23.scott-sloan.cn/doc/releases.html"
+            "https://github.com/stanzhai/bilidown/releases"
         );
         assert!(!info.should_update);
         assert!(!info.required);

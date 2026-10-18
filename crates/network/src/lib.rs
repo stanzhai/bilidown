@@ -1,4 +1,4 @@
-//! Shared async HTTP layer for the Bili23 rewrite (ticket 04).
+//! Shared async HTTP layer for the bilidown rewrite (ticket 04).
 //!
 //! Ports the observable behavior of the Python `util/network/request.py`:
 //! one shared reqwest client with a cookie jar, rustls TLS, proxy

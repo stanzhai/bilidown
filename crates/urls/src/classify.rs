@@ -40,9 +40,9 @@ pub enum ParserType {
     Festival,
     /// b23.tv / bili2233.cn short link — real type known only after expansion.
     B23,
-    /// Internal pseudo-protocol `bili23://watch_later`.
+    /// Internal pseudo-protocol `bilidown://watch_later`.
     WatchLater,
-    /// Internal pseudo-protocol `bili23://history`.
+    /// Internal pseudo-protocol `bilidown://history`.
     History,
     /// Audio `au…` and audio menu `am…`.
     Audio,
@@ -212,12 +212,12 @@ static ROWS: &[Row] = &[
         ids: ids_popular,
     },
     Row {
-        pattern: r"bili23://watch_later",
+        pattern: r"bilidown://watch_later",
         parser_type: ParserType::WatchLater,
         ids: |_| RawIds::WatchLater,
     },
     Row {
-        pattern: r"bili23://history",
+        pattern: r"bilidown://history",
         parser_type: ParserType::History,
         ids: |_| RawIds::History,
     },

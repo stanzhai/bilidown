@@ -1,6 +1,6 @@
 [package]
 name = "config"
-description = "Bili23 Downloader config store: config.json I/O + config_version migrations"
+description = "bilidown config store: config.json I/O + config_version migrations"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

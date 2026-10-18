@@ -5,7 +5,7 @@
 use services::log::{LevelFilter, LogFilter, LogRecord};
 use std::path::{Path, PathBuf};
 
-/// `appdata/Bili23 Downloader/logs/app.log` (Python QStandardPaths
+/// `appdata/bilidown/logs/app.log` (Python QStandardPaths
 /// AppDataLocation derivation).
 pub fn default_log_path() -> Option<PathBuf> {
     dirs::data_dir().map(|d| d.join(config::APP_NAME).join("logs").join("app.log"))

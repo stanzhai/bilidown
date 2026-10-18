@@ -3,26 +3,26 @@
 
 One entry point per platform mode; the GitHub Actions release workflow
 calls the mode matching its runner. Produces runnable artifacts next to
-the freshly built `bili23-downloader` release binary, bundling ffmpeg at
+the freshly built `bilidown` release binary, bundling ffmpeg at
 `bundle/ffmpeg(.exe)` so the runtime locator (crates/ffmpeg locate.rs)
 finds it next to the executable.
 
 Stdlib only. Layout mirrors the Python release story:
 
-  windows  Bili23-Downloader/            portable dir -> zip
-                bili23-downloader.exe
+  windows  bilidown/            portable dir -> zip
+                bilidown.exe
                 bundle/ffmpeg.exe
                 LICENSE
-           Bili23-Downloader_<ver>_windows_x64.exe        (Inno, CI-only)
-  macos    Bili23-Downloader.app/Contents/{MacOS,Resources}
-                MacOS/bili23-downloader
+           bilidown_<ver>_windows_x64.exe        (Inno, CI-only)
+  macos    bilidown.app/Contents/{MacOS,Resources}
+                MacOS/bilidown
                 Resources/{app.icns,bundle/ffmpeg,LICENSE}
-           -> Bili23-Downloader_<ver>_macos_<arch>.dmg    (create-dmg, CI-only)
-  linux    Bili23-Downloader.AppDir/usr/{bin,lib,share}
-                usr/bin/bili23-downloader
-                usr/lib/Bili23-Downloader/{bundle/ffmpeg,LICENSE}
+           -> bilidown_<ver>_macos_<arch>.dmg    (create-dmg, CI-only)
+  linux    bilidown.AppDir/usr/{bin,lib,share}
+                usr/bin/bilidown
+                usr/lib/bilidown/{bundle/ffmpeg,LICENSE}
                 AppRun, .desktop, icon, metainfo
-           -> Bili23-Downloader_<ver>_linux_x86_64.AppImage (appimagetool, CI-only)
+           -> bilidown_<ver>_linux_x86_64.AppImage (appimagetool, CI-only)
 
 The Inno installer, dmg and AppImage steps need runner-only tools, so on
 a bare machine the script stops at the staging directory and prints the
@@ -50,8 +50,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[4]
 
-APP_NAME = "Bili23 Downloader"
-APP_ID = "com.scottsloan.bili23"
+APP_NAME = "bilidown"
+APP_ID = "cn.stanzhai.bilidown"
 INNO_APP_GUID = "B096F0C1-D105-4EF9-86E1-5E87DA884EA4"
 
 # Static ffmpeg builds used by the Python releases (GPL + libmp3lame).
@@ -124,7 +124,7 @@ def obtain_ffmpeg(mode: str, dest: Path, args: argparse.Namespace) -> Path:
 
 
 def find_binary(mode: str, args: argparse.Namespace) -> Path:
-    exe = "bili23-downloader.exe" if mode == "windows" else "bili23-downloader"
+    exe = "bilidown.exe" if mode == "windows" else "bilidown"
     if args.bin:
         p = Path(args.bin)
         if p.is_file():
@@ -150,16 +150,16 @@ def copy_license(dest_dir: Path) -> None:
 def package_windows(args: argparse.Namespace) -> list[Path]:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    root = out / "Bili23-Downloader"
+    root = out / "bilidown"
     if root.exists():
         shutil.rmtree(root)
     (root / "bundle").mkdir(parents=True)
 
-    copy_binary(find_binary("windows", args), root / "bili23-downloader.exe")
+    copy_binary(find_binary("windows", args), root / "bilidown.exe")
     obtain_ffmpeg("windows", root / "bundle" / "ffmpeg.exe", args)
     copy_license(root)
 
-    zip_path = out / f"Bili23-Downloader_{args.version}_windows_x64_portable.zip"
+    zip_path = out / f"bilidown_{args.version}_windows_x64_portable.zip"
     if zip_path.exists():
         zip_path.unlink()
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -181,17 +181,17 @@ def build_inno(out: Path, root: Path, args: argparse.Namespace) -> Path:
     script = REPO / "crates" / "packaging" / "windows" / "setup.iss"
     work = out / "inno"
     work.mkdir(parents=True, exist_ok=True)
-    # setup.iss resolves .\Bili23-Downloader and .\LICENSE relative to itself
+    # setup.iss resolves .\bilidown and .\LICENSE relative to itself
     staged = work / "setup.iss"
     shutil.copy2(script, staged)
-    shutil.copytree(root, work / "Bili23-Downloader", dirs_exist_ok=True)
+    shutil.copytree(root, work / "bilidown", dirs_exist_ok=True)
     shutil.copy2(REPO / "LICENSE", work / "LICENSE")
     subprocess.run(
         [iscc, f"/DMyAppVersion={args.version}", f"/DMyAppVersionName={args.version}", str(staged)],
         check=True,
         cwd=work,
     )
-    produced = next(work.glob("Bili23-Downloader_*_windows_x64.exe"))
+    produced = next(work.glob("bilidown_*_windows_x64.exe"))
     moved = out / produced.name
     shutil.move(str(produced), moved)
     return moved
@@ -203,7 +203,7 @@ def build_inno(out: Path, root: Path, args: argparse.Namespace) -> Path:
 def package_macos(args: argparse.Namespace) -> list[Path]:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    app = out / "Bili23-Downloader.app"
+    app = out / "bilidown.app"
     if app.exists():
         shutil.rmtree(app)
     contents = app / "Contents"
@@ -211,7 +211,7 @@ def package_macos(args: argparse.Namespace) -> list[Path]:
     (macos_dir / "bundle").mkdir(parents=True)
     res.mkdir(parents=True)
 
-    copy_binary(find_binary("macos", args), macos_dir / "bili23-downloader")
+    copy_binary(find_binary("macos", args), macos_dir / "bilidown")
     obtain_ffmpeg("macos", macos_dir / "bundle" / "ffmpeg", args)
     shutil.copy2(REPO / "assets" / "app.icns", res / "app.icns")
     copy_license(res)
@@ -225,7 +225,7 @@ def package_macos(args: argparse.Namespace) -> list[Path]:
     if not args.isolate:
         print("skipped dmg: pass --isolate on a runner with create-dmg")
         return [app]
-    dmg = out / f"Bili23-Downloader_{args.version}_macos_{gnu_arch()}.dmg"
+    dmg = out / f"bilidown_{args.version}_macos_{gnu_arch()}.dmg"
     if dmg.exists():
         dmg.unlink()
     subprocess.run(
@@ -235,8 +235,8 @@ def package_macos(args: argparse.Namespace) -> list[Path]:
             "--window-pos", "400", "200",
             "--window-size", "660", "400",
             "--icon-size", "80",
-            "--icon", "Bili23-Downloader.app", "160", "160",
-            "--hide-extension", "Bili23-Downloader.app",
+            "--icon", "bilidown.app", "160", "160",
+            "--hide-extension", "bilidown.app",
             "--app-drop-link", "500", "160",
             str(dmg),
             str(app),
@@ -251,55 +251,55 @@ def package_macos(args: argparse.Namespace) -> list[Path]:
 
 DESKTOP_ENTRY = """[Desktop Entry]
 Type=Application
-Name=Bili23 Downloader
-Exec=bili23-downloader
-Icon=bili23-downloader
+Name=bilidown
+Exec=bilidown
+Icon=bilidown
 Categories=Utility;
 Terminal=false
 Comment=A cross-platform video downloader for Bilibili
-StartupWMClass=bili23-downloader
+StartupWMClass=bilidown
 """
 
 APPRUN = """#!/bin/bash
 # AppImage 挂载点每次运行都不同，工作目录与 ffmpeg 定位都必须动态解析
 HERE="$(dirname "$(readlink -f "${0}")")"
-APPDIR="$HERE/usr/lib/Bili23-Downloader"
+APPDIR="$HERE/usr/lib/bilidown"
 cd "$APPDIR"
-exec ./bili23-downloader "$@"
+exec ./bilidown "$@"
 """
 
 
 def package_linux(args: argparse.Namespace) -> list[Path]:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    appdir = out / "Bili23-Downloader.AppDir"
+    appdir = out / "bilidown.AppDir"
     if appdir.exists():
         shutil.rmtree(appdir)
 
-    lib = appdir / "usr" / "lib" / "Bili23-Downloader"
+    lib = appdir / "usr" / "lib" / "bilidown"
     share = appdir / "usr" / "share"
     (lib / "bundle").mkdir(parents=True)
     (share / "applications").mkdir(parents=True)
     (share / "icons" / "hicolor" / "scalable" / "apps").mkdir(parents=True)
     (share / "metainfo").mkdir(parents=True)
 
-    copy_binary(find_binary("linux", args), lib / "bili23-downloader")
+    copy_binary(find_binary("linux", args), lib / "bilidown")
     obtain_ffmpeg("linux", lib / "bundle" / "ffmpeg", args)
     copy_license(lib)
 
-    (appdir / "bili23-downloader.desktop").write_text(DESKTOP_ENTRY, encoding="utf-8")
+    (appdir / "bilidown.desktop").write_text(DESKTOP_ENTRY, encoding="utf-8")
     shutil.copy2(
-        appdir / "bili23-downloader.desktop", share / "applications" / "bili23-downloader.desktop"
+        appdir / "bilidown.desktop", share / "applications" / "bilidown.desktop"
     )
-    shutil.copy2(REPO / "assets" / "app.svg", appdir / "bili23-downloader.svg")
+    shutil.copy2(REPO / "assets" / "app.svg", appdir / "bilidown.svg")
     shutil.copy2(
         REPO / "assets" / "app.svg",
-        share / "icons" / "hicolor" / "scalable" / "apps" / "bili23-downloader.svg",
+        share / "icons" / "hicolor" / "scalable" / "apps" / "bilidown.svg",
     )
-    metainfo = (REPO / "assets" / "com.scottsloan.bili23.metainfo.xml").read_text(encoding="utf-8")
+    metainfo = (REPO / "assets" / "cn.stanzhai.bilidown.metainfo.xml").read_text(encoding="utf-8")
     import datetime
 
-    (share / "metainfo" / "com.scottsloan.bili23.metainfo.xml").write_text(
+    (share / "metainfo" / "cn.stanzhai.bilidown.metainfo.xml").write_text(
         metainfo.replace('__VERSION__', args.version).replace(
             '__DATE__', datetime.date.today().isoformat()
         ),
@@ -328,7 +328,7 @@ def build_appimage(out: Path, appdir: Path, args: argparse.Namespace) -> Path:
         print(f"downloading appimage runtime: {url}", file=sys.stderr)
         urllib.request.urlretrieve(url, runtime)  # noqa: S310
         ensure_executable(runtime)
-    target = out / f"Bili23-Downloader_{args.version}_linux_{arch}.AppImage"
+    target = out / f"bilidown_{args.version}_linux_{arch}.AppImage"
     env = dict(os.environ, ARCH=arch, APPIMAGE_EXTRACT_AND_RUN="1")
     subprocess.run(
         [tool, "--no-appstream", "--runtime-file", str(runtime), str(appdir), str(target)],
@@ -346,7 +346,7 @@ def main() -> int:
     ap.add_argument("mode", choices=["windows", "macos", "linux"])
     ap.add_argument("--version", required=True, help="e.g. 2.21.0")
     ap.add_argument("--out", default="dist", help="output directory (default dist)")
-    ap.add_argument("--bin", help="path to the built bili23-downloader executable")
+    ap.add_argument("--bin", help="path to the built bilidown executable")
     ap.add_argument("--ffmpeg-bin", help="path to a local ffmpeg executable")
     ap.add_argument("--ffmpeg-zip", help="zip archive containing ffmpeg")
     ap.add_argument(

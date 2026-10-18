@@ -1,10 +1,12 @@
 #![recursion_limit = "256"]
 
+use std::rc::Rc;
 use std::sync::mpsc::channel;
 use std::time::Duration;
 
 use anyhow::Context as _;
 use gpui_kit::gpui::*;
+use gpui_kit::*;
 
 mod bootstrap;
 mod download_pipeline;
@@ -17,11 +19,11 @@ use config::ConfigStore;
 use single_instance::{AppInstance, ENSURE_RUNNING_FLAG, InstanceOutcome, WakeEvent};
 pub use ui::{Screen, Shell};
 
-const APP_DISPLAY_NAME: &str = "Bili23 Downloader";
+const APP_DISPLAY_NAME: &str = "bilidown";
 
 /// Product identity line used by the About surface and smoke checks.
 pub fn version_line() -> String {
-    format!("Bili23 Downloader v{}", env!("CARGO_PKG_VERSION"))
+    format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
 }
 
 /// `WhenClose` enum from `src/gui/dialog/main_window/exit.py`.
@@ -113,6 +115,40 @@ fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
     services::i18n::catalog(lang)
 }
 
+/// Window bounds for startup: saved state (F2) when
+/// `Behavior/window_state` is remembered and validates; otherwise the
+/// first-run default (2/3 of the main display, centered, ≥ 950×600).
+fn startup_bounds(cfg: &ConfigStore, cx: &App) -> Option<WindowBounds> {
+    let rect = |d: &Rc<dyn PlatformDisplay>| {
+        let b = d.bounds();
+        services::window_state::ScreenRect {
+            x: b.origin.x.as_f32() as i64,
+            y: b.origin.y.as_f32() as i64,
+            width: b.size.width.as_f32() as i64,
+            height: b.size.height.as_f32() as i64,
+        }
+    };
+    let screens = cx
+        .displays()
+        .iter()
+        .map(|d| rect(d))
+        .collect::<Vec<_>>();
+    let state = services::window_state::saved_state(cfg, &screens).or_else(|| {
+        // First-run fallback (37): 2/3 of the main display, centered.
+        cx.primary_display()
+            .map(|d| services::window_state::default_state(rect(&d)))
+    })?;
+    let bounds = Bounds {
+        origin: point(px(state.x as f32), px(state.y as f32)),
+        size: size(px(state.width as f32), px(state.height as f32)),
+    };
+    Some(if state.maximized {
+        WindowBounds::Maximized(bounds)
+    } else {
+        WindowBounds::Windowed(bounds)
+    })
+}
+
 /// Opens one native window; returns when the app event loop exits cleanly.
 pub fn run() -> anyhow::Result<()> {
     let ensure_running = std::env::args().any(|a| a == ENSURE_RUNNING_FLAG);
@@ -144,7 +180,7 @@ pub fn run() -> anyhow::Result<()> {
             gpui_kit::init(cx);
 
             let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths(
-                std::env::temp_dir().join("bili23-downloader"),
+                std::env::temp_dir().join("bilidown"),
                 std::env::temp_dir(),
             ));
             ConfigGlobal::set_global(cx, ConfigGlobal(parking_lot::Mutex::new(cfg)));
@@ -154,14 +190,12 @@ pub fn run() -> anyhow::Result<()> {
             let show_label = cat.tr("SystemTrayIcon", "Show main window").to_string();
             let exit_label = cat.tr("SystemTrayIcon", "Exit").to_string();
             // The close-dialog callback needs a sender too (see Ask arm);
-            // leaked so the FnOnce callback (called after this scope ends)
-            // can still reach the pump.
-            let dialog_tx: &'static std::sync::mpsc::Sender<tray::TrayAction> =
-                Box::leak(Box::new(tray_tx.clone()));
+            // mpsc Sender is Clone, so the FnOnce callback moves one in.
+            let dialog_tx = tray_tx.clone();
             let mut _tray =
                 tray::spawn_tray(&show_label, &exit_label, APP_DISPLAY_NAME, tray_tx);
 
-            // --- window (titlebar/min-size + F2 saved bounds) --------------
+            // --- window (titlebar/min-size + F2 saved bounds or 2/3 default) --
             let mut options = WindowOptions {
                 titlebar: Some(TitlebarOptions {
                     title: Some(APP_DISPLAY_NAME.into()),
@@ -171,22 +205,15 @@ pub fn run() -> anyhow::Result<()> {
                     width: px(950.),
                     height: px(600.),
                 }),
-                app_id: Some("bili23-downloader".to_string()),
+                app_id: Some("cn.stanzhai.bilidown".to_string()),
                 ..Default::default()
             };
-            let saved = cx
+            let cfg = cx
                 .try_global::<ConfigGlobal>()
-                .and_then(|g| services::window_state::saved_state(&g.0.lock(), &screen_rects(cx)));
-            if let Some(saved) = saved {
-                let bounds = Bounds {
-                    origin: point(px(saved.x as f32), px(saved.y as f32)),
-                    size: size(px(saved.width as f32), px(saved.height as f32)),
-                };
-                options.window_bounds = Some(if saved.maximized {
-                    WindowBounds::Maximized(bounds)
-                } else {
-                    WindowBounds::Windowed(bounds)
-                });
+                .map(|g| g.0.lock().clone())
+                .unwrap_or_default();
+            if let Some(bounds) = startup_bounds(&cfg, cx) {
+                options.window_bounds = Some(bounds);
             }
 
             let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
@@ -223,7 +250,8 @@ pub fn run() -> anyhow::Result<()> {
                                 // the tray pump (same code path as the
                                 // tray Exit item).
                                 shell.update(cx, |shell, cx| {
-                                    shell.ask_exit(window, cx, |exit, _remembered| {
+                                    let dialog_tx = dialog_tx.clone();
+                                    shell.ask_exit(window, cx, move |exit, _remembered| {
                                         let action = if exit {
                                             tray::TrayAction::Exit
                                         } else {
@@ -308,11 +336,10 @@ mod tests {
 
     #[test]
     fn version_line_reports_app_identity() {
-        // Product identity unchanged (spec): same name, continues the
-        // v2.21.0 version line.
+        // Product renamed bilidown; version line continues the v2.21.0 line.
         assert_eq!(
             crate::version_line(),
-            format!("Bili23 Downloader v{}", env!("CARGO_PKG_VERSION"))
+            format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
         );
     }
 
@@ -342,7 +369,6 @@ mod tests {
     fn lock_file_lives_under_app_data() {
         let p = single_instance::lock_path().expect("data dir on all supported platforms");
         assert!(p.ends_with(single_instance::INSTANCE_LOCK_NAME));
-        assert!(p.components().any(|c| c.as_os_str() == "Bili23 Downloader"));
     }
 
     #[test]

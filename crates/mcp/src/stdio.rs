@@ -2,7 +2,7 @@
 //!
 //! Line-delimited JSON-RPC on stdin → one POST per message to the local
 //! MCP endpoint → one ASCII-escaped JSON line per response on stdout.
-//! Diagnostics go to stderr with the `[bili23-mcp]` prefix: stdout is the
+//! Diagnostics go to stderr with the `[bilidown-mcp]` prefix: stdout is the
 //! message channel and one stray log line would break the client.
 
 use std::io::{BufRead, Write};
@@ -17,10 +17,10 @@ const PROTOCOL_VERSION_KEY: &str = "io.modelcontextprotocol/protocolVersion";
 /// sentinel-encoded (spec `Mcp-Name`).
 const BASE64_PREFIX: &str = "=?base64?";
 const BASE64_SUFFIX: &str = "?=";
-const APP_NAME: &str = "Bili23 Downloader";
+const APP_NAME: &str = config::APP_NAME;
 
 fn log(message: &str) {
-    eprintln!("[bili23-mcp] {message}");
+    eprintln!("[bilidown-mcp] {message}");
 }
 
 fn encode_header_value(value: &str) -> String {
@@ -37,7 +37,7 @@ fn encode_header_value(value: &str) -> String {
     format!("{BASE64_PREFIX}{payload}{BASE64_SUFFIX}")
 }
 
-/// `~/Library/Application Support/Bili23 Downloader/config.json` on macOS,
+/// `~/Library/Application Support/bilidown/config.json` on macOS,
 /// `%APPDATA%` on Windows, XDG data elsewhere (Python `config_path`).
 fn default_config_path() -> std::path::PathBuf {
     let base = if cfg!(target_os = "windows") {
@@ -215,11 +215,7 @@ pub async fn run(port: u16, token: String) -> Result<()> {
                 let Some(id) = message.get("id") else {
                     continue;
                 };
-                rpc_error(
-                    id,
-                    -32603,
-                    &format!("Cannot reach Bili23 Downloader: {err}"),
-                )
+                rpc_error(id, -32603, &format!("Cannot reach bilidown: {err}"))
             }
         };
 

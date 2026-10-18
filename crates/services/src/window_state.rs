@@ -48,13 +48,8 @@ impl ScreenRect {
 }
 
 /// Read and validate the saved window state; `None` = use defaults
-/// (centered 950×600). Validation, in Python order:
-/// 1. `Behavior/remember_window_state` must be true
-/// 2. `Behavior/window_state` must be an object with int-coercible
-///    x/y/width/height
-/// 3. width ≥ 950 and height ≥ 600 (minimum size)
-/// 4. the title bar `(x, y, width, 40)` must intersect some screen's work
-///    area
+/// (2/3 of the main display, centered; see [`default_state`]).
+/// Validation, in Python order:
 pub fn saved_state(cfg: &ConfigStore, screens: &[ScreenRect]) -> Option<WindowState> {
     if !cfg
         .get("Behavior", "remember_window_state")
@@ -93,6 +88,22 @@ pub fn saved_state(cfg: &ConfigStore, screens: &[ScreenRect]) -> Option<WindowSt
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
     })
+}
+
+/// First-run fallback (no saved state): 2/3 of the given display's
+/// bounds, floored at the 950×600 minimum, centered on that display.
+pub fn default_state(screen: ScreenRect) -> WindowState {
+    let width = screen.width * 2 / 3;
+    let height = screen.height * 2 / 3;
+    let width = width.max(DEFAULT_WIDTH);
+    let height = height.max(DEFAULT_HEIGHT);
+    WindowState {
+        x: screen.x + (screen.width - width) / 2,
+        y: screen.y + (screen.height - height) / 2,
+        width,
+        height,
+        maximized: false,
+    }
 }
 
 /// Persist a window state. Mirrors the guards in `save_window_state`:

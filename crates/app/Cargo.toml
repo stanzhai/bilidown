@@ -1,13 +1,13 @@
 [package]
 name = "app"
-description = "Bili23 Downloader application shell"
+description = "bilidown application shell"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
 
 [[bin]]
-name = "bili23-downloader"
+name = "bilidown"
 path = "src/main.rs"
 
 [dependencies]
@@ -48,3 +48,4 @@ windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Syst
 [dev-dependencies]
 wiremock = "=0.6.5"
 tempfile = "=3.27.0"
+gpui-pre = { version = "=0.3.9", features = ["test-support"] }

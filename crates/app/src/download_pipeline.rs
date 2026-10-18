@@ -418,23 +418,52 @@ pub async fn run_task(
         let dir = PathBuf::from(&task.File.download_path).join(&task.File.folder);
         let _ = std::fs::create_dir_all(&dir);
 
-        let Ok(handle) = manager
-            .scheduler
-            .spawn_engine(manager, &task_id, client.clone(), specs)
+        let Ok((handle, control)) =
+            manager
+                .scheduler
+                .spawn_engine(manager, &task_id, client.clone(), specs)
         else {
             task.Download.status = download_status::FAILED;
             manager.update_async(&task);
             return PipelineOutcome::err(&task_id, download_status::FAILED, "engine start failed");
         };
+        // Live progress: sample the engine while it runs and persist
+        // progress/downloaded_size (speed as a byte delta per window —
+        // the engine itself never computes it).
+        let sampler = tokio::spawn({
+            let manager = manager.clone();
+            let task = task.clone();
+            async move {
+                let mut last_bytes = control.snapshot().downloaded_size;
+                let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
+                tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                loop {
+                    tick.tick().await;
+                    let snap = control.snapshot();
+                    if snap.downloaded_size == last_bytes {
+                        continue;
+                    }
+                    let speed = snap.downloaded_size.saturating_sub(last_bytes) * 2; // 0.5s window
+                    last_bytes = snap.downloaded_size;
+                    let mut t = task.clone();
+                    t.Download.downloaded_size = snap.downloaded_size as i64;
+                    t.Download.progress = snap.progress() as i64;
+                    t.Download.speed = speed as i64;
+                    manager.update_async(&t);
+                }
+            }
+        });
         let state = match handle.await {
             Ok(state) => state,
             Err(e) => {
+                sampler.abort();
                 manager.scheduler.release(&task_id);
                 task.Download.status = download_status::FAILED;
                 manager.update_async(&task);
                 return PipelineOutcome::err(&task_id, download_status::FAILED, e.to_string());
             }
         };
+        sampler.abort();
         match state.status {
             downloader::TaskStatus::Completed => {}
             downloader::TaskStatus::Paused => {
@@ -478,7 +507,27 @@ pub async fn run_task(
     task.Download.status = download_status::MERGING;
     manager.update_async(&task);
     let outcome = {
+        let manager = manager.clone();
+        let mut last_persisted = -1i64;
+        // Live merge progress: persist every 2% step (the callback fires
+        // per percent; a write per step is enough for a moving bar). The
+        // sink runs while `task` is mutably borrowed, so it carries its
+        // own snapshot and only swaps the progress field.
+        let base = {
+            let mut t = task.clone();
+            t.Download.speed = 0;
+            t
+        };
         let mut merger = mux::Merger::new(&mut task, &globals, exe);
+        merger.set_progress_sink(move |p| {
+            if p / 2 == last_persisted / 2 {
+                return;
+            }
+            last_persisted = p;
+            let mut t = base.clone();
+            t.Download.progress = p;
+            manager.update_async(&t);
+        });
         merger.run()
     };
     manager.update_async(&task);

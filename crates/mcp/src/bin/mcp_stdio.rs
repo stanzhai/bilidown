@@ -2,8 +2,8 @@
 //!
 //! Reads line-delimited JSON-RPC on stdin, forwards each to the local
 //! HTTP MCP endpoint, prints one ASCII-escaped JSON line per response on
-//! stdout. Auto-launch of the GUI app is not ported: run Bili23
-//! Downloader separately.
+//! stdout. Auto-launch of the GUI app is not ported: run bilidown
+//! separately.
 
 use std::process::ExitCode;
 
@@ -32,7 +32,7 @@ fn main() -> ExitCode {
     {
         Ok(rt) => rt,
         Err(err) => {
-            eprintln!("[bili23-mcp] failed to start runtime: {err}");
+            eprintln!("[bilidown-mcp] failed to start runtime: {err}");
             return ExitCode::from(2);
         }
     };
@@ -45,8 +45,8 @@ fn main() -> ExitCode {
             match mcp::stdio::load_config_token(config_path.as_deref()) {
                 Ok(Some(t)) => t,
                 Ok(None) | Err(_) => {
-                    eprintln!("[bili23-mcp] 未找到 MCP 令牌。");
-                    eprintln!("[bili23-mcp] 请先在 Bili23 Downloader 中启用 MCP 服务器。");
+                    eprintln!("[bilidown-mcp] 未找到 MCP 令牌。");
+                    eprintln!("[bilidown-mcp] 请先在 bilidown 中启用 MCP 服务器。");
                     return ExitCode::from(2);
                 }
             }
@@ -55,7 +55,7 @@ fn main() -> ExitCode {
         match mcp::stdio::run(port, token).await {
             Ok(()) => ExitCode::SUCCESS,
             Err(err) => {
-                eprintln!("[bili23-mcp] {err}");
+                eprintln!("[bilidown-mcp] {err}");
                 ExitCode::from(2)
             }
         }

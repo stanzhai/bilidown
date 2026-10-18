@@ -240,9 +240,8 @@ impl Shell {
                 // The dialog itself is the doc link; the shell has no
                 // browser abstraction, so mark-and-continue keeps the
                 // once-flag behavior identical.
-                self.status_note = Some(
-                    "Welcome! See https://bili23.scott-sloan.cn/doc/introduction.html".to_owned(),
-                );
+                self.status_note =
+                    Some("Welcome! See https://github.com/stanzhai/bilidown".to_owned());
             }
             services::tips::PendingTip::SelectAreaDialog => {
                 services::tips::mark_area_dialog_shown(&mut cfg);
@@ -328,7 +327,7 @@ impl Shell {
     }
 }
 
-/// 任务数据库路径：User Data/Bili23 Downloader/task.db（Python appdata 推导）。
+/// 任务数据库路径：User Data/bilidown/task.db（Python appdata 推导）。
 fn task_db_path() -> Option<std::path::PathBuf> {
     dirs::data_dir().map(|d| d.join(config::APP_NAME).join("task.db"))
 }
@@ -405,6 +404,40 @@ mod tests {
         assert_eq!(state.sms, login::model::SmsPhase::Idle);
         assert_eq!(state.qr, login::model::QrPhase::Loading);
         assert!(state.qr_key.is_empty());
+    }
+
+    /// Regression (double-lease panic): clicking "Log In" opens the login
+    /// dialog from inside the Shell's update lease. Reading the shell
+    /// synchronously there used to panic with "cannot read Shell while it
+    /// is already being updated" (gpui entity_map.rs). The QR kickoff now
+    /// reads via the async context instead.
+    // Network-real: start_qr hits the live QR API on the app's tokio
+    // runtime, which gpui's deterministic test scheduler flags as
+    // "not deterministic" when other tests run in parallel. Run on
+    // demand with: cargo test -p app open_login -- --ignored
+    #[ignore]
+    #[gpui::test]
+    async fn open_login_does_not_double_lease_shell(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_kit::init);
+        let handle = cx.add_window(Shell::new);
+        let window = gpui::AnyWindowHandle::from(handle);
+        cx.update_window(window, |root, window, cx| {
+            let shell = root.downcast::<Shell>().expect("root is Shell");
+            shell.update(cx, |shell, cx| {
+                // Even with a stale logged-in config the dialog must open
+                // without the double-lease panic; the button is disabled
+                // when logged in, so force the flag off first.
+                shell.login.is_login = false;
+                shell.open_login(window, cx);
+                assert!(shell.login.handle.is_open());
+            });
+        })
+        .unwrap();
+        cx.run_until_parked();
+        let open = handle
+            .read_with(cx, |shell: &Shell, _| shell.login.handle.is_open())
+            .expect("window alive");
+        assert!(open, "login dialog must stay open");
     }
 }
 

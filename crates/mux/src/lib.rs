@@ -273,6 +273,10 @@ pub struct Merger<'a> {
     output_audio_file: Option<String>,
     /// Ext written back to `File.audio_file_ext` once conversion succeeds.
     converted_audio_ext: Option<&'static str>,
+    /// Live progress sink: called on every ffmpeg percentage so the
+    /// pipeline can persist the merge bar without waiting for the run
+    /// to finish.
+    on_progress: Option<Box<dyn FnMut(i64) + 'a>>,
 }
 
 impl<'a> Merger<'a> {
@@ -293,7 +297,14 @@ impl<'a> Merger<'a> {
             embedded_subtitles: Vec::new(),
             output_audio_file: None,
             converted_audio_ext: None,
+            on_progress: None,
         }
+    }
+
+    /// Attach a live progress sink (each ffmpeg percentage step).
+    pub fn set_progress_sink(&mut self, sink: impl FnMut(i64) + 'a) -> &mut Self {
+        self.on_progress = Some(Box::new(sink));
+        self
     }
 
     /// `Behavior.file_conflict_resolution` for temp→final renames.
@@ -555,8 +566,13 @@ impl<'a> Merger<'a> {
         if let Some(watchdog) = self.watchdog {
             runner.set_watchdog(watchdog);
         }
-        let outcome = runner.run(|p| self.task.Download.progress = i64::from(p));
-
+        let mut sink = self.on_progress.take();
+        let outcome = runner.run(|p| {
+            self.task.Download.progress = i64::from(p);
+            if let Some(sink) = sink.as_mut() {
+                sink(i64::from(p));
+            }
+        });
         match outcome {
             FFmpegOutcome::Success { .. } => Ok(()),
             other => {

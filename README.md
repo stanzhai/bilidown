@@ -1,45 +1,38 @@
 <p align="center">
-    <a href="https://bili23.scott-sloan.cn" target="_blank">
-        <img src="https://bili23.scott-sloan.cn/logo.png" alt="Bili23 Downloader" style="width: 500px;"/>
-    </a>
+    <img src="assets/app.svg" alt="bilidown" width="120"/>
 </p>
 
-<h1 align="center">Bili23-Downloader</h1>
+<h1 align="center">bilidown</h1>
 
 <p align="center">
-    🌐&nbsp;&nbsp;<span><b>简体中文</b></span>&nbsp;&nbsp;<a href="README_en.md"><span>English</span></a>
+    跨平台 Bilibili 视频下载工具（Rust 重写版）
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/github/v/release/ScottSloan/Bili23-Downloader?style=flat-square" alt="Release"/>
-    <img src="https://img.shields.io/github/license/ScottSloan/Bili23-Downloader?style=flat-square" alt="License"/>
-    <img src="https://img.shields.io/github/downloads/ScottSloan/Bili23-Downloader/total?style=flat-square" alt="Downloads"/>
-    <img src="https://img.shields.io/github/stars/ScottSloan/Bili23-Downloader?style=flat-square" alt="Stars"/>
-    <img src="https://img.shields.io/github/actions/workflow/status/ScottSloan/Bili23-Downloader/rust.yml?style=flat-square" alt="Build"/>
+    <img src="https://img.shields.io/github/v/release/stanzhai/bilidown?style=flat-square" alt="Release"/>
+    <img src="https://img.shields.io/github/license/stanzhai/bilidown?style=flat-square" alt="License"/>
+    <img src="https://img.shields.io/github/downloads/stanzhai/bilidown/total?style=flat-square" alt="Downloads"/>
+    <img src="https://img.shields.io/github/stars/stanzhai/bilidown?style=flat-square" alt="Stars"/>
+    <img src="https://img.shields.io/github/actions/workflow/status/stanzhai/bilidown/rust.yml?style=flat-square" alt="Build"/>
 </p>
 
-<div align="center">
-    <h3>
-        <a href="https://bili23.scott-sloan.cn/">项目官网</a>
-        <span> • </span>
-        <a href="https://bili23.scott-sloan.cn/doc/intro.html">说明文档</a>
-        <span> • </span>
-        <a href="#-下载地址">下载地址</a>
-    </h3>
-</div>
+<p align="center">
+    <a href="https://github.com/stanzhai/bilidown/releases">下载发布版本</a> ·
+    <a href="README_en.md">English</a>
+</p>
 
-<div align="center">
-    <strong>开源、免费、跨平台的 B 站视频下载工具</strong><br>
-</div><br>
+## 📖 项目简介
 
-<p align="center"><img src="https://bili23.scott-sloan.cn/main_interface_cn.png" alt="程序截图" style="width: 80%;"></p>
+**bilidown** 是一个跨平台桌面应用程序，用于下载 Bilibili 上的视频资源。它是 [Bili23 Downloader](https://github.com/ScottSloan/Bili23-Downloader) 的社区分支，使用 Rust 与 [gpui-kit](https://github.com/longbridge/gpui-kit) 从零重写了整个 GUI 与下载内核，保留原项目的全部数据（配置、任务数据库、下载历史可与 Python 版无缝衔接）。
+
+支持解析分享链接或视频 ID，自由选择要下载的分 P、画质与附加内容（弹幕、字幕、封面、元数据等）。
 
 ## ⚡ 程序特性
 
 | 特性 | 详细说明 |
 | :--- | :--- |
-| 🖥️ **跨平台支持** | 完美兼容 **Windows**（含 Win 7）、**Linux** 和 **macOS** 三大桌面操作系统。 |
-| 🎨 **现代 UI 设计** | 基于 Fluent Design 设计语言，支持浅色 / 深色主题无缝切换，原生适配高分屏，并会记住窗口位置与大小，下次启动自动恢复。 | 
+| 🖥️ **跨平台支持** | 支持 **Windows 10 1809+**、**Linux**（x64）和 **macOS 12+** 三大桌面操作系统。 |
+| 🎨 **原生 UI 设计** | 基于 [gpui-kit](https://github.com/longbridge/gpui-kit) 构建的原生 GPU 渲染界面，支持浅色 / 深色主题无缝切换，原生适配高分屏，并会记住窗口位置与大小，下次启动自动恢复。 |
 | 🚀 **多线程与加速**| 原生集成多线程并行下载、断点续传及网络异常自动重试机制，提供极致的下载速率，同时支持全局下载限速。 |
 | 🔗 **多类型解析** | 全面支持：`投稿视频`、`番剧`、`电影`、`课程`、`互动视频`、`音乐（au/am）`、`UP主空间`、`收藏夹`、`每周必看`、`订阅合集`、`追番追剧`、`稍后再看`、`历史记录`等。 |
 | 🔍 **批量与检索** | 支持一次粘贴多条投稿视频链接**批量解析**；个人空间、收藏夹、历史记录与稍后再看支持**关键词搜索**（可选择只筛选当前页或搜索全部内容）；解析完成后还可按预设条件**自动勾选**下载项。 |
@@ -52,16 +45,26 @@
 | 🚫 **重复下载检测**| 自动记录下载历史，再次下载相同内容时给出提示并可直接跳过，避免重复占用带宽与磁盘空间。 |
 | 🌐 **网络与代理** | 支持**不使用代理**、**使用系统代理**、**手动设置**三种代理模式，可根据地理位置选择 CDN 节点以改善下载速度，并支持自定义 User-Agent 与 Host。 |
 | 📋 **剪贴板监控** | 自动识别复制到剪贴板中的 B 站链接，确认后即可直接进入解析下载流程。 |
+| 🤖 **MCP 服务器** | 内置 MCP（Model Context Protocol）服务器，可供 AI 客户端解析链接、查询分 P 并创建下载任务。 |
 | 🌍 **国际化支持** | 内置多语言界面，开箱可用：简体中文、繁体中文、English。 |
 | 🔒 **账号安全登录**| 支持快捷安全的**扫码登录**、**短信验证登录**与 **Cookie 登录**。 |
 | 📖 **完全开源免费**| 基于 **GPL-3.0** 协议发布，代码完全开源、无内购、无广告，拥抱社区共建。 |
 
 ## 📥 下载地址
 
-当前提供两种下载方式，可按使用场景选择：
+- [**GitHub Releases**](https://github.com/stanzhai/bilidown/releases/latest) - Windows 安装包 / 便携版、macOS dmg（Intel & Apple Silicon）、Linux AppImage。
 
-- [**GitHub Releases**](https://github.com/ScottSloan/Bili23-Downloader/releases/latest) - 适合访问 GitHub 较稳定的用户，获取最新发布版本。
-- [**官网下载（国内用户推荐）**](https://bili23.scott-sloan.cn/doc/releases.html) - 适合国内用户，通常访问更快、更稳定。
+Windows 便携版与 AppImage 内置 ffmpeg；安装版亦自动附带，无需单独配置。
+
+## 🛠️ 从源码构建
+
+```bash
+git clone https://github.com/stanzhai/bilidown.git
+cd bilidown
+cargo build --release -p app --manifest-path crates/Cargo.toml
+```
+
+打包产物（安装包 / dmg / AppImage）由 `crates/packaging/src/bin/packager.py` 生成，CI 全流程见 `.github/workflows/rust-release.yml`。
 
 ## 🪧 使用协议
 本项目仅供个人学习与研究用途，下载内容**仅限于个人非商业使用，严禁用于任何形式的商业目的、公开传播或分发**。  
@@ -71,40 +74,20 @@
 
 继续使用即表示您已充分理解并同意遵守上述全部条款。
 
+## 🌱 分支来源
+
+本项目 fork 自 [ScottSloan/Bili23-Downloader](https://github.com/ScottSloan/Bili23-Downloader)，并向原项目及其社区致敬；接口文档与签名实现参考 [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)。
+
 ## 🔑 开源许可
 本项目在 **GPLv3 License** 许可协议下进行发布。
 
 wbi 签名、部分接口以及 buvid3 等参数生成参考 [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)  
 
 ## 🛠️ 参与贡献
-欢迎提出新的点子~
+欢迎提出 Issue 与 Pull Request。
 
-<a href="https://github.com/ScottSloan/Bili23-Downloader/graphs/contributors" target="_blank">
-    <img src="https://contrib.rocks/image?repo=ScottSloan/Bili23-Downloader" alt="Contributors" style="width: 300px;"/>
+<a href="https://github.com/stanzhai/bilidown/graphs/contributors" target="_blank">
+    <img src="https://contrib.rocks/image?repo=stanzhai/bilidown" alt="Contributors" style="width: 300px;"/>
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).
-
-## 🌟 社区交流
-加入社区，获取项目最新动态、问题答疑和技术交流。
-
-- [QQ 交流群](https://qm.qq.com/q/KX3uJIFIYK)
-- [QQ 频道](https://pd.qq.com/s/8941to1p0)
-
-> 如需提问，请提供**问题描述**、**完整日志**，以便我们更好地提供帮助。
-
-## 💪 支持作者
-
-本项目由开发者 [Scott Sloan](https://github.com/ScottSloan) 利用业余时间独立开发与维护，初衷是为大家提供纯粹、无广告且高效的 B 站本地下载工具。
-
-> **⭐️ 点亮星标**  
-> 如果这款工具为你节省了宝贵的时间，欢迎在项目右上角为其点亮一颗 **Star**！  
-> 你的支持能让更多有需要的人看到这个项目，这也会成为作者持续更新的最大动力。
-
-### ☕️ 请作者喝杯咖啡
-
-除了日常的代码维护外，处理复杂的跨平台环境以及重构发布都耗费了大量的时间与精力。如果软件确实帮你解决了不少麻烦，欢迎通过下方的赞助码请作者喝杯咖啡。**这是对“为爱发电”最实在的认可！**
-
-<p align="center">
-    <img src="https://bili23.scott-sloan.cn/assets/sponsor_weixin.Bqpdl-if.png" alt="赞助二维码" style="width: 300px; margin: 10px 0; border-radius: 8px;" />
-</p>

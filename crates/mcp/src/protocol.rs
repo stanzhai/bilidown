@@ -23,7 +23,7 @@ pub const PROTOCOL_VERSION_KEY: &str = "io.modelcontextprotocol/protocolVersion"
 /// `params._meta`/`_meta` key carrying server identity in discover.
 pub const SERVER_INFO_KEY: &str = "io.modelcontextprotocol/serverInfo";
 
-pub const SERVER_INSTRUCTIONS: &str = "Controls the Bili23 Downloader desktop application. Parse a Bilibili URL first, then inspect the parsed episodes and create download tasks from them. Parsing replaces whatever is currently shown in the application's parse list, so it is refused while the user has items selected there.";
+pub const SERVER_INSTRUCTIONS: &str = "Controls the bilidown desktop application. Parse a Bilibili URL first, then inspect the parsed episodes and create download tasks from them. Parsing replaces whatever is currently shown in the application's parse list, so it is refused while the user has items selected there.";
 
 pub const TOOLS_CACHE_TTL_MS: i64 = 60_000;
 pub const DISCOVER_CACHE_TTL_MS: i64 = 300_000;
@@ -175,9 +175,9 @@ pub fn is_modern_request(message: &Map<String, Value>) -> bool {
         .is_some_and(|v| !v.is_empty())
 }
 
-/// `{"name": "Bili23 Downloader", "version": ...}`.
+/// `{"name": "bilidown", "version": ...}`.
 pub fn server_info() -> Value {
-    json!({"name": "Bili23 Downloader", "version": env!("CARGO_PKG_VERSION")})
+    json!({"name": "bilidown", "version": env!("CARGO_PKG_VERSION")})
 }
 
 /// Outcome of handling one message: HTTP status + optional response body
@@ -405,7 +405,7 @@ mod tests {
             result["capabilities"],
             json!({"tools": {"listChanged": false}})
         );
-        assert_eq!(result["serverInfo"]["name"], json!("Bili23 Downloader"));
+        assert_eq!(result["serverInfo"]["name"], json!("bilidown"));
         assert_eq!(result["instructions"], json!(SERVER_INSTRUCTIONS));
     }
 
@@ -585,10 +585,7 @@ mod tests {
         let result = h.response.unwrap()["result"].clone();
         assert_eq!(result["resultType"], json!("complete"));
         assert_eq!(result["ttlMs"], json!(DISCOVER_CACHE_TTL_MS));
-        assert_eq!(
-            result["_meta"][SERVER_INFO_KEY]["name"],
-            json!("Bili23 Downloader")
-        );
+        assert_eq!(result["_meta"][SERVER_INFO_KEY]["name"], json!("bilidown"));
     }
 }
 
