@@ -100,9 +100,11 @@ pub fn open_batch_select(
 ) {
     let catalog = active_catalog(&cfg);
     let title = catalog.tr(CTX, "Batch Selection").to_owned();
-    let ok = "OK".to_owned();
-    let input =
-        cx.new(|cx| InputState::new(window, cx).placeholder("Enter line numbers (e.g. 1,3,5-10)"));
+    let ok = catalog.tr(CTX, "OK").to_owned();
+    let placeholder = catalog
+        .tr(CTX, "Enter line numbers (e.g. 1,3,5-10)")
+        .to_owned();
+    let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
     let state = std::rc::Rc::new(std::cell::RefCell::new(BatchSelectState::default()));
     let on_accept = std::rc::Rc::new(std::cell::RefCell::new(Some(on_accept)));
 

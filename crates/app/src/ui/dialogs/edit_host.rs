@@ -207,9 +207,9 @@ pub fn open_cdn_server_list(
     let node = catalog.tr(LIST_CTX, "Node").to_owned();
     let provider = catalog.tr(LIST_CTX, "Provider").to_owned();
     let actions = catalog.tr(LIST_CTX, "Actions").to_owned();
-    let edit = "Edit".to_owned();
-    let remove = "Remove".to_owned();
-    let ok = "OK".to_owned();
+    let edit = catalog.tr(LIST_CTX, "Edit").to_owned();
+    let remove = catalog.tr(LIST_CTX, "Remove").to_owned();
+    let ok = catalog.tr(LIST_CTX, "OK").to_owned();
 
     let state = std::rc::Rc::new(std::cell::RefCell::new(CdnListState::load(&cfg, key)));
     let cfg_cell = std::rc::Rc::new(std::cell::RefCell::new(cfg));

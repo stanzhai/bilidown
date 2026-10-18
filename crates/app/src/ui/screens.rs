@@ -47,8 +47,14 @@ pub mod favorites {
     pub struct FavoritesScreen;
 
     impl FavoritesScreen {
-        pub fn render(&mut self) -> impl IntoElement {
-            div().p_6().child("Favorites")
+        pub fn render(&mut self, cx: &Context<crate::ui::Shell>) -> impl IntoElement {
+            let lang = cx
+                .read_global::<crate::ui::ShellI18n, _>(|i18n, _| i18n.lang)
+                .resolve();
+            let label = services::i18n::catalog(lang)
+                .tr("MainWindow", "Favorites")
+                .to_owned();
+            div().p_6().child(label)
         }
     }
 }

@@ -61,12 +61,22 @@ impl LoginState {
             model: LoginModel::new(),
             cookie: CookieModel::new(),
             qr_png: None,
-            tel: cx.new(|cx| InputState::new(window, cx).placeholder("Enter phone number")),
-            code: cx.new(|cx| InputState::new(window, cx).placeholder("Enter verification code")),
-            cookie_text: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx")
-            }),
+            tel: {
+                let ph = Self::tr(cx, "LoginDialog", "Enter phone number");
+                cx.new(|cx| InputState::new(window, cx).placeholder(ph))
+            },
+            code: {
+                let ph = Self::tr(cx, "LoginDialog", "Enter verification code");
+                cx.new(|cx| InputState::new(window, cx).placeholder(ph))
+            },
+            cookie_text: {
+                let ph = Self::tr(
+                    cx,
+                    "CookieLoginDialog",
+                    "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx",
+                );
+                cx.new(|cx| InputState::new(window, cx).placeholder(ph))
+            },
             server: None,
             captcha_key: String::new(),
             generation: 0,

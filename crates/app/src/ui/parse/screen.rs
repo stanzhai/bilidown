@@ -42,11 +42,21 @@ pub struct ParseScreen {
     /// Python); task creation reads it keyed by episode_id.
     pub episode_data: std::sync::Arc<parsers::EpisodeData>,
 }
-
 impl ParseScreen {
+    /// Active catalog off the shell-global language.
+    fn catalog(cx: &Context<Shell>) -> &'static services::i18n::Catalog {
+        let lang = cx
+            .read_global::<crate::ui::ShellI18n, _>(|i18n, _| i18n.lang)
+            .resolve();
+        services::i18n::catalog(lang)
+    }
+
     pub fn new(window: &mut Window, cx: &mut Context<Shell>) -> Self {
-        let url = cx.new(|cx| InputState::new(window, cx).placeholder("Paste a Bilibili link"));
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
+        let c = Self::catalog(cx);
+        let url = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(c.tr("ParseInterface", "Paste a Bilibili link"))
+        });
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder(c.tr("ParseInterface", "Search")));
         let tree = cx.new(|cx| TreeState::new(cx));
         Self {
             url,
@@ -63,6 +73,7 @@ impl ParseScreen {
 
     /// Render the screen body inside the shell.
     pub fn render(&mut self, cx: &mut Context<Shell>) -> impl IntoElement {
+        let c = Self::catalog(cx);
         div()
             .id("parse-screen")
             .flex()
@@ -77,42 +88,42 @@ impl ParseScreen {
                     .child(div().flex_1().child(Input::new(&self.url).id("url-input")))
                     .child(
                         Button::new("parse-button")
-                            .label("Parse")
+                            .label(c.tr("ParseInterface", "Parse"))
                             .on_click(cx.listener(|shell, _, _, cx| {
                                 shell.parse.start_parse(&shell.auth_state, cx);
                             })),
                     )
                     .child(
                         Button::new("batch-parse-button")
-                            .label("Batch Parse")
+                            .label(c.tr("ParseInterface", "Batch Parse"))
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 shell.parse.open_batch_parse_dialog(window, cx);
                             })),
                     )
                     .child(
                         Button::new("search-dialog-button")
-                            .label("Search…")
+                            .label(c.tr("ParseInterface", "Search…"))
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 shell.parse.open_search_dialog(window, cx);
                             })),
                     )
                     .child(
                         Button::new("history-button")
-                            .label("Parsing History")
+                            .label(c.tr("ParseInterface", "Parsing History"))
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 shell.parse.open_history_dialog(window, cx);
                             })),
                     )
                     .child(
                         Button::new("auto-parse-button")
-                            .label("Auto-parse Pagination")
+                            .label(c.tr("ParseInterface", "Auto-parse Pagination"))
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 shell.parse.open_auto_parse_dialog(window, cx);
                             })),
                     )
                     .child(
                         Button::new("download-button")
-                            .label("Download Selected Items")
+                            .label(c.tr("ParseInterface", "Download Selected Items"))
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 shell.parse.on_download(window, shell.manager.clone(), cx);
                             })),
@@ -131,7 +142,7 @@ impl ParseScreen {
                     )
                     .child(
                         Button::new("search-button")
-                            .label("Search")
+                            .label(c.tr("ParseInterface", "Search"))
                             .on_click(cx.listener(|shell, _, _, cx| {
                                 let kw = shell.parse.search.read(cx).value().to_string();
                                 shell.parse.run_search(Some(kw), cx);
@@ -147,9 +158,9 @@ impl ParseScreen {
                             shell.parse.jump_match(true, cx);
                         },
                     )))
-                    .child(div().id("match-label").child(self.model.match_label())),
+                    .child(div().id("match-label").child(self.model.match_label(c))),
             )
-            .child(div().id("count-label").child(self.model.count_label()))
+            .child(div().id("count-label").child(self.model.count_label(c)))
             .child(self.render_tree(cx))
             .child(self.render_pager(cx))
     }
@@ -300,6 +311,7 @@ impl ParseScreen {
     /// Prev / next / jump pager (port of `widget/pager.py`):
     /// `pageChanged` re-parses the current url at the new page.
     fn render_pager(&mut self, cx: &mut Context<Shell>) -> impl IntoElement {
+        let c = Self::catalog(cx);
         let Some(p) = self.model.pagination.clone() else {
             return div();
         };
@@ -333,7 +345,7 @@ impl ParseScreen {
                     shell.parse.open_jump_to_page_dialog(window, cx);
                 },
             )))
-            .child(div().child(p.label()))
+            .child(div().child(p.label(c)))
     }
 
     /// Sync display rows → tree items and notify.
@@ -381,7 +393,9 @@ impl ParseScreen {
         self.generation += 1;
         let generation = self.generation;
         self.model.reset();
-        self.status = "Parsing…".to_string();
+        self.status = Self::catalog(cx)
+            .tr("ParseInterface", "Parsing…")
+            .to_string();
         self.refresh_tree(cx);
 
         // Parity with Python's parse worker: watch-later/history/lesson
@@ -390,6 +404,7 @@ impl ParseScreen {
         // update closure the caller is already inside (gpui panics).
         // One side-data table across parses: the screen keeps the handle
         // so task creation can read the parsed extras.
+        let c = Self::catalog(cx);
         let episode_data = self.episode_data.clone();
         cx.spawn(async move |shell, cx| {
             let _tokio = crate::bootstrap::tokio_context();
@@ -435,7 +450,9 @@ impl ParseScreen {
                         shell.parse.record_history(cx);
                     }
                     Err(e) => {
-                        shell.parse.status = format!("Parse failed: {e}");
+                        let t = c.tr("ParseInterface", "Parse failed: {error}");
+                        shell.parse.status =
+                            t.replace("{error}", &e.to_string());
                         cx.notify();
                     }
                 }
@@ -451,7 +468,8 @@ impl ParseScreen {
         cx: &mut Context<Shell>,
     ) {
         self.model.category_key = output.category.to_string();
-        self.model.category_name = output.category.to_string();
+        self.model.category_name = services::i18n::episode_type(Self::catalog(cx), &output.category)
+            .unwrap_or_else(|| output.category.to_string());
         if output.extra.pagination.is_some() {
             self.model.pagination = output
                 .extra
@@ -497,8 +515,9 @@ impl ParseScreen {
 
     /// In-page search over the loaded tree.
     pub fn run_search(&mut self, keyword: Option<String>, cx: &mut Context<Shell>) {
+        let c = Self::catalog(cx);
         let count = self.model.search(keyword.as_deref());
-        self.status = self.model.match_label();
+        self.status = self.model.match_label(c);
         if count > 0 {
             if let Some(ix) = self.model.matches.first().copied() {
                 self.reveal_row(ix, cx);
@@ -514,7 +533,7 @@ impl ParseScreen {
         } else {
             self.model.prev_match()
         };
-        self.status = self.model.match_label();
+        self.status = self.model.match_label(Self::catalog(cx));
         if let Some(ix) = ix {
             self.reveal_row(ix, cx);
         }
@@ -554,7 +573,8 @@ impl ParseScreen {
         self.generation += 1;
         let generation = self.generation;
         self.model.reset();
-        self.status = "Parsing…".to_string();
+        let c = Self::catalog(cx);
+        self.status = c.tr("ParseInterface", "Parsing…").to_string();
         self.refresh_tree(cx);
         cx.spawn(async move |shell, cx| {
             let _tokio = crate::bootstrap::tokio_context();
@@ -581,7 +601,8 @@ impl ParseScreen {
                         shell.parse.apply_parse_result(&output, cx);
                     }
                     Err(e) => {
-                        shell.parse.status = format!("Batch parse failed: {e}");
+                        let t = c.tr("ParseInterface", "Batch parse failed: {error}");
+                        shell.parse.status = t.replace("{error}", &e.to_string());
                         cx.notify();
                     }
                 }
@@ -599,8 +620,9 @@ impl ParseScreen {
         auth: auth::AuthState,
         cx: &mut Context<Shell>,
     ) {
+        let c = Self::catalog(cx);
         let episode_data = self.episode_data.clone();
-        self.status = "Preparing…".to_string();
+        self.status = c.tr("ParseInterface", "Preparing…").to_string();
         cx.notify();
         cx.spawn(async move |shell, cx| {
             let _tokio = crate::bootstrap::tokio_context();
@@ -665,7 +687,8 @@ impl ParseScreen {
                     cx.notify();
                 }
                 Err(e) => {
-                    shell.parse.status = format!("Auto-parse failed: {e}");
+                    let t = c.tr("ParseInterface", "Auto-parse failed: {error}");
+                    shell.parse.status = t.replace("{error}", &e.to_string());
                     cx.notify();
                 }
             })
@@ -772,6 +795,7 @@ impl ParseScreen {
     /// Open the interactive-video dialog when a walked stein tree is
     /// parked; otherwise record the intent.
     pub fn open_interactive_video_dialog(&mut self, window: &mut Window, cx: &mut Context<Shell>) {
+        let c = Self::catalog(cx);
         let Some(node) = self.pending_interactive_node.take() else {
             self.pending_dialog = Some("interactive_video");
             return;
@@ -797,7 +821,9 @@ impl ParseScreen {
                         current_episode: None,
                     };
                     shell.parse.model.category_key = output.category.to_string();
-                    shell.parse.model.category_name = output.category.to_string();
+                    shell.parse.model.category_name =
+                        services::i18n::episode_type(c, &output.category)
+                            .unwrap_or_else(|| output.category.to_string());
                     shell.parse.model.pagination = None;
                     shell.parse.model.server_search = false;
                     let _ = shell
@@ -847,6 +873,7 @@ impl ParseScreen {
         // Python `on_download`: the options dialog runs first when the
         // behavior flag is on; its OK handler commits settings, task
         // creation then proceeds for the still-checked rows.
+        let c = Self::catalog(cx);
         if let Ok(cfg) = ConfigStore::open() {
             let show = cfg
                 .get("Behavior", "show_download_options_dialog")
@@ -857,7 +884,9 @@ impl ParseScreen {
             }
         }
         let Some(manager) = manager else {
-            self.status = "Downloads unavailable (no task database)".into();
+            self.status = c
+                .tr("ParseInterface", "Downloads unavailable (no task database)")
+                .to_string();
             cx.notify();
             return;
         };
@@ -880,21 +909,25 @@ impl ParseScreen {
         match created {
             Ok(result) => {
                 self.status = format!(
-                    "Queued {} task(s){}",
-                    result.created.len(),
+                    "{}{}",
+                    {
+                        let t = c.tr("ParseInterface", "Queued {count} task(s)");
+                        t.replace("{count}", &result.created.len().to_string())
+                    },
                     if result.skipped_duplicates.is_empty() {
                         String::new()
                     } else {
-                        format!(
-                            " ({} duplicate(s) skipped)",
-                            result.skipped_duplicates.len()
-                        )
+                        let t = c.tr("ParseInterface", " ({count} duplicate(s) skipped)");
+                        t.replace("{count}", &result.skipped_duplicates.len().to_string())
                     }
                 );
                 // Leave checked rows visibly downloaded.
                 self.refresh_tree(cx);
             }
-            Err(e) => self.status = format!("Task creation failed: {e}"),
+            Err(e) => {
+                let t = c.tr("ParseInterface", "Task creation failed: {error}");
+                self.status = t.replace("{error}", &e.to_string());
+            }
         }
         cx.notify();
         let _ = window;
@@ -923,11 +956,13 @@ impl ParseScreen {
             return;
         };
         if !(1..=p.total_pages).contains(&page) {
+            let c = Self::catalog(cx);
             let body = crate::ui::dialogs::format_tr(
-                "Please enter a number between 1 and {total_pages}",
+                c.tr("Pager", "Please enter a number between 1 and {total_pages}"),
                 &[("total_pages", &p.total_pages.to_string())],
             );
-            self.status = format!("Invalid page number: {body}");
+            let t = c.tr("ParseInterface", "Invalid page number: {body}");
+            self.status = t.replace("{body}", &body);
             cx.notify();
             return;
         }
@@ -976,6 +1011,7 @@ impl ParseScreen {
         let episode_data = self.episode_data.clone();
         // Queue the one episode (Python marks the item and emits
         // create_task([dict], True, None) regardless of dialog result).
+        let c = Self::catalog(cx);
         let queue = move |shell: &mut Shell, cx: &mut Context<Shell>| {
             let Some(manager) = manager else {
                 cx.notify();
@@ -988,9 +1024,14 @@ impl ParseScreen {
                     tasks::info::NamingInput::default()
                 }) {
                     Ok(result) => {
-                        shell.parse.status = format!("Queued {} task(s)", result.created.len());
+                        let t = c.tr("ParseInterface", "Queued {count} task(s)");
+                        shell.parse.status =
+                            t.replace("{count}", &result.created.len().to_string());
                     }
-                    Err(e) => shell.parse.status = format!("Task creation failed: {e}"),
+                    Err(e) => {
+                        let t = c.tr("ParseInterface", "Task creation failed: {error}");
+                        shell.parse.status = t.replace("{error}", &e.to_string());
+                    }
                 }
             }
             shell.parse.refresh_tree(cx);
@@ -1025,6 +1066,7 @@ impl ParseScreen {
         window: &mut Window,
         cx: &mut Context<Shell>,
     ) {
+        let c = Self::catalog(cx);
         let episode_data = self.episode_data.clone();
         let shell = cx.entity();
         window
@@ -1075,8 +1117,12 @@ impl ParseScreen {
                         move |episodes, cx| {
                             shell.update(cx, |shell, cx| {
                                 let Some(manager) = shell.manager.clone() else {
-                                    shell.parse.status =
-                                        "Downloads unavailable (no task database)".into();
+                                    shell.parse.status = c
+                                        .tr(
+                                            "ParseInterface",
+                                            "Downloads unavailable (no task database)",
+                                        )
+                                        .to_string();
                                     cx.notify();
                                     return;
                                 };
@@ -1092,21 +1138,39 @@ impl ParseScreen {
                                     ) {
                                         Ok(result) => {
                                             shell.parse.status = format!(
-                                                "Queued {} task(s){}",
-                                                result.created.len(),
+                                                "{}{}",
+                                                {
+                                                    let t = c.tr(
+                                                        "ParseInterface",
+                                                        "Queued {count} task(s)",
+                                                    );
+                                                    t.replace(
+                                                        "{count}",
+                                                        &result.created.len().to_string(),
+                                                    )
+                                                },
                                                 if result.skipped_duplicates.is_empty() {
                                                     String::new()
                                                 } else {
-                                                    format!(
-                                                        " ({} duplicate(s) skipped)",
-                                                        result.skipped_duplicates.len()
+                                                    let t = c.tr(
+                                                        "ParseInterface",
+                                                        " ({count} duplicate(s) skipped)",
+                                                    );
+                                                    t.replace(
+                                                        "{count}",
+                                                        &result.skipped_duplicates.len().to_string(),
                                                     )
                                                 }
                                             );
                                         }
                                         Err(e) => {
+                                            let t = c
+                                                .tr(
+                                                    "ParseInterface",
+                                                    "Task creation failed: {error}",
+                                                );
                                             shell.parse.status =
-                                                format!("Task creation failed: {e}")
+                                                t.replace("{error}", &e.to_string());
                                         }
                                     }
                                     cx.notify();

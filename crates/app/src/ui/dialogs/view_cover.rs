@@ -51,7 +51,8 @@ pub fn open_view_cover(
     let catalog = active_catalog(&cfg);
     let title = catalog.tr(CTX, "Cover").to_owned();
     let save_as = catalog.tr(CTX, "Save As").to_owned();
-    let close = "Close".to_owned();
+    let close = catalog.tr(CTX, "Close").to_owned();
+    let loading = catalog.tr(CTX, "Loading...").to_owned();
 
     // Shared between the fetch future and the content closure.
     let image_cell: Rc<std::cell::RefCell<Option<Arc<Image>>>> =
@@ -112,6 +113,7 @@ pub fn open_view_cover(
         let bytes_cell = bytes_cell.clone();
         let ext_cell = ext_cell.clone();
         let save_as = save_as.clone();
+        let loading = loading.clone();
 
         dialog
             .title(title.clone())
@@ -127,12 +129,12 @@ pub fn open_view_cover(
                         .justify_center()
                         .items_center()
                         .child(match image {
-                            Some(image) => img(ImageSource::from(image))
+                              Some(image) => img(ImageSource::from(image))
                                 .max_w(px(VIEW_W))
                                 .max_h(px(VIEW_H))
                                 .object_fit(ObjectFit::Contain)
                                 .into_any_element(),
-                            None => Label::new("Loading...").into_any_element(),
+                              None => Label::new(loading.clone()).into_any_element(),
                         }),
                 )
             })

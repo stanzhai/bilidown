@@ -46,6 +46,7 @@ pub fn open_jump_to_page(
 ) {
     let catalog = active_catalog(&cfg);
     let title = catalog.tr(CTX, "Jump To Page").to_owned();
+    let ok = catalog.tr(CTX, "OK").to_owned();
     let placeholder = catalog.tr(CTX, "Enter page number").to_owned();
     let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
     let on_accept = std::rc::Rc::new(std::cell::RefCell::new(Some(on_accept)));
@@ -65,7 +66,7 @@ pub fn open_jump_to_page(
                 )
             })
             .footer(
-                DialogFooter::new().child(Button::new("jump-ok").label("OK").on_click({
+                DialogFooter::new().child(Button::new("jump-ok").label(ok.clone()).on_click({
                     let input = input.clone();
                     let on_accept = on_accept.clone();
                     move |_, window, cx| {

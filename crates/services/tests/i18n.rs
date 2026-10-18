@@ -17,11 +17,12 @@ const NAMED_CONTEXTS: &[(&str, &str)] = &[
     ("TIP_MESSAGES", "Queued..."),
 ];
 
-/// Catalog totals pin the `.ts` extraction: 125 contexts, 973 live
-/// messages, same (context, source) set in both zh columns.
+/// Catalog totals pin the `.ts` extraction plus the HAND-ADDED block:
+/// 125 contexts, 1012 live messages (973 generated + 39 hand-added),
+/// same (context, source) set in both zh columns.
 #[test]
 fn catalog_covers_all_contexts_and_sources() {
-    assert_eq!(i18n::catalog_len(), 973);
+    assert_eq!(i18n::catalog_len(), 1012);
     assert_eq!(i18n::catalog_contexts().len(), 125);
 
     // Both zh columns are built from the same (context, source) table, so

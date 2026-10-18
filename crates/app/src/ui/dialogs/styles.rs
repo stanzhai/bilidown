@@ -51,7 +51,7 @@ pub fn alignment_caption(c: &services::i18n::Catalog, value: i64) -> String {
         .iter()
         .find(|(_, v)| *v == value)
         .map(|(k, v)| alignment_label(c, k, *v))
-        .unwrap_or_else(|| "Alignment".to_owned())
+        .unwrap_or_else(|| c.tr("AlignmentGroup", "Alignment").to_owned())
 }
 
 // Danmaku style

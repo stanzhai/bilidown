@@ -1,8 +1,10 @@
-//! GENERATED from src/res/i18n/bili23.{zh_CN,zh_TW}.ts (vanished/obsolete/unfinished dropped).
-//! Do not edit by hand; regenerate with scripts/gen_i18n.py.
+//! Base entries were GENERATED from src/res/i18n/bili23.{zh_CN,zh_TW}.ts
+//! (vanished/obsolete/unfinished dropped; scripts/gen_i18n.py is gone).
+//! New entries are hand-appended inside the HAND-ADDED block at the end
+//! of `CATALOG` — keep both zh columns filled and bump the totals below.
 //! Each entry: (context, source, zh_cn, zh_tw). English = source (sourcelanguage en_US).
 
-/// (context, source, zh_CN, zh_TW) — 973 live entries across 125 contexts.
+/// (context, source, zh_CN, zh_TW) — 1012 live entries across 125 contexts.
 pub const CATALOG: &[(&str, &str, &str, &str)] = &[
     (
         r#"ADDITIONAL_FILES_QUALIFIER"#,
@@ -5187,5 +5189,242 @@ Under no circumstances shall the developer be liable for any direct, indirect, i
         r#"Choose the action when closing the main window"#,
         r#"选择关闭主窗口时的操作"#,
         r#"選擇關閉主視窗時的操作"#,
+    ),
+    // ---------- HAND-ADDED (ticket 35): entries missing from the last
+    // .ts extraction, added by hand for the i18n sweep. Same shape as
+    // the generated block above; both zh columns required. ----------
+    (
+        r#"ParseInterface"#,
+        r#"Paste a Bilibili link"#,
+        r#"粘贴 Bilibili 链接"#,
+        r#"貼上 Bilibili 連結"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Search…"#,
+        r#"搜索…"#,
+        r#"搜尋…"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Parsing…"#,
+        r#"解析中…"#,
+        r#"解析中…"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Preparing…"#,
+        r#"准备解析…"#,
+        r#"準備解析…"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Parse failed: {error}"#,
+        r#"解析失败：{error}"#,
+        r#"解析失敗：{error}"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Batch parse failed: {error}"#,
+        r#"批量解析失败：{error}"#,
+        r#"批次解析失敗：{error}"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Auto-parse failed: {error}"#,
+        r#"自动解析失败：{error}"#,
+        r#"自動解析失敗：{error}"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Task creation failed: {error}"#,
+        r#"创建任务失败：{error}"#,
+        r#"建立任務失敗：{error}"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Queued {count} task(s)"#,
+        r#"已加入 {count} 个任务"#,
+        r#"已加入 {count} 個任務"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#" ({count} duplicate(s) skipped)"#,
+        r#"（跳过 {count} 个重复任务）"#,
+        r#"（跳過 {count} 個重複任務）"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Invalid page number: {body}"#,
+        r#"无效页码：{body}"#,
+        r#"無效的頁碼：{body}"#,
+    ),
+    (
+        r#"ParseInterface"#,
+        r#"Downloads unavailable (no task database)"#,
+        r#"无法下载（任务数据库不可用）"#,
+        r#"無法下載（任務資料庫不可用）"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Container"#,
+        r#"容器"#,
+        r#"容器"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Metadata format"#,
+        r#"元数据格式"#,
+        r#"元數據格式"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Filename preview"#,
+        r#"文件名预览"#,
+        r#"檔案名稱預覽"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Rule Builder"#,
+        r#"规则构建器"#,
+        r#"規則建構器"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Naming rules"#,
+        r#"命名规则"#,
+        r#"命名規則"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Cancel"#,
+        r#"取消"#,
+        r#"取消"#,
+    ),
+    (
+        r#"DownloadOptionsDialog"#,
+        r#"Download"#,
+        r#"下载"#,
+        r#"下載"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"Add directory level"#,
+        r#"添加目录层级"#,
+        r#"新增目錄層級"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"text fragment"#,
+        r#"文字片段"#,
+        r#"文字片段"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"format ({variable})"#,
+        r#"格式（{variable}）"#,
+        r#"格式（{variable}）"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"default"#,
+        r#"默认"#,
+        r#"預設"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"Insert title variable"#,
+        r#"插入标题变量"#,
+        r#"插入標題變數"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"directory {index}"#,
+        r#"目录 {index}"#,
+        r#"目錄 {index}"#,
+    ),
+    (
+        r#"RuleBuilderWidget"#,
+        r#"rule not editable: {reason}"#,
+        r#"规则不可编辑：{reason}"#,
+        r#"規則不可編輯：{reason}"#,
+    ),
+    (
+        r#"ViewCoverDialog"#,
+        r#"Close"#,
+        r#"关闭"#,
+        r#"關閉"#,
+    ),
+    (
+        r#"ViewCoverDialog"#,
+        r#"Loading..."#,
+        r#"加载中..."#,
+        r#"載入中..."#,
+    ),
+    (
+        r#"AutoParseDialog"#,
+        r#"Cancel"#,
+        r#"取消"#,
+        r#"取消"#,
+    ),
+    (
+        r#"JumpToPageDialog"#,
+        r#"OK"#,
+        r#"确定"#,
+        r#"確定"#,
+    ),
+    (
+        r#"BatchSelectDialog"#,
+        r#"OK"#,
+        r#"确定"#,
+        r#"確定"#,
+    ),
+    (
+        r#"DownloadAsSingleVideoDialog"#,
+        r#"OK"#,
+        r#"确定"#,
+        r#"確定"#,
+    ),
+    (
+        r#"CDNServerDialog"#,
+        r#"Edit"#,
+        r#"编辑"#,
+        r#"編輯"#,
+    ),
+    (
+        r#"CDNServerDialog"#,
+        r#"Remove"#,
+        r#"移除"#,
+        r#"移除"#,
+    ),
+    (
+        r#"CDNServerDialog"#,
+        r#"OK"#,
+        r#"确定"#,
+        r#"確定"#,
+    ),
+    (
+        r#"CookieLoginDialog"#,
+        r#"SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx"#,
+        r#"SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx"#,
+        r#"SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx"#,
+    ),
+    (
+        r#"MainWindow"#,
+        r#"Welcome! See https://github.com/stanzhai/bilidown"#,
+        r#"欢迎使用！见 https://github.com/stanzhai/bilidown"#,
+        r#"歡迎使用！見 https://github.com/stanzhai/bilidown"#,
+    ),
+    (
+        r#"MainWindow"#,
+        r#"Click the avatar to log in for full functionality."#,
+        r#"点击头像登录以使用完整功能。"#,
+        r#"點擊頭像登入以使用完整功能。"#,
+    ),
+    (
+        r#"MainWindow"#,
+        r#"Logged in"#,
+        r#"已登录"#,
+        r#"已登入"#,
     ),
 ];

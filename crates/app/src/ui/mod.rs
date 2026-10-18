@@ -85,9 +85,9 @@ impl Shell {
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_default();
-        // i18n global: `General.language` (auto → system)
+        // i18n global: `Interface.language` (auto → system)
         let lang = services::i18n::Language::from_config(
-            cfg.get("General", "language")
+            cfg.get("Interface", "language")
                 .and_then(|v| v.as_str())
                 .unwrap_or("auto"),
         );
@@ -235,6 +235,7 @@ impl Shell {
     pub fn run_tip_pass(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let mut cfg =
             config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
+        let c = dialogs::active_catalog(&cfg);
         match services::tips::next_tip(&cfg) {
             services::tips::PendingTip::TutorialDialog => {
                 services::tips::mark_tutorial_shown(&mut cfg);
@@ -242,8 +243,10 @@ impl Shell {
                 // The dialog itself is the doc link; the shell has no
                 // browser abstraction, so mark-and-continue keeps the
                 // once-flag behavior identical.
-                self.status_note =
-                    Some("Welcome! See https://github.com/stanzhai/bilidown".to_owned());
+                self.status_note = Some(
+                    c.tr("MainWindow", "Welcome! See https://github.com/stanzhai/bilidown")
+                        .to_owned(),
+                );
             }
             services::tips::PendingTip::SelectAreaDialog => {
                 services::tips::mark_area_dialog_shown(&mut cfg);
@@ -285,8 +288,13 @@ impl Shell {
             services::tips::PendingTip::LoginTeachingTip => {
                 // The login tip repeats while logged out (no flag), so
                 // surface it as a shell note instead of a modal.
-                self.status_note =
-                    Some("Click the avatar to log in for full functionality.".to_owned());
+                self.status_note = Some(
+                    c.tr(
+                        "MainWindow",
+                        "Click the avatar to log in for full functionality.",
+                    )
+                    .to_owned(),
+                );
                 cx.notify();
             }
             _ => {}
@@ -385,10 +393,16 @@ impl Render for Shell {
         let screen = self.screen;
         let is_login = self.login.is_login;
         let uname = self.auth_state.uname.clone();
+        let lang = cx
+            .read_global::<ShellI18n, _>(|i18n, _| i18n.lang)
+            .resolve();
+        let c = services::i18n::catalog(lang);
         let tooltip = if is_login && !uname.is_empty() {
             uname
+        } else if is_login {
+            c.tr("MainWindow", "Logged in").to_owned()
         } else {
-            "Log In".to_owned()
+            c.tr("LoginDialog", "Log In").to_owned()
         };
         let login_icon = if is_login {
             IconName::CircleUser
@@ -405,14 +419,14 @@ impl Render for Shell {
                     .collapsed(true)
                     .children(
                         [
-                            (Screen::Parse, "Parse", IconName::Search),
+                            (Screen::Parse, "Parser", IconName::Search),
                             (Screen::Downloads, "Downloads", IconName::CloudDownload),
                             (Screen::Favorites, "Favorites", IconName::Star),
                             (Screen::About, "About", IconName::Info),
                             (Screen::Settings, "Settings", IconName::Settings),
                         ]
                         .map(|(s, label, icon)| {
-                            SidebarMenuItem::new(label)
+                            SidebarMenuItem::new(c.tr("MainWindow", label))
                                 .icon(icon)
                                 .active(screen == s)
                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -441,7 +455,7 @@ impl Render for Shell {
             .child(match screen {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
                 Screen::Downloads => self.downloads.render(cx).into_any_element(),
-                Screen::Favorites => self.screens.favorites.render().into_any_element(),
+                Screen::Favorites => self.screens.favorites.render(cx).into_any_element(),
                 Screen::About => screens::about::render_about(cx).into_any_element(),
                 Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
@@ -460,6 +474,142 @@ mod tests {
         assert_eq!(state.sms, login::model::SmsPhase::Idle);
         assert_eq!(state.qr, login::model::QrPhase::Loading);
         assert!(state.qr_key.is_empty());
+    }
+
+    /// Completeness: every source string routed through the catalog in
+    /// this i18n sweep must exist — `tr()`'s source fallback would
+    /// otherwise silently mask a typo. (The En catalog is the identity
+    /// map, so lookups run against zh-CN, which carries every entry.)
+    #[test]
+    fn i18n_sweep_sources_resolve_in_catalog() {
+        let c = services::i18n::catalog(services::i18n::ResolvedLanguage::ZhCn);
+        for (ctx, source) in [
+            // Shell / screens
+            ("MainWindow", "Parser"),
+            ("MainWindow", "Downloads"),
+            ("MainWindow", "Favorites"),
+            ("MainWindow", "About"),
+            ("MainWindow", "Settings"),
+            ("MainWindow", "Logged in"),
+            ("MainWindow", "Welcome! See https://github.com/stanzhai/bilidown"),
+            ("MainWindow", "Click the avatar to log in for full functionality."),
+            ("LoginDialog", "Log In"),
+            ("LoginDialog", "Enter phone number"),
+            ("LoginDialog", "Enter verification code"),
+            ("CookieLoginDialog", "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx"),
+            // Parse screen + pager
+            ("ParseInterface", "Paste a Bilibili link"),
+            ("ParseInterface", "Search…"),
+            ("ParseInterface", "Search"),
+            ("ParseInterface", "Parse"),
+            ("ParseInterface", "Batch Parse"),
+            ("ParseInterface", "Parsing History"),
+            ("ParseInterface", "Auto-parse Pagination"),
+            ("ParseInterface", "Download Selected Items"),
+            ("ParseInterface", "Parsing…"),
+            ("ParseInterface", "Preparing…"),
+            ("ParseInterface", "Parse failed: {error}"),
+            ("ParseInterface", "Batch parse failed: {error}"),
+            ("ParseInterface", "Auto-parse failed: {error}"),
+            ("ParseInterface", "Task creation failed: {error}"),
+            ("ParseInterface", "Queued {count} task(s)"),
+            ("ParseInterface", " ({count} duplicate(s) skipped)"),
+            ("ParseInterface", "Invalid page number: {body}"),
+            ("ParseInterface", "Downloads unavailable (no task database)"),
+            ("Pager", "{total_pages} total / {total_items} items"),
+            ("Pager", "Please enter a number between 1 and {total_pages}"),
+            ("SearchWidget", "{index} of {count}"),
+            ("SearchWidget", "No matches found"),
+            ("ParseInterface", "{category_name} ({selected_count} selected, {total_count} total)"),
+            ("ParseInterface", "{category_name} ({total_count} total)"),
+            // Download options dialog
+            ("DownloadOptionsDialog", "Download Options"),
+            ("DownloadOptionsDialog", "Media Settings"),
+            ("DownloadOptionsDialog", "Additional Files"),
+            ("DownloadOptionsDialog", "Download Settings"),
+            ("DownloadOptionsDialog", "Rule Builder"),
+            ("DownloadOptionsDialog", "Container"),
+            ("DownloadPathSettingCard", "Download Path"),
+            ("DownloadFormatCard", "Output Container Format"),
+            ("DownloadFormatCard", "Convert M4A to MP3"),
+            ("DownloadOptionsDialog", "Metadata format"),
+            ("DownloadOptionsDialog", "Naming rules"),
+            ("DownloadOptionsDialog", "Filename preview"),
+            ("DownloadOptionsDialog", "Cancel"),
+            ("DownloadOptionsDialog", "Download"),
+            ("DownloadSettingsPage", "Automatically show this dialog"),
+            ("MediaOptionsCard", "Download standalone video stream"),
+            ("MediaOptionsCard", "Download standalone audio stream"),
+            ("MediaOptionsCard", "Merge video and audio"),
+            ("MediaOptionsCard", "Keep original files"),
+            ("MediaInfoCard", "Video Quality"),
+            ("MediaInfoCard", "Audio Quality"),
+            ("MediaInfoCard", "Video Codec"),
+            ("MediaInfoCard", "Unknown"),
+            ("DanmakuSettingCard", "Download Danmaku"),
+            ("DanmakuSettingCard", "Embed Danmaku"),
+            ("DanmakuSettingCard", "Delete Danmaku After Embedding"),
+            ("SubtitleSettingCard", "Download Subtitles"),
+            ("SubtitleSettingCard", "Embed Subtitles"),
+            ("SubtitleSettingCard", "Delete Subtitles After Embedding"),
+            ("CoverSettingCard", "Cover Format"),
+            ("CoverSettingCard", "Embed Cover"),
+            ("CoverSettingCard", "Delete Cover After Embedding"),
+            ("ChapterSettingCard", "Embed Chapters"),
+            ("MetadataSettingCard", "Download Metadata"),
+            ("NamingConventionCard", "Not available"),
+            ("RuleBuilderWidget", "File name"),
+            ("RuleBuilderWidget", "directory {index}"),
+            ("RuleBuilderWidget", "text fragment"),
+            ("RuleBuilderWidget", "format ({variable})"),
+            ("RuleBuilderWidget", "default"),
+            ("RuleBuilderWidget", "Insert title variable"),
+            ("RuleBuilderWidget", "Add directory level"),
+            ("RuleBuilderWidget", "rule not editable: {reason}"),
+            ("RuleLevelRow", "Insert text"),
+            ("FragmentChip", "Remove"),
+            ("DownloadPreviewBar", "Video"),
+            ("DownloadPreviewBar", "Audio"),
+            ("DownloadPreviewBar", "Danmaku"),
+            ("DownloadPreviewBar", "Cover"),
+            ("DownloadPreviewBar", "Chapters"),
+            ("DownloadPreviewBar", "Metadata"),
+            ("DownloadPreviewBar", "Nothing selected"),
+            // Dialogs
+            ("AutoParseDialog", "Cancel"),
+            ("CDNServerDialog", "Edit"),
+            ("CDNServerDialog", "Remove"),
+            ("CDNServerDialog", "OK"),
+            ("ViewCoverDialog", "Close"),
+            ("ViewCoverDialog", "Loading..."),
+            ("BatchSelectDialog", "OK"),
+            ("BatchSelectDialog", "Enter line numbers (e.g. 1,3,5-10)"),
+            ("JumpToPageDialog", "OK"),
+            ("AlignmentGroup", "Alignment"),
+        ] {
+            assert!(
+                c.lookup(ctx, source).is_some(),
+                "missing {ctx}/{source}"
+            );
+        }
+    }
+
+    /// The shell language flip resolves a different catalog: zh-CN turns
+    /// an English source into a Chinese string, English echoes the
+    /// source.
+    #[test]
+    fn shell_language_flip_resolves_zh_catalog() {
+        let zh = services::i18n::catalog(services::i18n::ResolvedLanguage::ZhCn);
+        let zh_hit = zh.tr("ParseInterface", "Paste a Bilibili link");
+        assert_ne!(zh_hit, "Paste a Bilibili link", "zh must translate");
+
+        let en = services::i18n::catalog(services::i18n::ResolvedLanguage::En);
+        assert_eq!(
+            en.tr("ParseInterface", "Paste a Bilibili link"),
+            "Paste a Bilibili link"
+        );
+        // Same flip through the same global the shell render path reads.
+        assert_ne!(zh.tr("MainWindow", "Parser"), en.tr("MainWindow", "Parser"));
     }
 
     /// Regression (double-lease panic): clicking "Log In" opens the login

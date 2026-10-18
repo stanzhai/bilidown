@@ -127,8 +127,10 @@ impl PaginationState {
     }
 
     /// "{total_pages} total / {total_items} items" pager label.
-    pub fn label(&self) -> String {
-        format!("{} total / {} items", self.total_pages, self.total_items)
+    pub fn label(&self, c: &services::i18n::Catalog) -> String {
+        let t = c.tr("Pager", "{total_pages} total / {total_items} items");
+        t.replace("{total_pages}", &self.total_pages.to_string())
+            .replace("{total_items}", &self.total_items.to_string())
     }
 }
 
@@ -213,16 +215,27 @@ impl ParseViewModel {
     /// Item-count label: with selection
     /// `"{category_name} ({selected_count} selected, {total_count} total)"`
     /// else `"{category_name} ({total_count} total)"`.
-    pub fn count_label(&self) -> String {
+    pub fn count_label(&self, c: &services::i18n::Catalog) -> String {
         let (checked, total) = self.counts();
-        if checked > 0 {
-            format!(
-                "{} ({} selected, {} total)",
-                self.category_name, checked, total
+        let (template, pairs) = if checked > 0 {
+            (
+                "{category_name} ({selected_count} selected, {total_count} total)",
+                vec![
+                    ("selected_count", checked.to_string()),
+                    ("total_count", total.to_string()),
+                ],
             )
         } else {
-            format!("{} ({} total)", self.category_name, total)
+            (
+                "{category_name} ({total_count} total)",
+                vec![("total_count", total.to_string())],
+            )
+        };
+        let mut out = c.tr("ParseInterface", template).to_owned();
+        for (k, v) in pairs {
+            out = out.replace(&format!("{{{k}}}"), &v);
         }
+        out.replace("{category_name}", &self.category_name)
     }
 
     /// Batch select: check every item whose `number` is in `numbers`
@@ -388,12 +401,15 @@ impl ParseViewModel {
     }
 
     /// "{index} of {count}" match label; "No matches found" when empty.
-    pub fn match_label(&self) -> String {
+    pub fn match_label(&self, c: &services::i18n::Catalog) -> String {
         match self.match_cursor {
             Some(cur) if !self.matches.is_empty() => {
-                format!("{} of {}", cur + 1, self.matches.len())
+                let t = c.tr("SearchWidget", "{index} of {count}");
+                t.replace("{index}", &(cur + 1).to_string())
+                    .replace("{count}", &self.matches.len().to_string())
+                    .to_owned()
             }
-            _ => "No matches found".to_string(),
+            _ => c.tr("SearchWidget", "No matches found").to_owned(),
         }
     }
 
@@ -617,11 +633,12 @@ mod tests {
 
     #[test]
     fn count_label_formats_selected_and_plain() {
+        let c = services::i18n::catalog(services::i18n::ResolvedLanguage::En);
         let mut m = model_with(vec![item("BV1", 1, "a", ""), item("BV2", 2, "b", "")]);
         m.category_name = "Favorites".into();
-        assert_eq!(m.count_label(), "Favorites (2 total)");
+        assert_eq!(m.count_label(c), "Favorites (2 total)");
         m.batch_select(&[2]);
-        assert_eq!(m.count_label(), "Favorites (1 selected, 2 total)");
+        assert_eq!(m.count_label(c), "Favorites (1 selected, 2 total)");
     }
 
     #[test]
@@ -675,19 +692,20 @@ mod tests {
 
     #[test]
     fn search_matches_and_cursor_wraps() {
+        let c = services::i18n::catalog(services::i18n::ResolvedLanguage::En);
         let mut m = model_with(vec![
             item("BV1", 1, "first ep", ""),
             item("BV2", 2, "other", ""),
             item("BV3", 3, "second ep", ""),
         ]);
         assert_eq!(m.search(Some("ep")), 2);
-        assert_eq!(m.match_label(), "1 of 2");
+        assert_eq!(m.match_label(c), "1 of 2");
         assert_eq!(m.next_match(), Some(m.matches[1]));
-        assert_eq!(m.match_label(), "2 of 2");
+        assert_eq!(m.match_label(c), "2 of 2");
         assert_eq!(m.next_match(), Some(m.matches[0]), "到尾后要回绕");
         assert_eq!(m.prev_match(), Some(m.matches[1]), "回头也要回绕");
         assert_eq!(m.search(Some("zzz")), 0);
-        assert_eq!(m.match_label(), "No matches found");
+        assert_eq!(m.match_label(c), "No matches found");
     }
 
     #[test]
@@ -806,6 +824,7 @@ mod tests {
             total_pages: 5,
             total_items: 47,
         };
-        assert_eq!(p.label(), "5 total / 47 items");
+        let c = services::i18n::catalog(services::i18n::ResolvedLanguage::En);
+        assert_eq!(p.label(c), "5 total / 47 items");
     }
 }

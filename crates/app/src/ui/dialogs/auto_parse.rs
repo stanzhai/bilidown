@@ -163,7 +163,7 @@ pub fn open_auto_parse(
     )
     .to_owned();
     let start_label = catalog.tr(CTX, "Start Parsing").to_owned();
-    let cancel_label = "Cancel".to_owned();
+    let cancel_label = catalog.tr(CTX, "Cancel").to_owned();
 
     let state = std::rc::Rc::new(std::cell::RefCell::new(AutoParseState::new(
         &cfg,

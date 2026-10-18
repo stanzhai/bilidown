@@ -115,7 +115,7 @@ impl MediaPage {
     /// from a substitute video.
     pub fn source_description(&self, info: &PreviewInfo, c: &Catalog) -> String {
         let title = if info.episode_title.is_empty() {
-            "Unknown".to_string()
+            c.tr("MediaInfoCard", "Unknown").to_string()
         } else {
             info.episode_title.clone()
         };

@@ -44,6 +44,7 @@ pub fn open_download_as_single_video(
         )
         .to_owned();
     let never_label = catalog.tr(CTX, "Don't show this again").to_owned();
+    let ok = catalog.tr(CTX, "OK").to_owned();
 
     let never_show = std::rc::Rc::new(std::cell::RefCell::new(false));
     let cfg_path = cfg
@@ -85,7 +86,7 @@ pub fn open_download_as_single_video(
                 }
             })
             .footer(
-                DialogFooter::new().child(Button::new("dasv-ok").label("OK").on_click({
+                DialogFooter::new().child(Button::new("dasv-ok").label(ok.clone()).on_click({
                     let never_show = never_show.clone();
                     let cfg_path = cfg_path.clone();
                     let on_accept = on_accept.clone();
