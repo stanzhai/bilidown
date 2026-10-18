@@ -1,12 +1,12 @@
-#![recursion_limit = "256"]
-
 use std::rc::Rc;
 use std::sync::mpsc::channel;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use gpui_kit::gpui::*;
-use gpui_kit::*;
+// NOTE: no glob imports — `gpui_kit::*`/`gpui_kit::gpui::*` re-export gpui's
+// `test` attribute macro, which shadows the builtin `#[test]` and makes every
+// plain test fn expand through gpui's macro recursively (compile blowup).
+use gpui_kit::gpui::{self, AnyWindowHandle, App, AppContext, AsyncApp, Bounds, Global, PlatformDisplay, TitlebarOptions, UpdateGlobal, Window, WindowBounds, WindowOptions, point, px, size};
 
 mod bootstrap;
 mod download_pipeline;
@@ -208,10 +208,8 @@ pub fn run() -> anyhow::Result<()> {
                 app_id: Some("cn.stanzhai.bilidown".to_string()),
                 ..Default::default()
             };
-            let cfg = cx
-                .try_global::<ConfigGlobal>()
-                .map(|g| g.0.lock().clone())
-                .unwrap_or_default();
+            let cfg = config::ConfigStore::open()
+                .unwrap_or_else(|_| ConfigStore::with_paths("", ""));
             if let Some(bounds) = startup_bounds(&cfg, cx) {
                 options.window_bounds = Some(bounds);
             }
