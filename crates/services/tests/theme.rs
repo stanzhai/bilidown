@@ -26,6 +26,20 @@ fn theme_mode_config_parsing() {
     );
 }
 
+/// The stored-string → mode mapping the startup path uses: Light/Dark load
+/// directly; Auto (and unknown) resolve through the system appearance.
+#[test]
+fn theme_mode_mapping_for_startup_apply() {
+    let map = |stored: &str, system_dark: Option<bool>| {
+        ThemeModeSetting::from_config(stored).resolve(system_dark)
+    };
+    assert_eq!(map("Light", Some(true)), ResolvedThemeMode::Light);
+    assert_eq!(map("Dark", Some(false)), ResolvedThemeMode::Dark);
+    // Auto follows the system, whatever it is
+    assert_eq!(map("Auto", Some(true)), ResolvedThemeMode::Dark);
+    assert_eq!(map("Auto", Some(false)), ResolvedThemeMode::Light);
+}
+
 #[test]
 fn auto_resolves_against_system_appearance() {
     assert_eq!(

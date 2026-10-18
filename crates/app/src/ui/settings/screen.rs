@@ -96,7 +96,8 @@ impl SettingsUi {
         self.lang.tr(ctx, source).to_string()
     }
 
-    /// Restart-required notice shared by language/scaling/theme changes.
+    /// Restart-required notice. `display_scaling` is the only setting that
+    /// still needs a restart (theme and language apply instantly).
     fn restart_notice(&mut self) {
         self.notice = Some(self.tr(
             "SettingInterface",
@@ -235,6 +236,30 @@ impl SettingsScreen {
 /// Notify the settings entity (its observer chain redraws the shell).
 fn kick(cx: &mut App, id: EntityId) {
     cx.notify(id);
+}
+
+/// Apply a stored `QFluentWidgets.ThemeMode` string to the live theme:
+/// Light/Dark load that mode, Auto re-resolves against the OS appearance.
+/// Field closures only get `&mut App`, so `None` for the window argument.
+fn apply_theme_now(v: &str, cx: &mut App) {
+    use gpui_kit::component::theme::{Theme, ThemeMode};
+    match services::theme::ThemeModeSetting::from_config(v) {
+        services::theme::ThemeModeSetting::Light => Theme::change(ThemeMode::Light, None, cx),
+        services::theme::ThemeModeSetting::Dark => Theme::change(ThemeMode::Dark, None, cx),
+        services::theme::ThemeModeSetting::Auto => Theme::sync_system_appearance(None, cx),
+    }
+}
+
+/// Instant-apply for `Interface.language`: write-through plus two
+/// coordinated flips — the settings entity's resolved `Lang` (this screen
+/// re-renders from it) and the app-global `ShellI18n` (shell/login render
+/// read it every frame).
+fn apply_language(ui: &mut SettingsUi, cx: &mut App, value: &str) {
+    ui.put("Interface", "language", Value::from(value));
+    ui.lang = Lang::from_config(value);
+    cx.set_global(crate::ui::ShellI18n {
+        lang: services::i18n::Language::from_config(value),
+    });
 }
 
 /// Switch bound to a bool config key (write-through).
@@ -384,8 +409,10 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
             move |v, cx| {
                 set.update(cx, |ui, _| {
                     ui.put("QFluentWidgets", "ThemeMode", Value::from(v.to_string()));
-                    ui.restart_notice();
                 });
+                // Instant apply: load the mode now (Auto re-resolves
+                // against the OS appearance), no restart notice.
+                apply_theme_now(&v, cx);
                 kick(cx, id);
             },
         )
@@ -435,10 +462,7 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
             ],
             move |cx| model::get_str(&get.read(cx).cfg, "Interface", "language").into(),
             move |v, cx| {
-                set.update(cx, |ui, _| {
-                    ui.put("Interface", "language", Value::from(v.to_string()));
-                    ui.restart_notice();
-                });
+                set.update(cx, |ui, cx| apply_language(ui, cx, &v));
                 kick(cx, id);
             },
         )
@@ -1632,4 +1656,57 @@ fn render_rule_editor(ui: &Entity<SettingsUi>, cx: &mut Context<Shell>) -> AnyEl
         .child(Label::new(t("Variables")))
         .children(var_rows)
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::ShellI18n;
+    use gpui_kit::gpui::{Render, TestApp};
+    use gpui_kit::{div, IntoElement};
+    use services::i18n::{Language, ResolvedLanguage};
+
+    /// Minimal window root that owns the settings entity: `SettingsUi::new`
+    /// needs a real window, and the drop of this view releases it.
+    struct Harness {
+        ui: Entity<SettingsUi>,
+    }
+
+    impl Render for Harness {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            div()
+        }
+    }
+
+    /// Instant apply: choosing a language flips the settings entity's
+    /// resolved `Lang` and the app-global `ShellI18n` the shell renders
+    /// from, and persists the string. No restart notice is set.
+    #[test]
+    fn language_setting_applies_instantly() {
+        let mut app = TestApp::new();
+        app.update(gpui_kit::init);
+        let mut window = app.open_window(|window, cx| Harness {
+            ui: cx.new(|cx| SettingsUi::new(window, cx)),
+        });
+        window.update(|h: &mut Harness, _window, cx| {
+            let ui = h.ui.clone();
+            ui.update(cx, |ui, cx| apply_language(ui, cx, "zh_TW"));
+        });
+        window.read(|h: &Harness, cx| {
+            let ui = h.ui.read(cx);
+            assert_eq!(ui.lang.resolved, ResolvedLanguage::ZhTw);
+            assert_eq!(
+                model::get_str(&ui.cfg, "Interface", "language"),
+                "zh_TW",
+                "stored string persists"
+            );
+            assert!(ui.notice.is_none(), "no restart notice");
+            assert_eq!(
+                cx.global::<ShellI18n>().lang,
+                Language::ChineseTraditional
+            );
+        });
+        drop(window);
+        app.update(|cx| cx.shutdown());
+    }
 }

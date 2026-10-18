@@ -115,6 +115,22 @@ fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
     services::i18n::catalog(lang)
 }
 
+/// Apply `QFluentWidgets.ThemeMode` to the kit theme: Light/Dark load that
+/// mode directly; Auto re-resolves against the OS appearance (the service
+/// layer cannot see it — unknown appearance defaults to Light).
+fn apply_configured_theme(cfg: &ConfigStore, cx: &mut App) {
+    use gpui_kit::component::theme::{Theme, ThemeMode};
+    match services::theme::ThemeModeSetting::from_config(
+        cfg.get("QFluentWidgets", "ThemeMode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Auto"),
+    ) {
+        services::theme::ThemeModeSetting::Light => Theme::change(ThemeMode::Light, None, cx),
+        services::theme::ThemeModeSetting::Dark => Theme::change(ThemeMode::Dark, None, cx),
+        services::theme::ThemeModeSetting::Auto => Theme::sync_system_appearance(None, cx),
+    }
+}
+
 /// Window bounds for startup: saved state (F2) when
 /// `Behavior/window_state` is remembered and validates; otherwise the
 /// first-run default (2/3 of the main display, centered, ≥ 950×600).
@@ -183,6 +199,11 @@ pub fn run() -> anyhow::Result<()> {
                 std::env::temp_dir().join("bilidown"),
                 std::env::temp_dir(),
             ));
+            // Apply the configured theme before any window exists: the kit
+            // default is Light, so a Dark `QFluentWidgets.ThemeMode` must be
+            // loaded here. Auto re-resolves against the OS appearance
+            // (`theme_from_config` cannot see it and defaults to Light).
+            apply_configured_theme(&cfg, cx);
             ConfigGlobal::set_global(cx, ConfigGlobal(parking_lot::Mutex::new(cfg)));
             let cat = active_catalog(cx);
 
@@ -386,5 +407,31 @@ mod tests {
             rx.recv_timeout(Duration::from_secs(2)).unwrap(),
             WakeEvent::EnsureRunning
         );
+    }
+
+    /// Startup applies the stored theme string through the kit theme (Light/
+    /// Dark load directly; Auto follows the OS appearance). Checks the
+    /// mapping path end-to-end on a live app without opening a window.
+    #[test]
+    fn configured_theme_string_maps_to_kit_mode() {
+        use gpui_kit::component::theme::{Theme, ThemeMode};
+        use gpui_kit::gpui::TestApp;
+
+        let cases = [
+            ("Light", ThemeMode::Light),
+            ("Dark", ThemeMode::Dark),
+            ("Auto", ThemeMode::Light), // test platform reports Light
+            ("", ThemeMode::Light),     // unknown -> Auto -> Light
+        ];
+        for (stored, want) in cases {
+            let mut app = TestApp::new();
+            app.update(|cx| {
+                gpui_kit::init(cx);
+                let mut cfg = ConfigStore::with_paths("", "");
+                cfg.set("QFluentWidgets", "ThemeMode", serde_json::json!(stored));
+                apply_configured_theme(&cfg, cx);
+                assert_eq!(Theme::global(cx).mode, want, "stored {stored:?}");
+            });
+        }
     }
 }
