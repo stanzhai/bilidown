@@ -456,17 +456,6 @@ impl Shell {
             })
             .detach();
     }
-
-    /// Window-close seam (ticket 26 owns the wiring in main.rs): show the
-    /// exit dialog and hand `(exit, remember)` back.
-    pub fn ask_exit(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-        on_choice: impl FnOnce(bool, bool) + 'static,
-    ) {
-        downloads::dialogs::open_exit_dialog(window, cx, on_choice);
-    }
 }
 
 /// 任务数据库路径：User Data/bilidown/task.db（Python appdata 推导）。
@@ -916,10 +905,6 @@ mod tests {
             ("TermsOfUseDialog", "Terms of Use"),
             ("TopNavigationDialogBase", "OK"),
             ("UpdateDialog", "Exit"),
-            ("WindowBehaviorSettingCard", "Always ask"),
-            ("WindowBehaviorSettingCard", "Close the Main Window"),
-            ("WindowBehaviorSettingCard", "Exit the program"),
-            ("WindowBehaviorSettingCard", "Minimize to system tray"),
             ("WindowBehaviorSettingCard", "Remember Window State"),
             ("WindowBehaviorSettingCard", "Silent Start"),
             ("WindowBehaviorSettingCard", "Stay on Top"),

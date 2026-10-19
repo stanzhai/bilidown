@@ -5,13 +5,13 @@
 //! Events are forwarded through a channel that the GPUI main loop drains; the
 //! tray lives for the whole process (dropped only on exit, matching Python).
 
-use std::sync::mpsc::Sender;
 #[cfg(test)]
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 
 use muda::accelerator::Accelerator;
 use muda::{Menu, MenuItem, PredefinedMenuItem};
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent, menu::MenuEvent};
+use tray_icon::{menu::MenuEvent, Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 pub const MENU_ID_SHOW: &str = "show";
 pub const MENU_ID_EXIT: &str = "exit";
@@ -26,10 +26,8 @@ static APP_ICON_PNG: &[u8] = include_bytes!("../assets/tray-icon.png");
 pub enum TrayAction {
     /// Menu "Show main window" or a left-click `Trigger`.
     Show,
-    /// Menu "Exit" — force-close path (no exit dialog).
+    /// Menu "Exit" — persist window state and quit.
     Exit,
-    /// Window-close dialog chose "minimize to tray" (not a tray pick).
-    ShowMinimize,
 }
 
 /// Map a menu id to its action; `None` for anything else.
@@ -43,7 +41,10 @@ pub fn action_for_menu_id(id: &str) -> Option<TrayAction> {
 
 /// Map a tray-icon click to an action. Qt `QSystemTrayIcon.Trigger` ≈ a
 /// completed left click; tray-icon reports that as Left+Up.
-pub fn action_for_click(button: tray_icon::MouseButton, state: tray_icon::MouseButtonState) -> Option<TrayAction> {
+pub fn action_for_click(
+    button: tray_icon::MouseButton,
+    state: tray_icon::MouseButtonState,
+) -> Option<TrayAction> {
     use tray_icon::MouseButton::*;
     use tray_icon::MouseButtonState::*;
     match (button, state) {
@@ -60,7 +61,12 @@ fn decode_icon() -> Option<Icon> {
 
 /// Create the tray icon and start pumping its events into `tx`.
 /// Returns the owned icon handle; keep it alive for the process lifetime.
-pub fn spawn_tray(show_label: &str, exit_label: &str, tooltip: &str, tx: Sender<TrayAction>) -> Option<TrayIcon> {
+pub fn spawn_tray(
+    show_label: &str,
+    exit_label: &str,
+    tooltip: &str,
+    tx: Sender<TrayAction>,
+) -> Option<TrayIcon> {
     let menu_tx = tx.clone();
     let icon = decode_icon()?;
     let tray = TrayIconBuilder::new()
@@ -88,7 +94,11 @@ pub fn spawn_tray(show_label: &str, exit_label: &str, tooltip: &str, tx: Sender<
     // Tray clicks: install a handler that mirrors picks into the channel.
     tray_icon::TrayIconEvent::set_event_handler(Some(move |ev: TrayIconEvent| {
         let (button, state) = match &ev {
-            TrayIconEvent::Click { button, button_state, .. } => (*button, *button_state),
+            TrayIconEvent::Click {
+                button,
+                button_state,
+                ..
+            } => (*button, *button_state),
             _ => return,
         };
         if let Some(action) = action_for_click(button, state) {
@@ -103,7 +113,8 @@ fn tray_menu(show_label: &str, exit_label: &str) -> Menu {
     let show = MenuItem::with_id(MENU_ID_SHOW, show_label, true, None::<Accelerator>);
     let exit = MenuItem::with_id(MENU_ID_EXIT, exit_label, true, None::<Accelerator>);
     let menu = Menu::new();
-    menu.append_items(&[&show, &PredefinedMenuItem::separator(), &exit]).unwrap();
+    menu.append_items(&[&show, &PredefinedMenuItem::separator(), &exit])
+        .unwrap();
     menu
 }
 

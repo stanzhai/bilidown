@@ -6,7 +6,10 @@ use anyhow::Context as _;
 // NOTE: no glob imports — `gpui_kit::*`/`gpui_kit::gpui::*` re-export gpui's
 // `test` attribute macro, which shadows the builtin `#[test]` and makes every
 // plain test fn expand through gpui's macro recursively (compile blowup).
-use gpui_kit::gpui::{self, AnyWindowHandle, App, AppContext, AsyncApp, Bounds, Global, PlatformDisplay, TitlebarOptions, UpdateGlobal, Window, WindowBounds, WindowOptions, point, px, size};
+use gpui_kit::gpui::{
+    self, point, px, size, AnyWindowHandle, App, AppContext, AsyncApp, Bounds, Global,
+    PlatformDisplay, TitlebarOptions, UpdateGlobal, Window, WindowBounds, WindowOptions,
+};
 
 mod bootstrap;
 mod download_pipeline;
@@ -16,7 +19,7 @@ mod tray;
 mod ui;
 
 use config::ConfigStore;
-use single_instance::{AppInstance, ENSURE_RUNNING_FLAG, WakeEvent};
+use single_instance::{AppInstance, WakeEvent, ENSURE_RUNNING_FLAG};
 pub use ui::{Screen, Shell};
 
 const APP_DISPLAY_NAME: &str = "bilidown";
@@ -24,43 +27,6 @@ const APP_DISPLAY_NAME: &str = "bilidown";
 /// Product identity line used by the About surface and smoke checks.
 pub fn version_line() -> String {
     format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
-}
-
-/// `WhenClose` enum from `src/gui/dialog/main_window/exit.py`.
-pub mod when_close {
-    pub const EXIT: i64 = 1;
-    pub const MINIMIZE: i64 = 2;
-    pub const ALWAYS_ASK: i64 = 3;
-}
-
-/// Read the remembered close behavior; anything invalid falls back to asking.
-fn when_close_value(cfg: &ConfigStore) -> i64 {
-    cfg.get("Behavior", "when_close_window")
-        .and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
-        .filter(|v| (1..=3).contains(v))
-        .unwrap_or(when_close::ALWAYS_ASK)
-}
-
-/// What the close handler decided (headless decision core).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CloseDecision {
-    /// Close for real (also the tray-exit forced path).
-    Exit,
-    /// Keep running in the tray.
-    MinimizeToTray,
-    /// Show the exit dialog and let it decide.
-    Ask,
-}
-
-fn close_decision(when_close: i64, force: bool) -> CloseDecision {
-    if force {
-        return CloseDecision::Exit;
-    }
-    match when_close {
-        when_close::MINIMIZE => CloseDecision::MinimizeToTray,
-        when_close::EXIT => CloseDecision::Exit,
-        _ => CloseDecision::Ask,
-    }
 }
 
 /// Live displays as `services::window_state::ScreenRect`s.
@@ -102,7 +68,10 @@ fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
         .try_global::<ConfigGlobal>()
         .map(|g| {
             services::i18n::Language::from_config(
-                g.0.lock().get("Interface", "language").and_then(|v| v.as_str()).unwrap_or_default(),
+                g.0.lock()
+                    .get("Interface", "language")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default(),
             )
             .resolve()
         })
@@ -180,10 +149,9 @@ pub fn run() -> anyhow::Result<()> {
             // Must be called before using any GPUI Component features.
             gpui_kit::init(cx);
 
-            let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths(
-                std::env::temp_dir().join("bilidown"),
-                std::env::temp_dir(),
-            ));
+            let cfg = ConfigStore::open().unwrap_or_else(|_| {
+                ConfigStore::with_paths(std::env::temp_dir().join("bilidown"), std::env::temp_dir())
+            });
             // Apply the configured theme before any window exists: the kit
             // default is Light, so a Dark `QFluentWidgets.ThemeMode` must be
             // loaded here. Auto re-resolves against the OS appearance
@@ -195,11 +163,7 @@ pub fn run() -> anyhow::Result<()> {
             // --- tray ------------------------------------------------------
             let show_label = cat.tr("SystemTrayIcon", "Show main window").to_string();
             let exit_label = cat.tr("SystemTrayIcon", "Exit").to_string();
-            // The close-dialog callback needs a sender too (see Ask arm);
-            // mpsc Sender is Clone, so the FnOnce callback moves one in.
-            let dialog_tx = tray_tx.clone();
-            let mut _tray =
-                tray::spawn_tray(&show_label, &exit_label, APP_DISPLAY_NAME, tray_tx);
+            let mut _tray = tray::spawn_tray(&show_label, &exit_label, APP_DISPLAY_NAME, tray_tx);
 
             // --- window (titlebar/min-size + F2 saved bounds or 2/3 default) --
             let mut options = WindowOptions {
@@ -214,8 +178,8 @@ pub fn run() -> anyhow::Result<()> {
                 app_id: Some("cn.stanzhai.bilidown".to_string()),
                 ..Default::default()
             };
-            let cfg = config::ConfigStore::open()
-                .unwrap_or_else(|_| ConfigStore::with_paths("", ""));
+            let cfg =
+                config::ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths("", ""));
             if let Some(bounds) = startup_bounds(&cfg, cx) {
                 options.window_bounds = Some(bounds);
             }
@@ -225,49 +189,15 @@ pub fn run() -> anyhow::Result<()> {
             })
             .expect("Failed to open window");
 
-            // --- close → exit dialog / minimize-to-tray ---------------------
-            // Ticket 22's `Shell::ask_exit` owns the dialog; it writes
-            // `Behavior.when_close_window` itself when "remember" is checked.
-            let shell_for_pump = shell.clone();
+            // --- close → OS default: window close exits the app ----------
+            // `on_window_should_close` returning true lets the platform
+            // close the window (quit behavior follows the OS default);
+            // the only app work left is persisting window state.
             window
                 .update(cx, |_, window, cx| {
-                    window.on_window_should_close(cx, move |window, cx| {
-                        let when = cx
-                            .try_global::<ConfigGlobal>()
-                            .map(|g| when_close_value(&g.0.lock()))
-                            .unwrap_or(when_close::ALWAYS_ASK);
-                        match close_decision(when, false) {
-                            CloseDecision::Exit => {
-                                persist_window_state(window, cx);
-                                true
-                            }
-                            CloseDecision::MinimizeToTray => {
-                                persist_window_state(window, cx);
-                                minimize_to_tray(window);
-                                false
-                            }
-                            CloseDecision::Ask => {
-                                // Ticket 22's dialog owns the exit UI; it
-                                // persists `Behavior.when_close_window`
-                                // itself when "remember" is checked. Its
-                                // callback has only `&mut App`, so the
-                                // exit/minimize work is deferred through
-                                // the tray pump (same code path as the
-                                // tray Exit item).
-                                shell_for_pump.update(cx, |shell, cx| {
-                                    let dialog_tx = dialog_tx.clone();
-                                    shell.ask_exit(window, cx, move |exit, _remembered| {
-                                        let action = if exit {
-                                            tray::TrayAction::Exit
-                                        } else {
-                                            tray::TrayAction::ShowMinimize
-                                        };
-                                        let _ = dialog_tx.send(action);
-                                    });
-                                });
-                                false // veto; the dialog decides
-                            }
-                        }
+                    window.on_window_should_close(cx, |window, cx| {
+                        persist_window_state(window, cx);
+                        true
                     });
                 })
                 .expect("window gone");
@@ -276,18 +206,16 @@ pub fn run() -> anyhow::Result<()> {
             // tray-icon/muda deliver on background threads; drain both
             // channels from a foreground task so all UI work stays on the
             // main loop.
-            cx.spawn(async move |cx| {
-                loop {
-                    while let Ok(ev) = tray_rx.try_recv() {
-                        handle_tray_action(ev, window, cx).await;
-                    }
-                    while let Ok(ev) = wake_rx.try_recv() {
-                        handle_wake_event(ev, window, cx).await;
-                    }
-                    cx.background_executor()
-                        .timer(Duration::from_millis(50))
-                        .await;
+            cx.spawn(async move |cx| loop {
+                while let Ok(ev) = tray_rx.try_recv() {
+                    handle_tray_action(ev, window, cx).await;
                 }
+                while let Ok(ev) = wake_rx.try_recv() {
+                    handle_wake_event(ev, window, cx).await;
+                }
+                cx.background_executor()
+                    .timer(Duration::from_millis(50))
+                    .await;
             })
             .detach();
             Shell::boot(&shell, cx);
@@ -304,23 +232,12 @@ fn activate_main_window(window: AnyWindowHandle, cx: &mut App) {
     let _ = window.update(cx, |_, window, _| window.activate_window());
 }
 
-fn minimize_to_tray(window: &mut Window) {
-    // No per-window hide in gpui; minimizing matches "window not visible,
-    // process alive". Python keeps the process alive with the tray too.
-    window.minimize_window();
-}
-
 async fn handle_tray_action(action: tray::TrayAction, window: AnyWindowHandle, cx: &AsyncApp) {
     cx.update(|cx| match action {
         tray::TrayAction::Show => activate_main_window(window, cx),
         tray::TrayAction::Exit => {
-            // Forced path: no exit dialog (Python `request_exit(fast=True)`).
             let _ = window.update(cx, |_, window, cx| persist_window_state(window, cx));
             cx.quit();
-        }
-        tray::TrayAction::ShowMinimize => {
-            // Window-close dialog: cancel path = minimize to tray.
-            let _ = window.update(cx, |_, window, _| minimize_to_tray(window));
         }
     });
 }
@@ -350,28 +267,6 @@ mod tests {
             crate::version_line(),
             format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
         );
-    }
-
-    #[test]
-    fn close_decision_matrix() {
-        use CloseDecision::*;
-        assert_eq!(close_decision(when_close::MINIMIZE, false), MinimizeToTray);
-        assert_eq!(close_decision(when_close::EXIT, false), Exit);
-        assert_eq!(close_decision(when_close::ALWAYS_ASK, false), Ask);
-        assert_eq!(close_decision(0, false), Ask, "invalid falls back to ask");
-        assert_eq!(close_decision(when_close::MINIMIZE, true), Exit, "force wins");
-    }
-
-    #[test]
-    fn when_close_reads_config_with_default() {
-        let mut cfg = ConfigStore::with_paths(std::env::temp_dir(), std::env::temp_dir());
-        assert_eq!(when_close_value(&cfg), when_close::ALWAYS_ASK);
-        cfg.set("Behavior", "when_close_window", serde_json::json!(2));
-        assert_eq!(when_close_value(&cfg), when_close::MINIMIZE);
-        cfg.set("Behavior", "when_close_window", serde_json::json!("1"));
-        assert_eq!(when_close_value(&cfg), when_close::EXIT);
-        cfg.set("Behavior", "when_close_window", serde_json::json!(9));
-        assert_eq!(when_close_value(&cfg), when_close::ALWAYS_ASK);
     }
 
     #[test]

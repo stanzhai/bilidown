@@ -11,13 +11,12 @@ use gpui_kit::component::button::Button;
 use gpui_kit::component::checkbox::Checkbox;
 use gpui_kit::component::dialog::DialogButtonProps;
 use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::component::radio::RadioGroup;
 use gpui_kit::component::select::{SearchableVec, Select, SelectItem, SelectState};
 use gpui_kit::component::WindowExt;
 use gpui_kit::{div, prelude::*, AppContext, Context, SharedString, Window};
 
 use super::log_view::{default_log_path, open_logs_directory, LogViewModel};
-use super::model::{apply_duplicate_choice, apply_exit_choice};
+use super::model::apply_duplicate_choice;
 use crate::ui::Shell;
 
 /// Current language: `Interface.language` config, `Auto` resolving the OS
@@ -148,101 +147,6 @@ fn persist_duplicate(skip: bool, never_ask: bool) {
     }
     if let Ok(mut cfg) = config::ConfigStore::open() {
         apply_duplicate_choice(&mut cfg, skip, true);
-    }
-}
-
-// ---------- ExitDialog ----------
-
-pub struct ExitSelection {
-    pub exit: bool,
-}
-
-/// Open the exit dialog (minimize-to-tray vs exit, remember choice).
-/// `on_choice` receives `(exit, remember)`; when remembered, the config
-/// write has already happened.
-pub fn open_exit_dialog(
-    window: &mut Window,
-    cx: &mut Context<Shell>,
-    on_choice: impl FnOnce(bool, bool) + 'static,
-) {
-    let selection = cx.new(|_| ExitSelection { exit: true });
-    let remember = cx.new(|_| RememberState::new());
-    let on_choice = std::rc::Rc::new(std::cell::RefCell::new(Some(on_choice)));
-    window.open_dialog(cx, move |dialog, _window, cx| {
-        let selected = if selection.read(cx).exit { 0 } else { 1 };
-        let remember_checked = remember.read(cx).checked;
-        dialog
-            .title(tr("ExitDialog", "Close the main window"))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_3()
-                    .py_2()
-                    .child(div().child(tr("ExitDialog", "Choose an action")))
-                    .child(
-                        RadioGroup::new("exit-choice")
-                            .selected_index(Some(selected))
-                            .child(tr("ExitDialog", "Exit the program"))
-                            .child(tr("ExitDialog", "Minimize to system tray"))
-                            .on_change({
-                                let selection = selection.clone();
-                                move |ix, _w, cx| {
-                                    selection.update(cx, |s, _| s.exit = *ix == 0);
-                                }
-                            }),
-                    )
-                    .child(
-                        Checkbox::new("exit-never-ask")
-                            .checked(remember_checked)
-                            .label(tr("ExitDialog", "Don't ask again"))
-                            .on_click({
-                                let remember = remember.clone();
-                                move |checked, _w, cx| {
-                                    remember.update(cx, |r, _| r.checked = *checked);
-                                }
-                            }),
-                    ),
-            )
-            .button_props(
-                DialogButtonProps::default()
-                    .ok_text(tr("ExitDialog", "Exit the program"))
-                    .cancel_text(tr("ExitDialog", "Minimize to system tray"))
-                    .show_cancel(true)
-                    .on_ok({
-                        let remember = remember.clone();
-                        let on_choice = on_choice.clone();
-                        move |_ev, _w, cx| {
-                            let remembered = remember.read(cx).checked;
-                            persist_exit(true, remembered);
-                            if let Some(f) = on_choice.borrow_mut().take() {
-                                f(true, remembered);
-                            }
-                            true
-                        }
-                    })
-                    .on_cancel({
-                        let remember = remember.clone();
-                        let on_choice = on_choice.clone();
-                        move |_ev, _w, cx| {
-                            let remembered = remember.read(cx).checked;
-                            persist_exit(false, remembered);
-                            if let Some(f) = on_choice.borrow_mut().take() {
-                                f(false, remembered);
-                            }
-                            true
-                        }
-                    }),
-            )
-    });
-}
-
-fn persist_exit(exit: bool, never_ask: bool) {
-    if !never_ask {
-        return;
-    }
-    if let Ok(mut cfg) = config::ConfigStore::open() {
-        apply_exit_choice(&mut cfg, exit, true);
     }
 }
 
@@ -407,10 +311,6 @@ mod tests {
             ("DuplicateDownloadDialog", "Don't ask again"),
             ("DuplicateDownloadDialog", "Continue"),
             ("DuplicateDownloadDialog", "Skip"),
-            ("ExitDialog", "Close the main window"),
-            ("ExitDialog", "Choose an action"),
-            ("ExitDialog", "Exit the program"),
-            ("ExitDialog", "Minimize to system tray"),
             ("LogViewerDialog", "Logs"),
             ("LogViewerDialog", "All"),
             ("LogViewerDialog", "Debug"),

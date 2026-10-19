@@ -397,30 +397,6 @@ pub fn redownload(manager: &TaskManager, task: &mut TaskInfo) -> bool {
     }
 }
 
-// ---------- exit choice (ExitDialog + when_close_window) ----------
-
-/// `Behavior.when_close_window`: 1 exit, 2 minimize, 3 always ask.
-pub const WHEN_CLOSE_EXIT: i64 = 1;
-pub const WHEN_CLOSE_MINIMIZE: i64 = 2;
-pub const WHEN_CLOSE_ASK: i64 = 3;
-
-/// ExitDialog accept: persist the choice when "don't ask again" is ticked.
-/// Returns the persisted `when_close_window` value.
-pub fn apply_exit_choice(cfg: &mut config::ConfigStore, exit: bool, never_ask: bool) -> i64 {
-    let value = if never_ask {
-        if exit {
-            WHEN_CLOSE_EXIT
-        } else {
-            WHEN_CLOSE_MINIMIZE
-        }
-    } else {
-        WHEN_CLOSE_ASK
-    };
-    cfg.set("Behavior", "when_close_window", serde_json::json!(value));
-    let _ = cfg.save();
-    value
-}
-
 /// DuplicateDownloadDialog accept/reject with "don't ask again" ticked:
 /// persist SKIP (1) or CONTINUE (0). Returns the persisted
 /// `duplicate_download_resolution`.
@@ -645,23 +621,6 @@ mod tests {
         assert_eq!(info_text(&t), "1080P");
         t.Download.status = st::COMPLETED;
         assert_eq!(info_text(&t), "2023-11-14 22:15:00");
-    }
-
-    #[test]
-    fn exit_choice_persists_only_when_remembered() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut cfg = config::ConfigStore::with_paths(dir.path(), dir.path());
-        assert_eq!(apply_exit_choice(&mut cfg, true, false), WHEN_CLOSE_ASK);
-        assert_eq!(apply_exit_choice(&mut cfg, true, true), WHEN_CLOSE_EXIT);
-        assert_eq!(
-            apply_exit_choice(&mut cfg, false, true),
-            WHEN_CLOSE_MINIMIZE
-        );
-        assert_eq!(
-            cfg.get("Behavior", "when_close_window")
-                .and_then(|v| v.as_i64()),
-            Some(WHEN_CLOSE_MINIMIZE)
-        );
     }
 
     #[test]

@@ -14,7 +14,6 @@
 
 use crate::ui::dialogs::update::UpdateInfo;
 use gpui_kit::assets::IconName;
-use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::component::label::Label;
@@ -23,10 +22,11 @@ use gpui_kit::component::setting::{
     NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings,
 };
 use gpui_kit::component::switch::Switch;
+use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::{
-    div, prelude::*, px, AnyElement, App, AppContext, ClipboardItem, Context, Entity,
-    EntityId, InteractiveElement, IntoElement, ParentElement, PathPromptOptions, SharedString,
-    Styled, Window,
+    div, prelude::*, px, AnyElement, App, AppContext, ClipboardItem, Context, Entity, EntityId,
+    InteractiveElement, IntoElement, ParentElement, PathPromptOptions, SharedString, Styled,
+    Window,
 };
 use naming::conventions::{ConventionType, VariableListFactory};
 use naming::naming_rules::RuleEntry;
@@ -498,7 +498,8 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
         .group(
             SettingGroup::new()
                 .title(
-                    lang.tr("PersonalizationCard", "Personalization").to_string(),
+                    lang.tr("PersonalizationCard", "Personalization")
+                        .to_string(),
                 )
                 .item(SettingItem::new(
                     lang.tr("PersonalizationCard", "Theme").to_string(),
@@ -523,71 +524,72 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                 configure_button(ui, "monitor_clipboard"),
                 configure_button(ui, "auto_select"),
                 SettingItem::new(
-                    lang.tr("ParsingSettingCard", "Save Parse History").to_string(),
+                    lang.tr("ParsingSettingCard", "Save Parse History")
+                        .to_string(),
                     cfg_switch(ui, "Behavior", "parse_history"),
                 ),
             ]),
         )
         .group(
             SettingGroup::new()
-                .title(lang.tr("WindowBehaviorSettingCard", "Window Behavior").to_string())
+                .title(
+                    lang.tr("WindowBehaviorSettingCard", "Window Behavior")
+                        .to_string(),
+                )
                 .item(SettingItem::new(
-                    lang.tr("WindowBehaviorSettingCard", "Silent Start").to_string(),
+                    lang.tr("WindowBehaviorSettingCard", "Silent Start")
+                        .to_string(),
                     cfg_switch(ui, "Behavior", "silent_start"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("WindowBehaviorSettingCard", "Remember Window State").to_string(),
+                    lang.tr("WindowBehaviorSettingCard", "Remember Window State")
+                        .to_string(),
                     cfg_switch(ui, "Behavior", "remember_window_state"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("WindowBehaviorSettingCard", "Stay on Top").to_string(),
+                    lang.tr("WindowBehaviorSettingCard", "Stay on Top")
+                        .to_string(),
                     cfg_switch(ui, "Behavior", "stay_on_top"),
-                ))
-                .item(SettingItem::new(
-                    lang.tr("WindowBehaviorSettingCard", "Close the Main Window").to_string(),
-                    cfg_int_dropdown(
-                        ui,
-                        "Behavior",
-                        "when_close_window",
-                        vec![
-                            (
-                                1,
-                                lang.tr("WindowBehaviorSettingCard", "Exit the program").to_string().into(),
-                            ),
-                            (
-                                2,
-                                lang.tr("WindowBehaviorSettingCard", "Minimize to system tray").to_string().into(),
-                            ),
-                            (
-                                3,
-                                lang.tr("WindowBehaviorSettingCard", "Always ask").to_string().into(),
-                            ),
-                        ],
-                        3,
-                    ),
                 )),
         )
         .group(
             SettingGroup::new()
-                .title(lang.tr("DownloadHandlingSettingCard", "Download Handling").to_string())
+                .title(
+                    lang.tr("DownloadHandlingSettingCard", "Download Handling")
+                        .to_string(),
+                )
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "Show Download Options Dialog").to_string(),
+                    lang.tr(
+                        "DownloadHandlingSettingCard",
+                        "Show Download Options Dialog",
+                    )
+                    .to_string(),
                     cfg_switch(ui, "Behavior", "show_download_options_dialog"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "Show Notifications").to_string(),
+                    lang.tr("DownloadHandlingSettingCard", "Show Notifications")
+                        .to_string(),
                     cfg_switch(ui, "Behavior", "show_notification"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "Retry Failed Downloads Automatically").to_string(),
+                    lang.tr(
+                        "DownloadHandlingSettingCard",
+                        "Retry Failed Downloads Automatically",
+                    )
+                    .to_string(),
                     cfg_switch(ui, "Behavior", "auto_retry_enabled"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "Maximum Retry Attempts").to_string(),
+                    lang.tr("DownloadHandlingSettingCard", "Maximum Retry Attempts")
+                        .to_string(),
                     cfg_number(ui, "Behavior", "auto_retry_max_count", 1., 20., 1., 3),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "Duplicate Download Resolution").to_string(),
+                    lang.tr(
+                        "DownloadHandlingSettingCard",
+                        "Duplicate Download Resolution",
+                    )
+                    .to_string(),
                     cfg_int_dropdown(
                         ui,
                         "Behavior",
@@ -595,22 +597,29 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                         vec![
                             (
                                 0,
-                                lang.tr("DownloadHandlingSettingCard", "Continue").to_string().into(),
+                                lang.tr("DownloadHandlingSettingCard", "Continue")
+                                    .to_string()
+                                    .into(),
                             ),
                             (
                                 1,
-                                lang.tr("DownloadHandlingSettingCard", "Skip").to_string().into(),
+                                lang.tr("DownloadHandlingSettingCard", "Skip")
+                                    .to_string()
+                                    .into(),
                             ),
                             (
                                 2,
-                                lang.tr("WindowBehaviorSettingCard", "Always ask").to_string().into(),
+                                lang.tr("WindowBehaviorSettingCard", "Always ask")
+                                    .to_string()
+                                    .into(),
                             ),
                         ],
                         2,
                     ),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "File Conflict Resolution").to_string(),
+                    lang.tr("DownloadHandlingSettingCard", "File Conflict Resolution")
+                        .to_string(),
                     cfg_int_dropdown(
                         ui,
                         "Behavior",
@@ -618,18 +627,23 @@ fn behavior_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                         vec![
                             (
                                 1,
-                                lang.tr("DownloadHandlingSettingCard", "Auto-rename").to_string().into(),
+                                lang.tr("DownloadHandlingSettingCard", "Auto-rename")
+                                    .to_string()
+                                    .into(),
                             ),
                             (
                                 2,
-                                lang.tr("DownloadHandlingSettingCard", "Overwrite").to_string().into(),
+                                lang.tr("DownloadHandlingSettingCard", "Overwrite")
+                                    .to_string()
+                                    .into(),
                             ),
                         ],
                         1,
                     ),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadHandlingSettingCard", "Preallocate File Space").to_string(),
+                    lang.tr("DownloadHandlingSettingCard", "Preallocate File Space")
+                        .to_string(),
                     cfg_switch(ui, "Behavior", "preallocate_file_space"),
                 )),
         )
@@ -759,9 +773,18 @@ fn download_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage {
         let id = ui.entity_id();
         SettingField::dropdown(
             vec![
-                (SharedString::from("0"), lang.tr("MediaOptionsCard", "Video Only").to_string().into()),
-                (SharedString::from("1"), lang.tr("MediaOptionsCard", "Audio Only").to_string().into()),
-                (SharedString::from("2"), lang.tr("MediaOptionsCard", "Both").to_string().into()),
+                (
+                    SharedString::from("0"),
+                    lang.tr("MediaOptionsCard", "Video Only").to_string().into(),
+                ),
+                (
+                    SharedString::from("1"),
+                    lang.tr("MediaOptionsCard", "Audio Only").to_string().into(),
+                ),
+                (
+                    SharedString::from("2"),
+                    lang.tr("MediaOptionsCard", "Both").to_string().into(),
+                ),
             ],
             move |cx| SharedString::from(get.read(cx).media.keep_original_files_type.to_string()),
             move |v, cx| {
@@ -779,16 +802,28 @@ fn download_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage {
 
     SettingPage::new(t("Download"))
         .icon(IconName::Download)
-        .group(SettingGroup::new().title(lang.tr("DownloadPathSettingCard", "Download Path").to_string()).item(path_row))
+        .group(
+            SettingGroup::new()
+                .title(
+                    lang.tr("DownloadPathSettingCard", "Download Path")
+                        .to_string(),
+                )
+                .item(path_row),
+        )
         .group(
             SettingGroup::new()
                 .title(t("Concurrency"))
                 .item(SettingItem::new(
-                    lang.tr("DownloadConcurrencySettingCard", "Number of Threads").to_string(),
+                    lang.tr("DownloadConcurrencySettingCard", "Number of Threads")
+                        .to_string(),
                     cfg_number(ui, "Download", "download_thread", 1., 10., 1., 8),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadConcurrencySettingCard", "Number of Parallel Downloads").to_string(),
+                    lang.tr(
+                        "DownloadConcurrencySettingCard",
+                        "Number of Parallel Downloads",
+                    )
+                    .to_string(),
                     cfg_number(ui, "Download", "download_parallel", 1., 10., 1., 3),
                 ))
                 .item(configure_button(ui, "speed_limit")),
@@ -796,25 +831,39 @@ fn download_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage {
         .group(
             SettingGroup::new()
                 .title(lang.tr("MediaOptionsCard", "Media Options").to_string())
-                .item(SettingItem::new(lang.tr("MediaOptionsCard", "Download standalone video stream").to_string(), video_stream))
-                .item(SettingItem::new(lang.tr("MediaOptionsCard", "Download standalone audio stream").to_string(), audio_stream))
+                .item(SettingItem::new(
+                    lang.tr("MediaOptionsCard", "Download standalone video stream")
+                        .to_string(),
+                    video_stream,
+                ))
+                .item(SettingItem::new(
+                    lang.tr("MediaOptionsCard", "Download standalone audio stream")
+                        .to_string(),
+                    audio_stream,
+                ))
                 .item(
                     SettingItem::new(
-                        lang.tr("MediaOptionsCard", "Merge video and audio").to_string(),
+                        lang.tr("MediaOptionsCard", "Merge video and audio")
+                            .to_string(),
                         merge,
                     )
                     .disabled(!media.merge_enabled()),
                 )
                 .item(
                     SettingItem::new(
-                        lang.tr("MediaOptionsCard", "Keep original files").to_string(),
+                        lang.tr("MediaOptionsCard", "Keep original files")
+                            .to_string(),
                         keep,
                     )
                     .disabled(!media.keep_enabled()),
                 )
                 .item(
-                    SettingItem::new(lang.tr("MediaOptionsCard", "Original file type to keep").to_string(), keep_type)
-                        .disabled(!media.keep_type_enabled()),
+                    SettingItem::new(
+                        lang.tr("MediaOptionsCard", "Original file type to keep")
+                            .to_string(),
+                        keep_type,
+                    )
+                    .disabled(!media.keep_type_enabled()),
                 ),
         )
         .group(SettingGroup::new().title(t("Priority")).items([
@@ -824,11 +873,10 @@ fn download_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage {
         ]))
         .group(
             SettingGroup::new()
-                .title(
-                    lang.tr("DownloadFormatCard", "Download Format").to_string(),
-                )
+                .title(lang.tr("DownloadFormatCard", "Download Format").to_string())
                 .item(SettingItem::new(
-                    lang.tr("DownloadFormatCard", "Output Container Format").to_string(),
+                    lang.tr("DownloadFormatCard", "Output Container Format")
+                        .to_string(),
                     cfg_dropdown(
                         ui,
                         "Download",
@@ -840,7 +888,8 @@ fn download_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage {
                     ),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("DownloadFormatCard", "Convert M4A to MP3").to_string(),
+                    lang.tr("DownloadFormatCard", "Convert M4A to MP3")
+                        .to_string(),
                     cfg_switch(ui, "Download", "m4a_to_mp3"),
                 )),
         )
@@ -885,7 +934,8 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
             SettingGroup::new()
                 .title(lang.tr("ADDITIONAL_FILES_QUALIFIER", "Danmaku").to_string())
                 .item(SettingItem::new(
-                    lang.tr("DanmakuSettingCard", "Download Danmaku").to_string(),
+                    lang.tr("DanmakuSettingCard", "Download Danmaku")
+                        .to_string(),
                     cfg_switch(ui, "Additional", "download_danmaku"),
                 ))
                 .item(SettingItem::new(
@@ -910,7 +960,8 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
                 )
                 .item(
                     SettingItem::new(
-                        lang.tr("DanmakuSettingCard", "Delete Danmaku After Embedding").to_string(),
+                        lang.tr("DanmakuSettingCard", "Delete Danmaku After Embedding")
+                            .to_string(),
                         cfg_switch(ui, "Additional", "delete_danmaku_after_embed"),
                     )
                     .disabled(!danmaku_gate),
@@ -919,14 +970,19 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
         )
         .group(
             SettingGroup::new()
-                .title(lang.tr("ADDITIONAL_FILES_QUALIFIER", "Subtitles").to_string())
+                .title(
+                    lang.tr("ADDITIONAL_FILES_QUALIFIER", "Subtitles")
+                        .to_string(),
+                )
                 .item(SettingItem::new(
-                    lang.tr("SubtitleSettingCard", "Download Subtitles").to_string(),
+                    lang.tr("SubtitleSettingCard", "Download Subtitles")
+                        .to_string(),
                     cfg_switch(ui, "Additional", "download_subtitle"),
                 ))
                 .item(configure_button(ui, "subtitle_language"))
                 .item(SettingItem::new(
-                    lang.tr("SubtitleSettingCard", "Subtitle Format").to_string(),
+                    lang.tr("SubtitleSettingCard", "Subtitle Format")
+                        .to_string(),
                     cfg_dropdown(
                         ui,
                         "Additional",
@@ -940,14 +996,16 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
                 .item(configure_button(ui, "subtitle_style"))
                 .item(
                     SettingItem::new(
-                        lang.tr("SubtitleSettingCard", "Embed Subtitles").to_string(),
+                        lang.tr("SubtitleSettingCard", "Embed Subtitles")
+                            .to_string(),
                         cfg_switch(ui, "Additional", "embed_subtitle"),
                     )
                     .disabled(!subtitle_gate),
                 )
                 .item(
                     SettingItem::new(
-                        lang.tr("SubtitleSettingCard", "Delete Subtitles After Embedding").to_string(),
+                        lang.tr("SubtitleSettingCard", "Delete Subtitles After Embedding")
+                            .to_string(),
                         cfg_switch(ui, "Additional", "delete_subtitle_after_embed"),
                     )
                     .disabled(!subtitle_gate),
@@ -1069,7 +1127,8 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
                 )
                 .item(
                     SettingItem::new(
-                        lang.tr("CoverSettingCard", "Delete Cover After Embedding").to_string(),
+                        lang.tr("CoverSettingCard", "Delete Cover After Embedding")
+                            .to_string(),
                         cfg_switch(ui, "Additional", "delete_cover_after_attach"),
                     )
                     .disabled(!delete_cover_gate),
@@ -1083,11 +1142,13 @@ fn additional_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPage
                     cfg_switch(ui, "Additional", "embed_chapter"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("MetadataSettingCard", "Download Metadata").to_string(),
+                    lang.tr("MetadataSettingCard", "Download Metadata")
+                        .to_string(),
                     cfg_switch(ui, "Additional", "download_metadata"),
                 ))
                 .item(SettingItem::new(
-                    lang.tr("MetadataSettingCard", "Metadata Format").to_string(),
+                    lang.tr("MetadataSettingCard", "Metadata Format")
+                        .to_string(),
                     cfg_dropdown(
                         ui,
                         "Additional",
@@ -1131,9 +1192,27 @@ fn file_naming_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPag
         "File Naming",
         "numbering_type",
         vec![
-            (0, lang.tr("NumberSettingCard", "Sequential numbering starting from 1 per batch").to_string().into()),
-            (1, lang.tr("NumberSettingCard", "Use the index from the parse list").to_string().into()),
-            (2, lang.tr("NumberSettingCard", "Global sequential numbering").to_string().into()),
+            (
+                0,
+                lang.tr(
+                    "NumberSettingCard",
+                    "Sequential numbering starting from 1 per batch",
+                )
+                .to_string()
+                .into(),
+            ),
+            (
+                1,
+                lang.tr("NumberSettingCard", "Use the index from the parse list")
+                    .to_string()
+                    .into(),
+            ),
+            (
+                2,
+                lang.tr("NumberSettingCard", "Global sequential numbering")
+                    .to_string()
+                    .into(),
+            ),
         ],
         0,
     );
@@ -1164,14 +1243,22 @@ fn file_naming_page(ui: &Entity<SettingsUi>, lang: Lang, cx: &App) -> SettingPag
         .icon(IconName::Type)
         .group(
             SettingGroup::new()
-                .title(lang.tr("NamingConventionCard", "Naming Convention").to_string())
+                .title(
+                    lang.tr("NamingConventionCard", "Naming Convention")
+                        .to_string(),
+                )
                 .item(convention)
                 .item(SettingItem::new(
                     lang.tr("NumberSettingCard", "Numbering Mode").to_string(),
                     numbering,
                 ))
                 .item(
-                    SettingItem::new(lang.tr("NumberSettingCard", "Global Sequential Starting Number").to_string(), starting_number).disabled(!global_mode),
+                    SettingItem::new(
+                        lang.tr("NumberSettingCard", "Global Sequential Starting Number")
+                            .to_string(),
+                        starting_number,
+                    )
+                    .disabled(!global_mode),
                 ),
         )
 }
@@ -1269,11 +1356,15 @@ fn advanced_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                         vec![
                             (
                                 SharedString::from("system"),
-                                lang.tr("FFmpegSettingCard", "System PATH").to_string().into(),
+                                lang.tr("FFmpegSettingCard", "System PATH")
+                                    .to_string()
+                                    .into(),
                             ),
                             (
                                 SharedString::from("custom"),
-                                lang.tr("FFmpegSettingCard", "Custom path").to_string().into(),
+                                lang.tr("FFmpegSettingCard", "Custom path")
+                                    .to_string()
+                                    .into(),
                             ),
                         ],
                     ),
@@ -1389,7 +1480,8 @@ fn updates_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                 .title(t("Update"))
                 .item(check_now)
                 .item(SettingItem::new(
-                    lang.tr("CheckUpdateSettingCard", "Include Prerelease Versions").to_string(),
+                    lang.tr("CheckUpdateSettingCard", "Include Prerelease Versions")
+                        .to_string(),
                     cfg_switch(ui, "Update", "include_prerelease"),
                 )),
         )
@@ -1692,7 +1784,10 @@ fn render_rule_editor(ui: &Entity<SettingsUi>, cx: &mut Context<Shell>) -> AnyEl
                 hh.update(cx, |ui, _| ui.rules.editor.default_checked = *v);
                 kick(cx, id);
             })
-            .label(lang.tr("EditRuleDialog", "Set as default rule for this type").to_string())
+            .label(
+                lang.tr("EditRuleDialog", "Set as default rule for this type")
+                    .to_string(),
+            )
     };
 
     let error_line = error.map(|(field, msg)| {
@@ -1754,7 +1849,9 @@ fn render_rule_editor(ui: &Entity<SettingsUi>, cx: &mut Context<Shell>) -> AnyEl
         .child(default_box)
         .when_some(error_line, |this, e| this.child(e))
         .children(preview_rows)
-        .child(Label::new(lang.tr("EditRuleDialog", "Variable reference").to_string()))
+        .child(Label::new(
+            lang.tr("EditRuleDialog", "Variable reference").to_string(),
+        ))
         .children(var_rows)
         .into_any_element()
 }
