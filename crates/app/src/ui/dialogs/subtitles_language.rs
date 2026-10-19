@@ -193,7 +193,6 @@ impl SubtitlesLanguageState {
     pub fn load(cfg: &config::ConfigStore) -> Self {
         let value = cfg
             .get("Additional", "subtitle_language")
-            .cloned()
             .unwrap_or(Value::Null);
         Self::from_value(&value)
     }
@@ -446,7 +445,7 @@ mod tests {
         assert_eq!(reloaded, st);
         assert_eq!(
             cfg.get("Additional", "subtitle_language").unwrap(),
-            &serde_json::json!({
+            serde_json::json!({
                 "download_specified": true,
                 "specified_language": ["zh", "ai-zh", "yue"],
             })

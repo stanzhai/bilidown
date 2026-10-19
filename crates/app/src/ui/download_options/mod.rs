@@ -924,9 +924,8 @@ pub fn open_download_options(
     if !candidates.is_empty() {
         let user_agent = cfg
             .get("Advanced", "user_agent")
-            .and_then(|v| v.as_str())
-            .unwrap_or(config::DEFAULT_USER_AGENT)
-            .to_string();
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| config::DEFAULT_USER_AGENT.to_owned());
         let priorities = crate::download_pipeline::priorities_from_config(cfg);
         // Ticket 34: playurl preview queries are cookie-gated; read the
         // persisted auth state here (the shell lease is held, so the

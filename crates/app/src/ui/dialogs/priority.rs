@@ -3,7 +3,7 @@
 //! arrays. Python uses a drag list; gpui-kit has none, so each row gets
 //! ↑/↓ buttons mutating the same backing `Vec<i64>`.
 
-use serde_json::{json, Value};
+use serde_json::json;
 
 use gpui_kit::base::Disableable as _;
 use gpui_kit::component::button::Button;
@@ -68,7 +68,7 @@ impl PriorityState {
         Self {
             order: cfg
                 .get("Download", kind.key())
-                .and_then(Value::as_array)
+                .and_then(|v| v.as_array().cloned())
                 .map(|a| a.iter().filter_map(|v| v.as_i64()).collect())
                 .unwrap_or_default(),
         }

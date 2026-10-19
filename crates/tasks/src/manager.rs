@@ -216,7 +216,7 @@ impl TaskManager {
         let mode = crate::status::NumberingType::from_code(
             config
                 .get("File Naming", "numbering_type")
-                .and_then(Value::as_i64)
+                .and_then(|v| v.as_i64())
                 .unwrap_or(2),
         );
         let inputs = CreateInputs {

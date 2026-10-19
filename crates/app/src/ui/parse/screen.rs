@@ -859,7 +859,7 @@ impl ParseScreen {
 
         let info = self.model.preview_info();
         let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths("", ""));
-        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list"));
+        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
         let candidates = self.model.preview_items(3);
         download_options::open_download_options(
             window, cx, &cfg, &info, &type_ids, &store, candidates,
@@ -882,7 +882,7 @@ impl ParseScreen {
         if let Ok(cfg) = ConfigStore::open() {
             let show = cfg
                 .get("Behavior", "show_download_options_dialog")
-                .and_then(serde_json::Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(true);
             if show {
                 self.open_download_options_dialog(window, cx);

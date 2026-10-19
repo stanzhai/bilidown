@@ -1170,6 +1170,7 @@ version = "2.21.0"
 dependencies = [
  "anyhow",
  "dirs 6.0.0",
+ "parking_lot",
  "serde_json",
  "tempfile",
 ]

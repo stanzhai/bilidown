@@ -82,7 +82,7 @@ impl CdnListState {
     pub fn load(cfg: &config::ConfigStore, key: CdnListKey) -> Self {
         let entries = cfg
             .get("Advanced", key.as_str())
-            .and_then(Value::as_array)
+            .and_then(|v| v.as_array().cloned())
             .map(|list| {
                 list.iter()
                     .filter_map(|entry| {
@@ -427,7 +427,7 @@ mod tests {
         assert_eq!(reloaded, st);
         assert_eq!(
             cfg.get("Advanced", "cn_cdn_server_list").unwrap(),
-            &serde_json::json!([
+            serde_json::json!([
                 { "host": "upos-sz-mirror08c.bilivideo.com", "provider": "HUAWEI" },
                 { "host": "upos-sz-mirrorhw.bilivideo.com", "provider": "HUAWEI" },
                 { "host": "mirror.example.com", "provider": "CUSTOM" },

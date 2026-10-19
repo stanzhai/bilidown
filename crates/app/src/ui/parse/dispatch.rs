@@ -203,9 +203,8 @@ impl ParseService {
         let signer = Arc::new(auth::WbiSigner::new(key_store.clone()));
         let ua = cfg
             .get("Advanced", "user_agent")
-            .and_then(Value::as_str)
-            .unwrap_or(config::DEFAULT_USER_AGENT)
-            .to_string();
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| config::DEFAULT_USER_AGENT.to_owned());
         let client = HttpClient::new(network::ClientOptions {
             user_agent: ua,
             proxy: network::ProxyConfig::none(),

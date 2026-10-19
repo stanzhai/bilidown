@@ -37,9 +37,9 @@ use services::i18n::{self, Catalog};
 pub fn active_catalog(cfg: &config::ConfigStore) -> &'static Catalog {
     let lang = cfg
         .get("Interface", "language")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("Auto");
-    i18n::catalog(i18n::Language::from_config(lang).resolve())
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "Auto".into());
+    i18n::catalog(i18n::Language::from_config(&lang).resolve())
 }
 
 /// Replace `{key}` placeholders in a translated format string

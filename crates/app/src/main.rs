@@ -68,9 +68,9 @@ fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
         .try_global::<ConfigGlobal>()
         .map(|g| {
             services::i18n::Language::from_config(
-                g.0.lock()
+                &g.0.lock()
                     .get("Interface", "language")
-                    .and_then(|v| v.as_str())
+                    .and_then(|v| v.as_str().map(str::to_owned))
                     .unwrap_or_default(),
             )
             .resolve()
@@ -85,9 +85,9 @@ fn active_catalog(cx: &App) -> &'static services::i18n::Catalog {
 fn apply_configured_theme(cfg: &ConfigStore, cx: &mut App) {
     use gpui_kit::component::theme::{Theme, ThemeMode};
     match services::theme::ThemeModeSetting::from_config(
-        cfg.get("QFluentWidgets", "ThemeMode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Auto"),
+        &cfg.get("QFluentWidgets", "ThemeMode")
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| "Auto".into()),
     ) {
         services::theme::ThemeModeSetting::Light => Theme::change(ThemeMode::Light, None, cx),
         services::theme::ThemeModeSetting::Dark => Theme::change(ThemeMode::Dark, None, cx),

@@ -165,10 +165,7 @@ pub fn determine_download_type(
     options: Option<&serde_json::Map<String, Value>>,
 ) -> i64 {
     let flag = |option_key: &str, group: &str| -> bool {
-        let fallback = config
-            .get(group, option_key)
-            .cloned()
-            .unwrap_or(Value::Bool(false));
+        let fallback = config.get(group, option_key).unwrap_or(Value::Bool(false));
         pick_option(options, option_key, &fallback)
             .as_bool()
             .unwrap_or(false)
@@ -236,7 +233,7 @@ pub fn apply_naming(
         // that supply no formatted path (the UI default) get the same
         // treatment here from the config's rule store.
         let store = naming::naming_rules::RuleStore::from_config_value(
-            config.get("File Naming", "naming_rule_list"),
+            config.get("File Naming", "naming_rule_list").as_ref(),
         );
         if task_info.Naming.rule.as_deref().unwrap_or("").is_empty() {
             naming::task_naming::freeze_naming_rule(task_info, None, &store, &Default::default());
@@ -249,10 +246,7 @@ pub fn apply_naming(
 }
 
 fn bool_config(config: &ConfigStore, key: &str) -> Value {
-    config
-        .get("Download", key)
-        .cloned()
-        .unwrap_or(Value::Bool(false))
+    config.get("Download", key).unwrap_or(Value::Bool(false))
 }
 
 /// `__episode_info_to_task_info`: one fully-frozen TaskInfo.
@@ -343,9 +337,8 @@ pub fn episode_to_task_info(
     // FileInfo: download path frozen at creation.
     task_info.File.download_path = config
         .get("Download", "download_path")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_default();
 
     // NamingInfo
     apply_naming(&mut task_info, naming, config)?;

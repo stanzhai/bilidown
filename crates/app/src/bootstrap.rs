@@ -82,9 +82,8 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
     let client = network::HttpClient::new(network::ClientOptions {
         user_agent: config
             .get("Advanced", "user_agent")
-            .and_then(|v| v.as_str())
-            .unwrap_or(config::DEFAULT_USER_AGENT)
-            .to_string(),
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| config::DEFAULT_USER_AGENT.to_owned()),
         proxy: network::ProxyConfig::none(),
         cookies_from_persistence: Vec::new(),
         signer: None,
@@ -182,10 +181,10 @@ async fn driver_loop(config: Arc<ConfigStore>, manager: Arc<TaskManager>) {
                     if services::notify::should_notify(&config, active) {
                         let n = services::notify::download_completed(
                             services::i18n::Language::from_config(
-                                config
+                                &config
                                     .get("Interface", "language")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("Auto"),
+                                    .and_then(|v| v.as_str().map(str::to_owned))
+                                    .unwrap_or_else(|| "Auto".into()),
                             )
                             .resolve(),
                         );

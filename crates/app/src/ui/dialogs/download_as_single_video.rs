@@ -24,7 +24,7 @@ const FLAG_KEY: &str = "show_download_as_single_video_dialog";
 /// download (default true, as in Python).
 pub fn show_dialog_flag(cfg: &config::ConfigStore) -> bool {
     cfg.get(FLAG_GROUP, FLAG_KEY)
-        .and_then(serde_json::Value::as_bool)
+        .and_then(|v| v.as_bool())
         .unwrap_or(true)
 }
 

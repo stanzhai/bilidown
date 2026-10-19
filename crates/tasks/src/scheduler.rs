@@ -44,7 +44,7 @@ impl Scheduler {
         let raw = self
             .config
             .get("Download", "download_parallel")
-            .and_then(serde_json::Value::as_i64)
+            .and_then(|v| v.as_i64())
             .unwrap_or(1);
         raw.clamp(PARALLEL_MIN, PARALLEL_MAX)
     }
@@ -54,13 +54,13 @@ impl Scheduler {
         let get_bool = |item: &str, fallback: bool| {
             self.config
                 .get("Download", item)
-                .and_then(serde_json::Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(fallback)
         };
         let parallel = self
             .config
             .get("Download", "download_thread")
-            .and_then(serde_json::Value::as_i64)
+            .and_then(|v| v.as_i64())
             .unwrap_or(4)
             .clamp(PARALLEL_MIN, PARALLEL_MAX) as usize;
         EngineConfig {
@@ -69,7 +69,7 @@ impl Scheduler {
             auto_retry_max_count: self
                 .config
                 .get("Download", "auto_retry_max_count")
-                .and_then(serde_json::Value::as_i64)
+                .and_then(|v| v.as_i64())
                 .unwrap_or(5)
                 .clamp(1, 20) as u64,
             preallocate: get_bool("preallocate_file_space", true),

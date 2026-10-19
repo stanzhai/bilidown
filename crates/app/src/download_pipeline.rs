@@ -68,14 +68,14 @@ impl PipelineOutcome {
 pub fn cdn_from_config(cfg: &ConfigStore) -> network::cdn::CdnConfig {
     use network::cdn::{Area, CdnConfig, CdnServer, PreferProvider};
 
-    let area = match cfg.get("Advanced", "area").and_then(Value::as_str) {
+    let area = match cfg.get("Advanced", "area").and_then(|v| v.as_str().map(str::to_owned)).as_deref() {
         Some("cn") => Some(Area::Cn),
         Some("ov") => Some(Area::Ov),
         _ => None,
     };
     let prefer = cfg
         .get("Advanced", "prefer_cdn_server_provider_")
-        .and_then(Value::as_bool)
+        .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
     let parse_list = |key: &str| -> Option<Vec<CdnServer>> {
@@ -106,7 +106,7 @@ pub fn cdn_from_config(cfg: &ConfigStore) -> network::cdn::CdnConfig {
 pub fn priorities_from_config(cfg: &ConfigStore) -> Priorities {
     let ids = |key: &str| -> Vec<i64> {
         cfg.get("Download", key)
-            .and_then(Value::as_array)
+            .and_then(|v| v.as_array().cloned())
             .map(|a| a.iter().filter_map(Value::as_i64).collect())
             .unwrap_or_default()
     };
@@ -132,7 +132,7 @@ pub fn priorities_from_config(cfg: &ConfigStore) -> Priorities {
 pub fn global_options_from_config(cfg: &ConfigStore) -> mux::GlobalOptions {
     let b = |key: &str| -> bool {
         cfg.get("Additional", key)
-            .and_then(Value::as_bool)
+            .and_then(|v| v.as_bool())
             .unwrap_or(false)
     };
     mux::GlobalOptions {
@@ -143,13 +143,12 @@ pub fn global_options_from_config(cfg: &ConfigStore) -> mux::GlobalOptions {
         delete_subtitle_after_embed: b("delete_subtitle_after_embed"),
         keep_original_files_type: cfg
             .get("Additional", "keep_original_files_type")
-            .and_then(Value::as_i64)
+            .and_then(|v| v.as_i64())
             .unwrap_or(0),
         cover_type: cfg
             .get("Additional", "cover_type")
-            .and_then(Value::as_str)
-            .unwrap_or("jpg")
-            .to_owned(),
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| "jpg".into()),
     }
 }
 
@@ -159,16 +158,16 @@ pub fn ffmpeg_selection_from_config(
     install_root: PathBuf,
 ) -> ffmpeg::locate::FFmpegSelection {
     let source = ffmpeg::locate::FFmpegSource::from_config(
-        cfg.get("Advanced", "ffmpeg_source")
-            .and_then(Value::as_str)
-            .unwrap_or("bundled"),
+        &cfg.get("Advanced", "ffmpeg_source")
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| "bundled".into()),
     )
     .unwrap_or(ffmpeg::locate::FFmpegSource::Bundled);
     ffmpeg::locate::FFmpegSelection {
         source,
         custom_path: cfg
             .get("Advanced", "custom_ffmpeg_path")
-            .and_then(Value::as_str)
+            .and_then(|v| v.as_str().map(str::to_owned))
             .map(PathBuf::from)
             .unwrap_or_default(),
         install_root,
@@ -299,7 +298,7 @@ async fn parse_download(
     // codec variables are known — also re-names tasks resumed with an
     // empty file name (rows created before the naming engine existed).
     if task.File.name.is_empty() {
-        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list"));
+        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
         if task.Naming.rule.as_deref().unwrap_or("").is_empty() {
             freeze_naming_rule(task, None, &store, &Default::default());
         }

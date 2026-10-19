@@ -24,7 +24,7 @@ use crate::ui::Shell;
 fn language() -> services::i18n::ResolvedLanguage {
     let raw = config::ConfigStore::open()
         .ok()
-        .and_then(|c| c.get("Interface", "language").cloned());
+        .and_then(|c| c.get("Interface", "language"));
     let lang = match raw.as_ref().and_then(|v| v.as_str()) {
         Some(s) => services::i18n::Language::from_config(s),
         None => services::i18n::Language::Auto,

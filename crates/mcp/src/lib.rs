@@ -72,9 +72,8 @@ pub async fn start(
                 .unwrap_or(DEFAULT_PORT as i64),
             store
                 .get("MCP", "mcp_token")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_owned(),
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or_default(),
         )
     };
     if !enabled {

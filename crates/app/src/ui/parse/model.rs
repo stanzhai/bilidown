@@ -467,15 +467,15 @@ impl ParseViewModel {
     pub fn apply_auto_select(&mut self, cfg: &config::ConfigStore) {
         let mode = cfg
             .get("Behavior", "auto_select_mode_")
-            .and_then(Value::as_i64)
+            .and_then(|v| v.as_i64())
             .unwrap_or(2);
         match mode {
             1 => self.list.check_all_items(true),
             2 => {
                 let cond = |key: &str| {
                     cfg.get("Behavior", "auto_select_conditions")
-                        .and_then(|v| v.get(key))
-                        .and_then(Value::as_i64)
+                        .and_then(|v| v.get(key).cloned())
+                        .and_then(|v| v.as_i64())
                         .unwrap_or(0)
                         == 1
                 };

@@ -60,19 +60,22 @@ impl ParseListState {
     pub fn load(cfg: &config::ConfigStore) -> Self {
         let b = |item: &str| {
             cfg.get("Behavior", item)
-                .and_then(Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(false)
         };
         Self {
             columns: cfg
                 .get("Behavior", "parse_list_column")
-                .and_then(Value::as_array)
+                .and_then(|v| v.as_array().cloned())
                 .map(|a| {
                     a.iter()
                         .filter_map(|v| {
                             Some(ColumnEntry {
                                 attr_key: v.get("attr_key")?.as_str()?.to_owned(),
-                                width: v.get("width").and_then(Value::as_i64).unwrap_or(0),
+                                width: v
+                                    .get("width")
+                                    .and_then(Value::as_i64)
+                                    .unwrap_or(0),
                                 show: v.get("show").and_then(Value::as_bool).unwrap_or(true),
                             })
                         })

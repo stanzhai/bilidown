@@ -40,7 +40,7 @@ pub enum UpdateAction {
 pub fn decide(info: &UpdateInfo, cfg: &config::ConfigStore, manual: bool) -> UpdateAction {
     let skipped = cfg
         .get("Application", "skip_version")
-        .and_then(Value::as_str)
+        .and_then(|v| v.as_str().map(str::to_owned))
         .unwrap_or_default()
         .to_owned();
     if services::update::suppresses_prompt(info, &skipped, manual) {
@@ -78,13 +78,13 @@ pub async fn check_for_update(
 pub fn check_params(cfg: &config::ConfigStore) -> (bool, Option<&'static str>) {
     let include_preview = cfg
         .get("Update", "include_prerelease")
-        .and_then(Value::as_bool)
+        .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let lang = cfg
         .get("Interface", "language")
-        .and_then(Value::as_str)
-        .unwrap_or("Auto");
-    (include_preview, to_verhub_locale(Some(lang)))
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "Auto".into());
+    (include_preview, to_verhub_locale(Some(&lang)))
 }
 
 /// The dialog's version tip line

@@ -196,12 +196,12 @@ fn commit_writes_config_and_naming_state() {
     m.commit(&mut cfg, &mut naming);
     assert_eq!(
         cfg.get("Download", "video_container")
-            .and_then(Value::as_str),
-        Some("mp4")
+            .and_then(|v| v.as_str().map(str::to_owned)),
+        Some("mp4".into())
     );
     assert_eq!(
         cfg.get("File Naming", "numbering_type")
-            .and_then(Value::as_i64),
+            .and_then(|v| v.as_i64()),
         Some(2)
     );
     // CONTINUOUS → the dialog's starting number becomes the runtime's

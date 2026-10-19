@@ -73,7 +73,6 @@ pub fn resolve(task: &TaskInfo, store: &ConfigStore, key: &str) -> serde_json::V
 fn global(store: &ConfigStore, key: &str) -> serde_json::Value {
     store
         .get("Additional", key)
-        .cloned()
         .unwrap_or(serde_json::Value::Null)
 }
 

@@ -60,8 +60,8 @@ impl ScreenState {
             let (by, asc) = tab.sort_items();
             if let Some(key) = cfg
                 .get("Behavior", by)
-                .and_then(|v| v.as_str())
-                .and_then(SortKey::from_config)
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .and_then(|v| SortKey::from_config(&v))
             {
                 list.sort_by = key;
             }

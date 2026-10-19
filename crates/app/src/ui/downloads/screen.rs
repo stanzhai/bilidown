@@ -361,7 +361,7 @@ impl DownloadsScreen {
         if let Some(dir) = self
             .config
             .get("Download", "download_path")
-            .and_then(|v| v.as_str())
+            .and_then(|v| v.as_str().map(str::to_owned))
             .map(std::path::PathBuf::from)
         {
             let _ = open_directory(&dir);

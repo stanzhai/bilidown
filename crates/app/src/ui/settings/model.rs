@@ -26,21 +26,21 @@ use serde_json::{json, Value};
 /// Read a bool (missing/typed-wrong → `fallback`).
 pub fn get_bool(cfg: &config::ConfigStore, group: &str, item: &str) -> bool {
     cfg.get(group, item)
-        .and_then(Value::as_bool)
+        .and_then(|v| v.as_bool())
         .unwrap_or(false)
 }
 
 /// Read an int (missing → `fallback`).
 pub fn get_int(cfg: &config::ConfigStore, group: &str, item: &str, fallback: i64) -> i64 {
     cfg.get(group, item)
-        .and_then(Value::as_i64)
+        .and_then(|v| v.as_i64())
         .unwrap_or(fallback)
 }
 
 /// Read a string (missing → `""`).
 pub fn get_str(cfg: &config::ConfigStore, group: &str, item: &str) -> String {
     cfg.get(group, item)
-        .and_then(Value::as_str)
+        .and_then(|v| v.as_str().map(str::to_owned))
         .unwrap_or_default()
         .to_string()
 }
@@ -63,7 +63,7 @@ pub fn set_and_save(
 /// The rules saved in config (falling back to the built-ins when the value
 /// is missing or malformed — Python `load_rules` semantics).
 pub fn load_rules(cfg: &config::ConfigStore) -> Vec<RuleEntry> {
-    parse_rule_list(cfg.get("File Naming", "naming_rule_list")).unwrap_or_else(default_entries)
+    parse_rule_list(cfg.get("File Naming", "naming_rule_list").as_ref()).unwrap_or_else(default_entries)
 }
 
 /// Parse `naming_rule_list` from raw JSON.

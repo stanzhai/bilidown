@@ -213,7 +213,6 @@ pub async fn parse(
     let style = SubtitleStyle::from_config(
         &store
             .get("Additional", "subtitle_style")
-            .cloned()
             .unwrap_or(Value::Null),
     );
 

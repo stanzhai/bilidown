@@ -35,7 +35,7 @@ impl BatchParseState {
             text: String::new(),
             auto_add: cfg
                 .get("Misc", "auto_add_to_download_list")
-                .and_then(serde_json::Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(false),
         }
     }
@@ -233,7 +233,7 @@ mod tests {
         assert_eq!(urls, vec!["BV1aa", "av123"]);
         assert_eq!(
             cfg.get("Misc", "auto_add_to_download_list"),
-            Some(&serde_json::json!(true))
+            Some(serde_json::json!(true))
         );
     }
 
@@ -249,7 +249,7 @@ mod tests {
         // nothing persisted on rejection
         assert_eq!(
             cfg.get("Misc", "auto_add_to_download_list"),
-            Some(&serde_json::json!(false))
+            Some(serde_json::json!(false))
         );
     }
 

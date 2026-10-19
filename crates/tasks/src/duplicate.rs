@@ -97,7 +97,6 @@ pub fn check_duplicate(
 
     let fallback = config
         .get("Behavior", "duplicate_download_resolution")
-        .cloned()
         .unwrap_or_else(|| Value::from(2));
     let resolution = DuplicateResolution::from_code(
         pick_option(options, "duplicate_resolution", &fallback)

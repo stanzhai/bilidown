@@ -251,8 +251,8 @@ fn embed_conflict(state: &McpState, options: &Map<String, Value>) -> Option<Stri
 
         // Unspecified options fall back to the user's current settings;
         // already ASS + MKV must not be an error.
-        let format_fallback = config.get("Advanced", format_key).cloned();
-        let container_fallback = config.get("Advanced", "video_container").cloned();
+        let format_fallback = config.get("Advanced", format_key);
+        let container_fallback = config.get("Advanced", "video_container");
 
         let file_format = pick_option(options, format_key, format_fallback.as_ref())
             .and_then(Value::as_str)

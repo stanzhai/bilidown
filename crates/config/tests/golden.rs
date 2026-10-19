@@ -63,11 +63,13 @@ fn old_python_config_upgrades_in_place_v2120() {
     // 迁移语义抽查（字节已覆盖，这里是可读的锚点）
     assert_eq!(
         store.get("Advanced", "proxy_mode"),
-        Some(&serde_json::json!("manual"))
+        Some(
+        serde_json::json!("manual"))
     );
     assert_eq!(
         store.get("Download", "download_path"),
-        Some(&serde_json::json!("/tmp/old-downloads"))
+        Some(
+        serde_json::json!("/tmp/old-downloads"))
     );
     let list: Vec<i64> = store
         .get("Download", "video_quality_priority")
@@ -93,11 +95,13 @@ fn old_python_config_upgrades_in_place_v2160() {
     // 2160 ≥ 2140：不补 122；代理三态已在盘上，不被 2.13.0 迁移改写
     assert_eq!(
         store.get("Advanced", "proxy_mode"),
-        Some(&serde_json::json!("disabled"))
+        Some(
+        serde_json::json!("disabled"))
     );
     assert_eq!(
         store.get("Download", "video_quality_priority"),
-        Some(&serde_json::json!([127, 126, 80]))
+        Some(
+        serde_json::json!([127, 126, 80]))
     );
 }
 
@@ -133,11 +137,13 @@ fn current_config_is_loaded_not_rewritten() {
     // 盘上的值要真的进了内存
     assert_eq!(
         store.get("Interface", "language"),
-        Some(&serde_json::json!("en_US"))
+        Some(
+        serde_json::json!("en_US"))
     );
     assert_eq!(
         store.get("Advanced", "area"),
-        Some(&serde_json::json!("ov"))
+        Some(
+        serde_json::json!("ov"))
     );
 }
 
@@ -171,6 +177,7 @@ fn unknown_groups_and_items_are_ignored() {
     assert!(!saved.contains("when_close\""));
     assert_eq!(
         store.get("Cookie", "SESSDATA"),
-        Some(&serde_json::json!(""))
+        Some(
+        serde_json::json!(""))
     );
 }

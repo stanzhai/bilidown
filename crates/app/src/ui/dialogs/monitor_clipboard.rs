@@ -30,7 +30,7 @@ impl MonitorClipboardState {
     pub fn load(cfg: &config::ConfigStore) -> Self {
         let b = |item: &str| {
             cfg.get("Behavior", item)
-                .and_then(serde_json::Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(false)
         };
         Self {
@@ -225,12 +225,12 @@ mod tests {
         st.apply(&mut cfg);
         assert_eq!(
             cfg.get("Behavior", "monitor_clipboard")
-                .and_then(serde_json::Value::as_bool),
+                .and_then(|v| v.as_bool()),
             Some(false)
         );
         assert_eq!(
             cfg.get("Behavior", "show_download_confirmation_dialog")
-                .and_then(serde_json::Value::as_bool),
+                .and_then(|v| v.as_bool()),
             Some(false)
         );
         assert_eq!(MonitorClipboardState::load(&cfg), st);

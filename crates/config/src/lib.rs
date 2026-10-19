@@ -11,6 +11,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock};
 
 use anyhow::Context;
 use serde_json::{Map, Value};
@@ -50,9 +51,22 @@ fn default_config_dir() -> Option<PathBuf> {
 }
 
 /// 配置存储：有序的 group -> item -> JSON 值，初值即默认值。
-// ponytail: save 无锁 —— 单线程调用；跨线程共享时由调用方加锁（tmp 文件同名会交错）
+///
+/// 生产构造 [`ConfigStore::open`] 返回**进程级共享句柄**：克隆即共享，
+/// 任意句柄的 `set`/`save` 对所有句柄即时可见，`save()` 永远写最新值。
+/// 根治"长生命周期快照整文件写回、覆盖会话期间其他改动"的丢设置 bug。
+/// [`ConfigStore::with_paths`] 构造独立实例（测试隔离用）。
+#[derive(Clone)]
 pub struct ConfigStore {
+    inner: Arc<Inner>,
+}
+
+struct Inner {
     file: PathBuf,
+    state: parking_lot::Mutex<State>,
+}
+
+struct State {
     values: Map<String, Value>,
     /// 2.20.0 迁移置位：命名规则被整表重置，界面要提示用户。
     naming_rules_reset: bool,
@@ -61,7 +75,17 @@ pub struct ConfigStore {
 impl ConfigStore {
     /// 生产构造：User Data Directory/bilidown/config.json。
     /// download_path 默认取系统下载目录（拿不到则退回家目录）。
+    /// 首次调用加载并迁移；此后所有调用共享同一实例。
     pub fn open() -> anyhow::Result<Self> {
+        static SHARED: LazyLock<anyhow::Result<ConfigStore>> =
+            LazyLock::new(ConfigStore::open_fresh);
+        match &*SHARED {
+            Ok(store) => Ok(store.clone()),
+            Err(e) => Err(anyhow::anyhow!("{e}")),
+        }
+    }
+
+    fn open_fresh() -> anyhow::Result<Self> {
         let dir = default_config_dir().context("无法定位 User Data Directory")?;
         let downloads = dirs::download_dir()
             .or_else(dirs::home_dir)
@@ -70,12 +94,17 @@ impl ConfigStore {
     }
 
     /// 测试/自定义构造：配置文件在 `config_dir` 下，download_path 默认值注入
-    /// （金样字节里它是生成夹具时的 /home/test/Downloads）。
+    /// （金样字节里它是生成夹具时的 /home/test/Downloads）。独立实例，
+    /// 不与 [`ConfigStore::open`] 的共享实例互通。
     pub fn with_paths(config_dir: impl Into<PathBuf>, download_dir: impl Into<PathBuf>) -> Self {
         let mut store = Self {
-            file: config_dir.into().join("config.json"),
-            values: defaults_map(),
-            naming_rules_reset: false,
+            inner: Arc::new(Inner {
+                file: config_dir.into().join("config.json"),
+                state: parking_lot::Mutex::new(State {
+                    values: defaults_map(),
+                    naming_rules_reset: false,
+                }),
+            }),
         };
         store.set_item(
             "Download",
@@ -88,7 +117,7 @@ impl ConfigStore {
 
     /// Python 导入期流程：qconfig.load -> check_need_patch -> patch_config。
     fn load_and_migrate(&mut self) {
-        let Ok(bytes) = fs::read(&self.file) else {
+        let Ok(bytes) = fs::read(&self.inner.file) else {
             return; // 文件不存在：不加载、不迁移、不落盘
         };
         let data: Map<String, Value> = serde_json::from_slice::<Value>(&bytes)
@@ -111,8 +140,9 @@ impl ConfigStore {
             .is_some_and(python_truthy);
 
         // 只叠加已知的 (group, item)；校验失败按 Python 语义中止整个 load
+        let mut state = self.inner.state.lock();
         'outer: for (group, items) in &data {
-            let Some(dst) = self.values.get_mut(group).and_then(Value::as_object_mut) else {
+            let Some(dst) = state.values.get_mut(group).and_then(Value::as_object_mut) else {
                 continue; // 未知分组
             };
             let Some(items) = items.as_object() else {
@@ -129,104 +159,44 @@ impl ConfigStore {
         }
 
         if version.is_none_or(|v| v < APP_CONFIG_VERSION) {
-            self.patch(version.unwrap_or(0), proxy_enabled);
-            let _ = self.save(); // patch_config 末尾的 save()，失败不致命
+            patch(&mut state, version.unwrap_or(0), proxy_enabled);
+            let bytes = serialize(&state.values);
+            let _ = write_atomic(&self.inner.file, &bytes); // 失败不致命
         }
     }
 
-    /// patch_config 逐步移植。门禁版本读盘上旧值，列表读当前配置值。
-    fn patch(&mut self, version: i64, proxy_enabled: bool) {
-        if version < 2130 && proxy_enabled {
-            // 旧版开着代理开关 → 迁移为手动；关着则保持已加载的三态
-            self.set_item("Advanced", "proxy_mode", Value::from("manual"));
-        }
-
-        if version < 2140 {
-            // 画质优先级补入 122（SDR 增强）：有 4K(120) 插其前，否则追加
-            let mut priority = self
-                .get_item("Download", "video_quality_priority")
-                .cloned()
-                .unwrap_or(Value::Array(vec![]));
-            if let Some(list) = priority.as_array_mut() {
-                if !list.iter().any(|q| q.as_i64() == Some(122)) {
-                    match list.iter().position(|q| q.as_i64() == Some(120)) {
-                        Some(pos) => list.insert(pos, Value::from(122)),
-                        None => list.push(Value::from(122)),
-                    }
-                }
-            }
-            self.set_item("Download", "video_quality_priority", priority);
-        }
-
-        if version < 2200 {
-            // 命名规则整表换新默认（用户改过/自建的一并舍弃，置标志提示）
-            self.set_item(
-                "File Naming",
-                "naming_rule_list",
-                defaults_map()
-                    .get("File Naming")
-                    .and_then(|g| g.get("naming_rule_list"))
-                    .cloned()
-                    .unwrap_or(Value::Array(vec![])),
-            );
-            self.naming_rules_reset = true;
-
-            // 海外 CDN 列表剔除 Akamai：只按 host 精确匹配，畸形项原样保留，
-            // 长度不变则不写回（QConfig.set 的等值 no-op）
-            if let Some(entries) = self
-                .get_item("Advanced", "ov_cdn_server_list")
-                .and_then(Value::as_array)
-                .cloned()
-            {
-                let filtered: Vec<Value> = entries
-                    .iter()
-                    .filter(|e| e.get("host").and_then(Value::as_str) != Some(AKAMAI_HOST))
-                    .cloned()
-                    .collect();
-                if filtered.len() != entries.len() {
-                    self.set_item("Advanced", "ov_cdn_server_list", Value::Array(filtered));
-                }
-            }
-        }
-
-        self.set_item(
-            "Application",
-            "config_version",
-            Value::from(APP_CONFIG_VERSION),
-        );
-    }
-
-    fn get_item(&self, group: &str, item: &str) -> Option<&Value> {
-        self.values.get(group)?.get(item)
+    fn get_item(&self, group: &str, item: &str) -> Option<Value> {
+        self.inner
+            .state
+            .lock()
+            .values
+            .get(group)
+            .and_then(|g| g.get(item))
+            .cloned()
     }
 
     fn set_item(&mut self, group: &str, item: &str, value: Value) {
-        if let Some(v) = self.values.get_mut(group).and_then(|g| g.get_mut(item)) {
+        if let Some(v) = self
+            .inner
+            .state
+            .lock()
+            .values
+            .get_mut(group)
+            .and_then(|g| g.get_mut(item))
+        {
             *v = value;
         }
     }
 
     /// 原子保存：写临时文件后 rename。失败仅返回错误（调用方记日志）。
+    /// 共享实例下永远序列化当前最新值，不存在陈旧快照。
     pub fn save(&self) -> anyhow::Result<()> {
-        if let Some(parent) = self.file.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("创建目录失败: {}", parent.display()))?;
-        }
-        let tmp = self.file.with_extension("json.tmp");
-        let mut bytes = Vec::with_capacity(16 * 1024);
-        write_pretty(&Value::Object(self.values.clone()), &mut bytes);
-        fs::write(&tmp, &bytes).with_context(|| format!("写入临时文件失败: {}", tmp.display()))?;
-        match fs::rename(&tmp, &self.file) {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                let _ = fs::remove_file(&tmp);
-                Err(e).with_context(|| format!("替换配置文件失败: {}", self.file.display()))
-            }
-        }
+        let bytes = serialize(&self.inner.state.lock().values);
+        write_atomic(&self.inner.file, &bytes)
     }
 
-    /// 读一个配置项（迁移后的当前值）。
-    pub fn get(&self, group: &str, item: &str) -> Option<&Value> {
+    /// 读一个配置项（迁移后的当前值）。共享实例：读到最新值。
+    pub fn get(&self, group: &str, item: &str) -> Option<Value> {
         self.get_item(group, item)
     }
 
@@ -237,12 +207,130 @@ impl ConfigStore {
 
     /// 2.20.0 迁移是否重置了命名规则（界面提示用）。
     pub fn naming_rules_reset(&self) -> bool {
-        self.naming_rules_reset
+        self.inner.state.lock().naming_rules_reset
     }
 
     /// 配置文件路径。
     pub fn path(&self) -> &Path {
-        &self.file
+        &self.inner.file
+    }
+}
+
+/// patch_config 逐步移植。门禁版本读盘上旧值，列表读当前配置值。
+fn patch(state: &mut State, version: i64, proxy_enabled: bool) {
+    if version < 2130 && proxy_enabled {
+        // 旧版开着代理开关 → 迁移为手动；关着则保持已加载的三态
+        if let Some(dst) = state
+            .values
+            .get_mut("Advanced")
+            .and_then(Value::as_object_mut)
+            .and_then(|g| g.get_mut("proxy_mode"))
+        {
+            *dst = Value::from("manual");
+        }
+    }
+
+    if version < 2140 {
+        // 画质优先级补入 122（SDR 增强）：有 4K(120) 插其前，否则追加
+        let priority = state
+            .values
+            .get("Download")
+            .and_then(|g| g.get("video_quality_priority"))
+            .cloned()
+            .unwrap_or(Value::Array(vec![]));
+        if let Some(list) = priority.as_array().cloned() {
+            let mut list = list;
+            if !list.iter().any(|q| q.as_i64() == Some(122)) {
+                match list.iter().position(|q| q.as_i64() == Some(120)) {
+                    Some(pos) => list.insert(pos, Value::from(122)),
+                    None => list.push(Value::from(122)),
+                }
+            }
+            if let Some(dst) = state
+                .values
+                .get_mut("Download")
+                .and_then(Value::as_object_mut)
+                .and_then(|g| g.get_mut("video_quality_priority"))
+            {
+                *dst = Value::Array(list);
+            }
+        }
+    }
+
+    if version < 2200 {
+        // 命名规则整表换新默认（用户改过/自建的一并舍弃，置标志提示）
+        if let Some(dst) = state
+            .values
+            .get_mut("File Naming")
+            .and_then(Value::as_object_mut)
+            .and_then(|g| g.get_mut("naming_rule_list"))
+        {
+            *dst = defaults_map()
+                .get("File Naming")
+                .and_then(|g| g.get("naming_rule_list"))
+                .cloned()
+                .unwrap_or(Value::Array(vec![]));
+        }
+        state.naming_rules_reset = true;
+
+        // 海外 CDN 列表剔除 Akamai：只按 host 精确匹配，畸形项原样保留，
+        // 长度不变则不写回（QConfig.set 的等值 no-op）
+        if let Some(entries) = state
+            .values
+            .get("Advanced")
+            .and_then(|g| g.get("ov_cdn_server_list"))
+            .and_then(Value::as_array)
+            .cloned()
+        {
+            let filtered: Vec<Value> = entries
+                .iter()
+                .filter(|e| e.get("host").and_then(Value::as_str) != Some(AKAMAI_HOST))
+                .cloned()
+                .collect();
+            if filtered.len() != entries.len() {
+                if let Some(dst) = state
+                    .values
+                    .get_mut("Advanced")
+                    .and_then(Value::as_object_mut)
+                    .and_then(|g| g.get_mut("ov_cdn_server_list"))
+                {
+                    *dst = Value::Array(filtered);
+                }
+            }
+        }
+    }
+
+    if let Some(dst) = state
+        .values
+        .get_mut("Application")
+        .and_then(Value::as_object_mut)
+        .and_then(|g| g.get_mut("config_version"))
+    {
+        *dst = Value::from(APP_CONFIG_VERSION);
+    }
+}
+
+/// 序列化为 Python `json.dumps(indent=4, ensure_ascii=False)` 的字节等价。
+fn serialize(values: &Map<String, Value>) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(16 * 1024);
+    write_pretty(&Value::Object(values.clone()), &mut bytes);
+    bytes
+}
+
+/// 原子写入：先建父目录，写临时文件后 rename。
+fn write_atomic(file: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    if let Some(parent) = file.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("创建目录失败: {}", parent.display()))?;
+    }
+    let tmp = file.with_extension("json.tmp");
+    fs::write(&tmp, bytes).with_context(|| format!("写入临时文件失败: {}", tmp.display()))?;
+    match fs::rename(&tmp, file) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = fs::remove_file(&tmp);
+            Err(e).with_context(|| format!("替换配置文件失败: {}", file.display()))
+        }
     }
 }
 

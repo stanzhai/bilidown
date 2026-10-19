@@ -59,15 +59,15 @@ impl AutoParseState {
             total_pages,
             interval: cfg
                 .get("Misc", "auto_parse_interval")
-                .and_then(serde_json::Value::as_f64)
+                .and_then(|v| v.as_f64())
                 .unwrap_or(2.0),
             auto_add: cfg
                 .get("Misc", "auto_add_to_download_list")
-                .and_then(serde_json::Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(false),
             show_dialog: cfg
                 .get("Misc", "show_auto_parse_dialog")
-                .and_then(serde_json::Value::as_bool)
+                .and_then(|v| v.as_bool())
                 .unwrap_or(false),
         }
     }
@@ -431,17 +431,17 @@ mod tests {
         st.save_config(&mut c);
         assert_eq!(
             c.get("Misc", "auto_parse_interval")
-                .and_then(serde_json::Value::as_f64),
+                .and_then(|v| v.as_f64()),
             Some(4.0)
         );
         assert_eq!(
             c.get("Misc", "auto_add_to_download_list")
-                .and_then(serde_json::Value::as_bool),
+                .and_then(|v| v.as_bool()),
             Some(true)
         );
         assert_eq!(
             c.get("Misc", "show_auto_parse_dialog")
-                .and_then(serde_json::Value::as_bool),
+                .and_then(|v| v.as_bool()),
             Some(true)
         );
     }

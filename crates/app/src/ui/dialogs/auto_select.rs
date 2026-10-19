@@ -33,14 +33,14 @@ impl AutoSelectState {
     pub fn load(cfg: &config::ConfigStore) -> Self {
         let cond = |key: &str| {
             cfg.get("Behavior", "auto_select_conditions")
-                .and_then(|v| v.get(key))
-                .and_then(Value::as_i64)
+                .and_then(|v| v.get(key).cloned())
+                .and_then(|v| v.as_i64())
                 .unwrap_or(0)
         };
         Self {
             mode: cfg
                 .get("Behavior", "auto_select_mode_")
-                .and_then(Value::as_i64)
+                .and_then(|v| v.as_i64())
                 .unwrap_or(2),
             user_uploads: cond("user_uploads"),
             bangumi: cond("bangumi"),
@@ -283,7 +283,7 @@ mod tests {
         st.apply(&mut cfg);
         assert_eq!(
             cfg.get("Behavior", "auto_select_mode_")
-                .and_then(Value::as_i64),
+                .and_then(|v| v.as_i64()),
             Some(1)
         );
         assert_eq!(AutoSelectState::load(&cfg), st);

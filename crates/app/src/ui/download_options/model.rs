@@ -469,24 +469,24 @@ pub struct DownloadOptionsModel {
 
 fn cfg_bool(cfg: &ConfigStore, group: &str, key: &str) -> bool {
     cfg.get(group, key)
-        .and_then(Value::as_bool)
+        .and_then(|v| v.as_bool())
         .unwrap_or(false)
 }
 
 fn cfg_str(cfg: &ConfigStore, group: &str, key: &str) -> String {
     cfg.get(group, key)
-        .and_then(Value::as_str)
+        .and_then(|v| v.as_str().map(str::to_owned))
         .unwrap_or_default()
         .to_string()
 }
 
 fn cfg_i64(cfg: &ConfigStore, group: &str, key: &str) -> i64 {
-    cfg.get(group, key).and_then(Value::as_i64).unwrap_or(0)
+    cfg.get(group, key).and_then(|v| v.as_i64()).unwrap_or(0)
 }
 
 fn cfg_ids(cfg: &ConfigStore, key: &str) -> Vec<i64> {
     cfg.get("Download", key)
-        .and_then(Value::as_array)
+        .and_then(|v| v.as_array().cloned())
         .map(|a| a.iter().filter_map(Value::as_i64).collect())
         .unwrap_or_default()
 }

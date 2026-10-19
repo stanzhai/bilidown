@@ -91,18 +91,17 @@ impl Shell {
             .unwrap_or_default();
         // i18n global: `Interface.language` (auto → system)
         let lang = services::i18n::Language::from_config(
-            cfg.get("Interface", "language")
-                .and_then(|v| v.as_str())
-                .unwrap_or("auto"),
+            &cfg.get("Interface", "language")
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or_else(|| "auto".into()),
         );
         cx.set_global(ShellI18n { lang });
         crate::ui::download_options::set_shell_lang(lang);
 
         let user_agent = cfg
             .get("Advanced", "user_agent")
-            .and_then(|v| v.as_str())
-            .unwrap_or(config::DEFAULT_USER_AGENT)
-            .to_string();
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| config::DEFAULT_USER_AGENT.to_owned());
         // config.json Cookie section (auth stack's persistence point);
         // read before the auth client so the visitor + login sets are
         // seeded the moment it exists (ticket 34).
@@ -133,19 +132,20 @@ impl Shell {
         if let Some(manager) = manager.clone() {
             crate::bootstrap::spawn_download_driver(config.clone(), manager.clone());
             // MCP tools hold their config as Arc<Mutex<ConfigStore>>;
-            // re-open from the same file (writes land on disk, the
-            // shell's copy keeps its in-memory view as before).
-            let mcp_cfg = config::ConfigStore::with_paths(cfg_dir.clone(), "");
-            crate::bootstrap::start_mcp_server(Arc::new(parking_lot::Mutex::new(mcp_cfg)), manager);
+            // shared handle: token writes are visible to every holder.
+            crate::bootstrap::start_mcp_server(
+                Arc::new(parking_lot::Mutex::new((*config).clone())),
+                manager,
+            );
         }
 
         // Post-terms pass (F2), mirroring Python's `run_post_terms_checks`
         // / `QTimer.singleShot(0, show_terms_of_use)`: the gate runs after
         // the first frame; tips follow only once accepted.
         let shell_for_gate = cx.entity();
-        // The gate takes an owned store (its accept re-opens + persists
-        // `Application/accepted_terms`); re-open from the same file.
-        let gate_cfg = config::ConfigStore::with_paths(cfg_dir, "");
+        // The gate takes an owned store; the shared handle keeps its
+        // `Application/accepted_terms` write visible to everyone.
+        let gate_cfg = (*config).clone();
 
         window.on_next_frame(move |window, cx| {
             if services::terms::gate(&gate_cfg) == services::terms::TermsGate::Pending {
@@ -204,8 +204,8 @@ impl Shell {
             .observe_window_appearance(move |window, cx| {
                 let mode = theme_cfg
                     .get("QFluentWidgets", "ThemeMode")
-                    .and_then(|v| v.as_str())
-                    .map(services::theme::ThemeModeSetting::from_config)
+                    .and_then(|v| v.as_str().map(str::to_owned))
+                    .map(|v| services::theme::ThemeModeSetting::from_config(&v))
                     .unwrap_or(services::theme::ThemeModeSetting::Auto);
                 if matches!(mode, services::theme::ThemeModeSetting::Auto) {
                     gpui_kit::component::theme::Theme::sync_system_appearance(Some(window), cx);

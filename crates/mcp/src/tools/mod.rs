@@ -28,9 +28,8 @@ pub fn http_client(state: &McpState) -> anyhow::Result<network::HttpClient> {
             .config
             .lock()
             .get("Advanced", "user_agent")
-            .and_then(Value::as_str)
-            .unwrap_or(config::DEFAULT_USER_AGENT)
-            .to_owned(),
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_else(|| config::DEFAULT_USER_AGENT.to_owned()),
         proxy: network::ProxyConfig::none(),
         cookies_from_persistence: Vec::new(),
         signer: None,

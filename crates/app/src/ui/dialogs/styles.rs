@@ -70,7 +70,7 @@ pub struct DanmakuStyleState {
 impl DanmakuStyleState {
     /// `init_data`: read the section, defaulting per group.
     pub fn load(cfg: &config::ConfigStore) -> Self {
-        let section = cfg.get("Additional", "danmaku_style").cloned();
+        let section = cfg.get("Additional", "danmaku_style");
         let g = |name: &str| {
             section
                 .as_ref()
@@ -145,7 +145,7 @@ pub struct SubtitleStyleState {
 
 impl SubtitleStyleState {
     pub fn load(cfg: &config::ConfigStore) -> Self {
-        let section = cfg.get("Additional", "subtitle_style").cloned();
+        let section = cfg.get("Additional", "subtitle_style");
         let g = |name: &str| {
             section
                 .as_ref()

@@ -58,7 +58,7 @@ pub fn saved_state(cfg: &ConfigStore, screens: &[ScreenRect]) -> Option<WindowSt
     {
         return None;
     }
-    let state = cfg.get("Behavior", "window_state")?.as_object()?;
+    let state = cfg.get("Behavior", "window_state")?.as_object()?.clone();
     let as_int = |k: &str| -> Option<i64> {
         let v = state.get(k)?;
         match v {

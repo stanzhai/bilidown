@@ -154,19 +154,19 @@ pub const DEFAULT_ACCENT: (u8, u8, u8, u8) = (0x00, 0x9f, 0xaa, 0xff);
 /// Read the full theme configuration from the config store.
 pub fn theme_from_config(cfg: &ConfigStore) -> (ResolvedThemeMode, (u8, u8, u8, u8), f32) {
     let mode = ThemeModeSetting::from_config(
-        cfg.get("QFluentWidgets", "ThemeMode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Auto"),
+        &cfg.get("QFluentWidgets", "ThemeMode")
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or("Auto".into()),
     );
     let color = cfg
         .get("QFluentWidgets", "ThemeColor")
-        .and_then(|v| v.as_str())
-        .and_then(accent_rgba)
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .and_then(|v| accent_rgba(&v))
         .unwrap_or(DEFAULT_ACCENT);
     let scaling = DisplayScaling::from_config(
-        cfg.get("Interface", "display_scaling")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Auto"),
+        &cfg.get("Interface", "display_scaling")
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or("Auto".into()),
     );
     // Auto resolution needs the OS; the service returns the unresolved Auto
     // defaults (light + 1.0) and the UI layer re-resolves with window

@@ -25,7 +25,8 @@ impl SelectAreaState {
         Self {
             area: match cfg
                 .get("Advanced", "area")
-                .and_then(serde_json::Value::as_str)
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .as_deref()
             {
                 Some("ov") => "ov",
                 _ => "cn",
@@ -151,7 +152,8 @@ mod tests {
         assert_eq!(st.apply(&mut cfg), "ov");
         assert_eq!(
             cfg.get("Advanced", "area")
-                .and_then(serde_json::Value::as_str),
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .as_deref(),
             Some("ov")
         );
         assert_eq!(SelectAreaState::load(&cfg).area, "ov");

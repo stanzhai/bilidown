@@ -56,7 +56,7 @@ async fn start_generates_and_persists_token_then_serves() {
     assert_eq!(token.len(), 43);
     // Persisted for the next run.
     assert_eq!(
-        shared.lock().get("MCP", "mcp_token").cloned(),
+        shared.lock().get("MCP", "mcp_token"),
         Some(json!(token))
     );
 
