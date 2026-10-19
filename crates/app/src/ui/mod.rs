@@ -504,11 +504,12 @@ impl Render for Shell {
             .child(
                 // Hand-drawn icon rail (ticket 5): kit `Sidebar` pins a
                 // 48px collapsed rail with horizontal items — too small
-                // for 64×64 icons stacked above their labels, so the app
-                // draws its own. Nav entries above, login entry below.
+                // for icons stacked above their labels, so the app draws
+                // its own. Compact 60px column. Nav entries above, login
+                // entry below.
                 div()
                     .id("nav-rail")
-                    .w(px(88.))
+                    .w(px(60.))
                     .h_full()
                     .flex()
                     .flex_col()
@@ -534,10 +535,9 @@ impl Render for Shell {
                                 .flex_col()
                                 .items_center()
                                 .justify_center()
-                                .gap_1()
-                                .py_2()
-                                .px_1()
-                                .w(px(84.))
+                                .gap_0p5()
+                                .py_1()
+                                .w(px(56.))
                                 .rounded_md()
                                 .when(active, |this| {
                                     this.bg(cx.theme().sidebar_accent)
@@ -550,7 +550,7 @@ impl Render for Shell {
                                 .hover(|this| this.bg(cx.theme().accent))
                                 .child(
                                     gpui_kit::component::Icon::new(icon)
-                                        .size_8()
+                                        .size_5()
                                         .text_color(if active {
                                             cx.theme().sidebar_accent_foreground
                                         } else {
@@ -558,10 +558,7 @@ impl Render for Shell {
                                         }),
                                 )
                                 .child(
-                                    Label::new(
-                                        c.tr("MainWindow", label),
-                                    )
-                                    .text_size(px(11.)),
+                                    Label::new(c.tr("MainWindow", label)).text_size(px(10.)),
                                 )
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.screen = s;
@@ -584,15 +581,15 @@ impl Render for Shell {
                             .flex()
                             .flex_col()
                             .items_center()
-                            .gap_1()
-                            .py_2()
-                            .w(px(84.))
+                            .gap_0p5()
+                            .py_1()
+                            .w(px(56.))
                             .rounded_md()
                             .text_color(cx.theme().muted_foreground)
                             .hover(|this| this.bg(cx.theme().accent))
                             .child(
                                 gpui_kit::component::Icon::new(login_icon)
-                                    .size_8()
+                                    .size_5()
                                     .text_color(cx.theme().muted_foreground),
                             )
                             .child(
@@ -603,7 +600,9 @@ impl Render for Shell {
                                         c.tr("LoginDialog", "Log In").to_owned()
                                     },
                                 )
-                                .text_size(px(11.)),
+                                .text_size(px(10.))
+                                .w(px(52.))
+                                .truncate(),
                             )
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 if !shell.login.is_login {
