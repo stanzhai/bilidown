@@ -184,3 +184,25 @@ _Avoid_: onboarding
 
 **Terms Gate**:
 The terms-of-use acceptance screen shown before first use.
+
+### UI
+
+**界面**:
+Simplified-Chinese rendering of "interface" in all UI strings; the
+traditional column keeps 介面. Applied catalog-wide (1012-entry base
+plus hand-added block).
+
+**注销 / 登出**:
+zh_CN prefers 注销 for logout (注销登录 = log out of the account);
+zh_TW prefers 登出. Do not mix per column. 注销登录失败 is the logout
+failure message.
+
+**Theme Mode**:
+Light / Dark / Auto (follow system). Auto re-resolves against the OS
+appearance at startup and on every appearance change while selected;
+manual Light/Dark stay pinned.
+
+**Nav Rail**:
+The app-drawn left sidebar: fixed 88px column, one icon-over-label
+entry per screen, login entry pinned at the bottom (uname when logged
+in). Replaces the kit `Sidebar`, which cannot host vertical entries.

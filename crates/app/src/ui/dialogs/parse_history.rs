@@ -105,7 +105,7 @@ pub fn open_parse_history(
         .to_owned();
     let clear_label = catalog.tr(CTX, "Clear History").to_owned();
     let parse_label = catalog.tr("ParseActionWidget", "Parse").to_owned();
-    let delete_label = catalog.tr("ParseTreeView", "Delete").to_owned();
+    let delete_label = catalog.tr("DownloadListView", "Delete").to_owned();
     let ok = "OK".to_owned();
 
     // Synchronous sqlite, ≤100 rows: fine at dialog-open time.

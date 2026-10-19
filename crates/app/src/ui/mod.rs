@@ -9,9 +9,10 @@ pub mod parse;
 pub mod screens;
 pub mod settings;
 
-use gpui_kit::component::button::Button;
-use gpui_kit::component::sidebar::{Sidebar, SidebarMenuItem};
-use gpui_kit::{div, prelude::*, Context, Global, Render, Window};
+use gpui_kit::component::label::Label;
+use gpui_kit::component::theme::ActiveTheme;
+use gpui_kit::component::WindowExt;
+use gpui_kit::{div, prelude::*, px, Context, Global, Render, Window};
 use std::sync::Arc;
 
 use downloads::screen::DownloadsScreen;
@@ -194,6 +195,23 @@ impl Shell {
         let settings = settings::SettingsScreen::new(window, cx);
         // Settings writes notify their entity; observe it so the shell
         // redraws (the subscription lives as long as the shell).
+        // Auto theme: follow OS appearance changes live. The observer
+        // fires on every appearance flip; only Auto mode re-syncs (Light/
+        // Dark are pinned by the user's setting). Shares the Arc'd config
+        // store the shell already opened.
+        let theme_cfg = cfg.clone();
+        window
+            .observe_window_appearance(move |window, cx| {
+                let mode = theme_cfg
+                    .get("QFluentWidgets", "ThemeMode")
+                    .and_then(|v| v.as_str())
+                    .map(services::theme::ThemeModeSetting::from_config)
+                    .unwrap_or(services::theme::ThemeModeSetting::Auto);
+                if matches!(mode, services::theme::ThemeModeSetting::Auto) {
+                    gpui_kit::component::theme::Theme::sync_system_appearance(Some(window), cx);
+                }
+            })
+            .detach();
         cx.observe(&settings.ui, |_, _, cx| cx.notify()).detach();
         Self {
             screen: Screen::Parse,
@@ -249,8 +267,11 @@ impl Shell {
                 // browser abstraction, so mark-and-continue keeps the
                 // once-flag behavior identical.
                 self.status_note = Some(
-                    c.tr("MainWindow", "Welcome! See https://github.com/stanzhai/bilidown")
-                        .to_owned(),
+                    c.tr(
+                        "MainWindow",
+                        "Welcome! See https://github.com/stanzhai/bilidown",
+                    )
+                    .to_owned(),
                 );
             }
             services::tips::PendingTip::SelectAreaDialog => {
@@ -331,8 +352,7 @@ impl Shell {
             let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
                 return;
             };
-            let Ok(uname) =
-                auth::login::fetch_uname(client.as_ref(), auth::wbi::NAV_API).await
+            let Ok(uname) = auth::login::fetch_uname(client.as_ref(), auth::wbi::NAV_API).await
             else {
                 return; // offline startup keeps the persisted uname
             };
@@ -374,6 +394,69 @@ impl Shell {
         cx.notify();
     }
 
+    /// Logout (Python ProfileCard): confirm-dialog OK calls this. Runs the
+    /// logout API on the tokio runtime, then on the UI thread clears the
+    /// login cookies the jar still holds (the API only clears them
+    /// server-side), re-seeds visitor cookies, persists the anonymous
+    /// state and pushes a notification.
+    pub fn logout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let lang = cx
+            .read_global::<ShellI18n, _>(|i18n, _| i18n.lang)
+            .resolve();
+        let cat = services::i18n::catalog(lang);
+        let ok_msg = cat.tr("ProfileCard", "Successfully logged out").to_owned();
+        let err_msg = cat.tr("ERROR_MESSAGES", "Logout failed").to_owned();
+
+        let shell = cx.entity();
+        window
+            .spawn(cx, async move |cx: &mut gpui_kit::AsyncWindowContext| {
+                let _tokio = crate::bootstrap::tokio_context();
+                let Ok((mut state, client, user_agent)) = cx.update(|_, cx| {
+                    shell.update(cx, |shell, _| {
+                        (
+                            shell.auth_state.clone(),
+                            shell.auth_client.clone(),
+                            shell.user_agent.clone(),
+                        )
+                    })
+                }) else {
+                    return;
+                };
+                let result = {
+                    let mut session =
+                        login::controller::session_for(client.as_ref(), &mut state, &user_agent);
+                    auth::login::logout(session.client, &mut session).await
+                };
+                let _ = cx.update(move |window, cx| {
+                    shell.update(cx, |shell, cx| match result {
+                        Ok(()) => {
+                            for name in ["SESSDATA", "bili_jct", "DedeUserID", "DedeUserID__ckMd5"]
+                            {
+                                client.set_cookie(name, "", ".bilibili.com", "/");
+                            }
+                            auth::seed_client_cookies(client.as_ref(), &state);
+                            shell.set_auth_state(state, cx);
+                            window.push_notification(
+                                gpui_kit::component::notification::Notification::success(
+                                    ok_msg.clone(),
+                                ),
+                                cx,
+                            );
+                        }
+                        Err(_) => {
+                            window.push_notification(
+                                gpui_kit::component::notification::Notification::error(
+                                    err_msg.clone(),
+                                ),
+                                cx,
+                            );
+                        }
+                    });
+                });
+            })
+            .detach();
+    }
+
     /// Window-close seam (ticket 26 owns the wiring in main.rs): show the
     /// exit dialog and hand `(exit, remember)` back.
     pub fn ask_exit(
@@ -410,13 +493,6 @@ impl Render for Shell {
             .read_global::<ShellI18n, _>(|i18n, _| i18n.lang)
             .resolve();
         let c = services::i18n::catalog(lang);
-        let tooltip = if is_login && !uname.is_empty() {
-            uname
-        } else if is_login {
-            c.tr("MainWindow", "Logged in").to_owned()
-        } else {
-            c.tr("LoginDialog", "Log In").to_owned()
-        };
         let login_icon = if is_login {
             IconName::CircleUser
         } else {
@@ -426,10 +502,22 @@ impl Render for Shell {
             .size_full()
             .flex()
             .child(
-                // Icon rail (ticket 33): labels stay reachable via the
-                // menu tooltips; the login entry lives in the footer.
-                Sidebar::new("nav")
-                    .collapsed(true)
+                // Hand-drawn icon rail (ticket 5): kit `Sidebar` pins a
+                // 48px collapsed rail with horizontal items — too small
+                // for 64×64 icons stacked above their labels, so the app
+                // draws its own. Nav entries above, login entry below.
+                div()
+                    .id("nav-rail")
+                    .w(px(88.))
+                    .h_full()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_1()
+                    .py_2()
+                    .bg(cx.theme().sidebar)
+                    .border_r_1()
+                    .border_color(cx.theme().border)
                     .children(
                         [
                             (Screen::Parse, "Parser", IconName::Search),
@@ -439,9 +527,42 @@ impl Render for Shell {
                             (Screen::Settings, "Settings", IconName::Settings),
                         ]
                         .map(|(s, label, icon)| {
-                            SidebarMenuItem::new(c.tr("MainWindow", label))
-                                .icon(icon)
-                                .active(screen == s)
+                            let active = screen == s;
+                            div()
+                                .id(format!("nav-item-{label}"))
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .justify_center()
+                                .gap_1()
+                                .py_2()
+                                .px_1()
+                                .w(px(84.))
+                                .rounded_md()
+                                .when(active, |this| {
+                                    this.bg(cx.theme().sidebar_accent)
+                                })
+                                .text_color(if active {
+                                    cx.theme().sidebar_accent_foreground
+                                } else {
+                                    cx.theme().muted_foreground
+                                })
+                                .hover(|this| this.bg(cx.theme().accent))
+                                .child(
+                                    gpui_kit::component::Icon::new(icon)
+                                        .size_8()
+                                        .text_color(if active {
+                                            cx.theme().sidebar_accent_foreground
+                                        } else {
+                                            cx.theme().muted_foreground
+                                        }),
+                                )
+                                .child(
+                                    Label::new(
+                                        c.tr("MainWindow", label),
+                                    )
+                                    .text_size(px(11.)),
+                                )
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.screen = s;
                                     if s == Screen::Downloads {
@@ -451,17 +572,70 @@ impl Render for Shell {
                                 }))
                         }),
                     )
-                    .footer(
+                    .child(
+                        div().flex_1(), // spacer pushes the login entry down
+                    )
+                    .child(
                         // login entry (Python: the avatar button on the
-                        // main page) — always clickable, opens the login
-                        // dialog while logged out.
-                        Button::new("shell-login-button")
-                            .icon(login_icon)
-                            .tooltip(tooltip)
+                        // main page) — logged out opens the login dialog;
+                        // logged in shows the uname and confirms logout.
+                        div()
+                            .id("shell-login-button")
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .gap_1()
+                            .py_2()
+                            .w(px(84.))
+                            .rounded_md()
+                            .text_color(cx.theme().muted_foreground)
+                            .hover(|this| this.bg(cx.theme().accent))
+                            .child(
+                                gpui_kit::component::Icon::new(login_icon)
+                                    .size_8()
+                                    .text_color(cx.theme().muted_foreground),
+                            )
+                            .child(
+                                Label::new(
+                                    if is_login && !uname.is_empty() {
+                                        uname.clone()
+                                    } else {
+                                        c.tr("LoginDialog", "Log In").to_owned()
+                                    },
+                                )
+                                .text_size(px(11.)),
+                            )
                             .on_click(cx.listener(|shell, _, window, cx| {
                                 if !shell.login.is_login {
                                     shell.open_login(window, cx);
+                                    return;
                                 }
+                                let shell_for_ok = std::rc::Rc::new(cx.entity());
+                                let lang = cx
+                                    .read_global::<ShellI18n, _>(|i18n, _| i18n.lang)
+                                    .resolve();
+                                let cat = services::i18n::catalog(lang);
+                                let title = cat
+                                    .tr("ProfileCard", "Are you sure you want to log out? This will also clear locally stored cookies.")
+                                    .to_owned();
+                                let ok = cat.tr("ProfileCard", "Logout").to_owned();
+                                let cancel = cat.tr("RuleListDialog", "Cancel").to_owned();
+                                window.open_alert_dialog(cx, move |alert, _, _| {
+                                    alert
+                                        .title(title.clone())
+                                        .confirm()
+                                        .ok_text(ok.clone())
+                                        .cancel_text(cancel.clone())
+                                        .on_ok({
+                                            let shell_for_ok = shell_for_ok.clone();
+                                            move |_, window, cx| {
+                                                shell_for_ok.update(cx, |shell, cx| {
+                                                    shell.logout(window, cx)
+                                                });
+                                                true
+                                            }
+                                        })
+                                });
                             })),
                     ),
             )
@@ -504,12 +678,21 @@ mod tests {
             ("MainWindow", "About"),
             ("MainWindow", "Settings"),
             ("MainWindow", "Logged in"),
-            ("MainWindow", "Welcome! See https://github.com/stanzhai/bilidown"),
-            ("MainWindow", "Click the avatar to log in for full functionality."),
+            (
+                "MainWindow",
+                "Welcome! See https://github.com/stanzhai/bilidown",
+            ),
+            (
+                "MainWindow",
+                "Click the avatar to log in for full functionality.",
+            ),
             ("LoginDialog", "Log In"),
             ("LoginDialog", "Enter phone number"),
             ("LoginDialog", "Enter verification code"),
-            ("CookieLoginDialog", "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx"),
+            (
+                "CookieLoginDialog",
+                "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx",
+            ),
             // Parse screen + pager
             ("ParseInterface", "Paste a Bilibili link"),
             ("ParseInterface", "Search…"),
@@ -533,7 +716,10 @@ mod tests {
             ("Pager", "Please enter a number between 1 and {total_pages}"),
             ("SearchWidget", "{index} of {count}"),
             ("SearchWidget", "No matches found"),
-            ("ParseInterface", "{category_name} ({selected_count} selected, {total_count} total)"),
+            (
+                "ParseInterface",
+                "{category_name} ({selected_count} selected, {total_count} total)",
+            ),
             ("ParseInterface", "{category_name} ({total_count} total)"),
             // Download options dialog
             ("DownloadOptionsDialog", "Download Options"),
@@ -599,11 +785,148 @@ mod tests {
             ("BatchSelectDialog", "Enter line numbers (e.g. 1,3,5-10)"),
             ("JumpToPageDialog", "OK"),
             ("AlignmentGroup", "Alignment"),
+            // i18n coverage wave: settings card contexts + scattered sites
+            ("ADDITIONAL_FILES_QUALIFIER", "Danmaku"),
+            ("ADDITIONAL_FILES_QUALIFIER", "Subtitles"),
+            ("AUDIO_QUALITY", "Auto"),
+            ("CDNSettingCard", "Configure…"),
+            ("CheckUpdateSettingCard", "Check for Updates"),
+            ("CheckUpdateSettingCard", "Include Prerelease Versions"),
+            ("ContentWidget", "Customize Danmaku Style"),
+            ("ContentWidget", "Customize Subtitle Style"),
+            ("CoverSettingCard", "Download Cover"),
+            ("DanmakuSettingCard", "Danmaku Format"),
+            (
+                "DownloadConcurrencySettingCard",
+                "Number of Parallel Downloads",
+            ),
+            ("DownloadConcurrencySettingCard", "Number of Threads"),
+            ("DownloadFormatCard", "Download Format"),
+            ("DownloadHandlingSettingCard", "Auto-rename"),
+            ("DownloadHandlingSettingCard", "Continue"),
+            ("DownloadHandlingSettingCard", "Download Handling"),
+            (
+                "DownloadHandlingSettingCard",
+                "Duplicate Download Resolution",
+            ),
+            ("DownloadHandlingSettingCard", "File Conflict Resolution"),
+            ("DownloadHandlingSettingCard", "Maximum Retry Attempts"),
+            ("DownloadHandlingSettingCard", "Overwrite"),
+            ("DownloadHandlingSettingCard", "Preallocate File Space"),
+            (
+                "DownloadHandlingSettingCard",
+                "Retry Failed Downloads Automatically",
+            ),
+            (
+                "DownloadHandlingSettingCard",
+                "Show Download Options Dialog",
+            ),
+            ("DownloadHandlingSettingCard", "Show Notifications"),
+            ("DownloadHandlingSettingCard", "Skip"),
+            ("DownloadListView", "Delete"),
+            ("EditRuleDialog", "Naming Rule"),
+            ("EditRuleDialog", "Rule Name"),
+            ("EditRuleDialog", "Set as default rule for this type"),
+            ("EditRuleDialog", "Variable reference"),
+            ("FFmpegSettingCard", "Custom path"),
+            ("FFmpegSettingCard", "System PATH"),
+            ("MCPSettingCard", "Client Configuration"),
+            ("MCPSettingCard", "Client configuration copied"),
+            ("MCPSettingCard", "Copy"),
+            ("MCPSettingCard", "Enable MCP Server"),
+            ("MCPSettingCard", "MCP Server"),
+            ("MCPSettingCard", "Port"),
+            ("MCPSettingCard", "Regenerate"),
+            ("MediaOptionsCard", "Audio Only"),
+            ("MediaOptionsCard", "Both"),
+            ("MediaOptionsCard", "Media Options"),
+            ("MediaOptionsCard", "Original file type to keep"),
+            ("MediaOptionsCard", "Video Only"),
+            ("MetadataSettingCard", "Metadata Format"),
+            ("NamingConventionCard", "Naming Convention"),
+            ("NumberSettingCard", "Global Sequential Starting Number"),
+            ("NumberSettingCard", "Global sequential numbering"),
+            ("NumberSettingCard", "Numbering Mode"),
+            (
+                "NumberSettingCard",
+                "Sequential numbering starting from 1 per batch",
+            ),
+            ("NumberSettingCard", "Use the index from the parse list"),
+            ("ParsingSettingCard", "Save Parse History"),
+            ("PersonalizationCard", "Dark"),
+            ("PersonalizationCard", "Light"),
+            ("PersonalizationCard", "Personalization"),
+            ("PersonalizationCard", "System default"),
+            ("PersonalizationCard", "Theme"),
+            ("ProxyDialog", "Password"),
+            ("ProxyDialog", "Port"),
+            ("ProxyDialog", "Proxy Type"),
+            ("ProxyDialog", "Username"),
+            ("RuleLevelRow", "Move down"),
+            ("RuleLevelRow", "Move up"),
+            ("RuleListDialog", "Add"),
+            ("RuleListDialog", "Delete"),
+            ("RuleListDialog", "Discard changes?"),
+            ("RuleListDialog", "Duplicate"),
+            ("RuleListDialog", "Naming Rules"),
+            ("RuleListDialog", "Naming rules saved"),
+            ("RuleListDialog", "Reset to Default"),
+            ("RuleListDialog", "Restore to Built-in Default"),
+            ("RuleListDialog", "Restored to the built-in default"),
+            ("RuleListDialog", "Save"),
+            ("SettingInterface", "ASS"),
+            ("SettingInterface", "AVIF"),
+            ("SettingInterface", "Additional"),
+            ("SettingInterface", "Area"),
+            ("SettingInterface", "CDN"),
+            ("SettingInterface", "CDN provider"),
+            ("SettingInterface", "Change…"),
+            ("SettingInterface", "Chapter and metadata"),
+            ("SettingInterface", "Concurrency"),
+            ("SettingInterface", "Custom FFmpeg path"),
+            ("SettingInterface", "Custom proxy"),
+            ("SettingInterface", "Customize naming rules…"),
+            ("SettingInterface", "Display scaling"),
+            ("SettingInterface", "FFmpeg"),
+            ("SettingInterface", "FFmpeg source"),
+            ("SettingInterface", "Hong Kong & Taiwan"),
+            ("SettingInterface", "JPG"),
+            ("SettingInterface", "JSON"),
+            ("SettingInterface", "MKV"),
+            ("SettingInterface", "MP4"),
+            ("SettingInterface", "Mainland China"),
+            ("SettingInterface", "Mica effect (Windows 11 only)"),
+            ("SettingInterface", "NFO"),
+            ("SettingInterface", "No proxy"),
+            ("SettingInterface", "Other"),
+            ("SettingInterface", "Overseas"),
+            ("SettingInterface", "PNG"),
+            ("SettingInterface", "Parsing"),
+            ("SettingInterface", "Priority"),
+            ("SettingInterface", "Protocol"),
+            ("SettingInterface", "Proxy"),
+            ("SettingInterface", "Proxy mode"),
+            ("SettingInterface", "Proxy server"),
+            ("SettingInterface", "SRT"),
+            ("SettingInterface", "System proxy"),
+            ("SettingInterface", "Update"),
+            ("SettingInterface", "User agent"),
+            ("SettingInterface", "WebP"),
+            ("SettingInterface", "XML"),
+            ("SubtitleSettingCard", "Subtitle Format"),
+            ("TermsOfUseDialog", "Terms of Use"),
+            ("TopNavigationDialogBase", "OK"),
+            ("UpdateDialog", "Exit"),
+            ("WindowBehaviorSettingCard", "Always ask"),
+            ("WindowBehaviorSettingCard", "Close the Main Window"),
+            ("WindowBehaviorSettingCard", "Exit the program"),
+            ("WindowBehaviorSettingCard", "Minimize to system tray"),
+            ("WindowBehaviorSettingCard", "Remember Window State"),
+            ("WindowBehaviorSettingCard", "Silent Start"),
+            ("WindowBehaviorSettingCard", "Stay on Top"),
+            ("WindowBehaviorSettingCard", "Window Behavior"),
         ] {
-            assert!(
-                c.lookup(ctx, source).is_some(),
-                "missing {ctx}/{source}"
-            );
+            assert!(c.lookup(ctx, source).is_some(), "missing {ctx}/{source}");
         }
     }
 

@@ -120,10 +120,11 @@ impl MediaPage {
             info.episode_title.clone()
         };
         let content = if info.from_fallback {
-            format!(
-                "{title} · {}",
-                c.tr("MediaInfoCard", "media info of the video the link points to is unavailable, this one is used instead")
-            )
+            let pattern = c.tr(
+                "MediaInfoCard",
+                "{title} · media info of the video the link points to is unavailable, this one is used instead",
+            );
+            crate::ui::dialogs::format_tr(pattern, &[("title", &title)])
         } else {
             title
         };

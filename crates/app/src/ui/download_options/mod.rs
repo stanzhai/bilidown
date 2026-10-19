@@ -9,6 +9,7 @@ pub mod rule_builder;
 pub mod units;
 
 use gpui_kit::base::Disableable;
+use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::base::IndexPath;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::dialog::DialogFooter;
@@ -402,14 +403,14 @@ impl DownloadOptionsDialog {
                     .child(div().flex_1().child(Select::new(&self.container))),
             )
             .child(
-                div().text_color(rgb(0x8a8a8a)).child(
+                div().text_color(cx.theme().muted_foreground).child(
                     self.model
                         .media
                         .video_quality_description(self.model.media_type, cx_of_catalog()),
                 ),
             )
             .child(
-                div().text_color(rgb(0x8a8a8a)).child(
+                div().text_color(cx.theme().muted_foreground).child(
                     self.model
                         .media
                         .audio_quality_description(self.model.media_type, cx_of_catalog()),
@@ -417,11 +418,11 @@ impl DownloadOptionsDialog {
             )
             .child(
                 div()
-                    .text_color(rgb(0x8a8a8a))
+                    .text_color(cx.theme().muted_foreground)
                     .child(self.model.media.video_codec_description(cx_of_catalog())),
             )
             .child(
-                div().text_color(rgb(0x8a8a8a)).child(
+                div().text_color(cx.theme().muted_foreground).child(
                     self.model
                         .media
                         .source_description(&self.info, cx_of_catalog()),
@@ -589,7 +590,7 @@ impl DownloadOptionsDialog {
                     .gap_2()
                     .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadOptionsDialog", "Filename preview")))
                     .child(
-                        div().flex_1().text_color(rgb(0x8a8a8a)).child(
+                        div().flex_1().text_color(cx.theme().muted_foreground).child(
                             self.model
                                 .filename_preview(
                                     &self.rule_store,
@@ -819,7 +820,7 @@ impl DownloadOptionsDialog {
             )
             .child(
                 div()
-                    .text_color(rgb(0x8a8a8a))
+                    .text_color(cx.theme().muted_foreground)
                     .child(match &self.rule_builder.unsupported {
                         Some(reason) => {
                             let t = cx_of_catalog().tr("RuleBuilderWidget", "rule not editable: {reason}");

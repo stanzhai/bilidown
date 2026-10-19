@@ -60,22 +60,21 @@ Routing (catalog contexts resolved from `services/src/i18n_data.rs`):
   download_as_single_video OK; styles.rs Alignment fallback →
   AlignmentGroup. `screens.rs` Favorites stub → MainWindow.
 
-39 hand-added entries (HAND-ADDED block in `i18n_data.rs`, both zh columns,
-catalog pinned at 1012): ParseInterface ×12 (placeholders, toolbar,
-statuses), DownloadOptionsDialog ×7 (Container, Metadata format, Filename
-preview, Rule Builder, Naming rules, Cancel, Download), RuleBuilderWidget ×7,
-ViewCoverDialog ×2, AutoParseDialog/JumpToPageDialog/BatchSelectDialog/
-DownloadAsSingleVideoDialog OK, CDNServerDialog Edit/Remove/OK,
-CookieLoginDialog placeholder, MainWindow ×3 (welcome tips + "Logged in").
-
-Exempt (recorded): pager/tree glyphs (‹ › … ↑ ↓ × ← →), numeric page
-counter `format!("{}/{}")`, codec names (AAC LC, FLAC), element ids, log
-strings, `format!("+{}", cid)`, `format!("{{{v}}}")` chips,
-`type {} → {}` prefix, app/version strings.
-
-Tests: `ui::tests::i18n_sweep_sources_resolve_in_catalog` (curated ~100
-`(ctx, source)` pairs assert `lookup().is_some()` against zh-CN, which
-carries every entry; the En catalog is the identity map) and
-`ui::tests::shell_language_flip_resolves_zh_catalog` (zh vs en catalogs
-differ for routed sources). `cargo test -p services -p app` green (204 bin
-tests, services suites).
+Final pass (wave 2): the settings screen's `t("Key")` closures were
+redirected to the professional-card contexts instead of hand-adding —
+~79 call sites in `settings/screen.rs` now use
+`lang.tr("Ctx", "Key")` against PersonalizationCard,
+WindowBehaviorSettingCard, DownloadHandlingSettingCard, MediaOptionsCard,
+DownloadFormatCard, chapter/danmaku/subtitle/cover/metadata/numbering
+cards, NamingConventionCard, MCPSettingCard, CheckUpdateSettingCard,
+FFmpegSettingCard, CDNSettingCard, ProxyDialog and friends; misspelled
+keys were fixed to the real catalog sources (`Regenerate`,
+`Client Configuration`, `Check for Updates`, `Restore to Built-in Default`,
+`Reset to Default`, `Naming Rules`, `Rule Name`, …). Format names
+(MP4/MKV/XML/ASS/SRT/PNG/JPG/WebP/AVIF/JSON/NFO) are catalogued but
+untranslated (both zh columns keep the source). Sweep coverage grew to
+~225 `(ctx, source)` assertions; the catalog now pins **1052 entries
+across 125 contexts** (973 generated + 79 hand-added in the marked
+block, 介面→界面 applied). `cargo test -p app -p services` green
+(208 app tests + all services suites), `/tmp/verify_sweep.py` reports
+`MISSING: 0`.

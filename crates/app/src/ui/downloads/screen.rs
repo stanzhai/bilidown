@@ -4,6 +4,7 @@
 //! states, and the QueryWorker-equivalent background refresh.
 
 use gpui_kit::base::Disableable;
+use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::progress::Progress;
 use gpui_kit::component::tab::{Tab, TabBar};
@@ -407,7 +408,7 @@ impl DownloadsScreen {
                             .w(px(24.))
                             .h(px(60.))
                             .rounded_md()
-                            .bg(gpui_kit::rgb(0x444444)),
+                            .bg(cx.theme().muted),
                     )
                     .child(
                         div()

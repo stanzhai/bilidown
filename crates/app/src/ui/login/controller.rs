@@ -266,7 +266,7 @@ fn login_check(response: &serde_json::Value) -> Result<(), String> {
     }
 }
 
-fn session_for<'a>(
+pub fn session_for<'a>(
     client: &'a HttpClient,
     state: &'a mut AuthState,
     user_agent: &str,

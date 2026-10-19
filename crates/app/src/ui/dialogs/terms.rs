@@ -22,11 +22,11 @@ pub fn open_terms_gate(
     cx: &mut App,
 ) {
     let catalog = active_catalog(&cfg);
-    let title = catalog.tr("TermsDialog", "Terms of Use").to_owned();
+    let title = catalog.tr("TermsOfUseDialog", "Terms of Use").to_owned();
     let body = std::rc::Rc::new(i18n::terms_of_use(catalog));
     let cfg = std::rc::Rc::new(cfg);
-    let accept_label = catalog.tr("TermsDialog", "Accept").to_owned();
-    let reject_label = catalog.tr("TermsDialog", "Exit").to_owned();
+    let accept_label = catalog.tr("TopNavigationDialogBase", "OK").to_owned();
+    let reject_label = catalog.tr("UpdateDialog", "Exit").to_owned();
     let on_accept = std::rc::Rc::new(std::cell::RefCell::new(Some(on_accept)));
     let on_exit = std::rc::Rc::new(std::cell::RefCell::new(Some(on_exit)));
 

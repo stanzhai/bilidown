@@ -304,7 +304,7 @@ pub fn open_danmaku_style(cfg: config::ConfigStore, window: &mut Window, cx: &mu
     let catalog = active_catalog(&cfg);
     let state = DanmakuStyleState::load(&cfg);
     let caption = danmaku_caption(catalog);
-    let ok = catalog.tr("ContentWidget", "Save").to_owned();
+    let ok = catalog.tr("RuleListDialog", "Save").to_owned();
     let labels = |ctx: &str, src: &str| catalog.tr(ctx, src).to_owned();
 
     let maps = (
@@ -449,7 +449,7 @@ pub fn open_subtitle_style(cfg: config::ConfigStore, window: &mut Window, cx: &m
     let catalog = active_catalog(&cfg);
     let state = SubtitleStyleState::load(&cfg);
     let caption = subtitle_caption(catalog);
-    let ok = catalog.tr("ContentWidget", "Save").to_owned();
+    let ok = catalog.tr("RuleListDialog", "Save").to_owned();
     let labels = |ctx: &str, src: &str| catalog.tr(ctx, src).to_owned();
 
     let maps = (
