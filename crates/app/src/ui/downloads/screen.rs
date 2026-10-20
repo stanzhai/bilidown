@@ -4,7 +4,6 @@
 //! states, and the QueryWorker-equivalent background refresh.
 
 use gpui_kit::base::Disableable;
-use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::progress::Progress;
 use gpui_kit::component::tab::{Tab, TabBar};
@@ -75,7 +74,8 @@ impl DownloadsScreen {
         let busy = self.model.downloading.tasks.iter().any(|t| {
             matches!(
                 t.Download.status,
-                st::DOWNLOADING
+                st::QUEUED
+                    | st::DOWNLOADING
                     | st::PARSING
                     | st::MERGING
                     | st::CONVERTING
@@ -86,6 +86,49 @@ impl DownloadsScreen {
         if busy {
             self.refresh(cx);
         }
+    }
+
+    /// Live in-frame tick (the 500ms poll's fast lane): fold the running
+    /// engines' snapshots straight into the rows — progress, speed, and
+    /// the pause the DB write may still be coalescing. Merge stages
+    /// progress through the writer thread, which the poll picks up.
+    pub fn fold_engine_snapshots(&mut self, manager: &tasks::TaskManager) {
+        let mut changed = false;
+        for task in self.model.downloading.tasks.iter_mut() {
+            if task.Download.status != st::DOWNLOADING {
+                continue;
+            }
+            let Some(state) = manager.scheduler.snapshot(&task.Basic.task_id) else {
+                continue;
+            };
+            if state.status != downloader::TaskStatus::Downloading
+                && state.status != downloader::TaskStatus::Paused
+            {
+                continue; // terminal states land via the DB poll
+            }
+            let downloaded = state.downloaded_size as i64;
+            let speed = (state.speed as i64).max(0);
+            let progress = if state.status == downloader::TaskStatus::Paused {
+                task.Download.progress
+            } else {
+                state.progress() as i64
+            };
+            let paused = state.status == downloader::TaskStatus::Paused;
+            if task.Download.downloaded_size != downloaded
+                || task.Download.progress != progress
+                || task.Download.speed != speed
+                || (paused && task.Download.status != st::PAUSED)
+            {
+                task.Download.downloaded_size = downloaded;
+                task.Download.progress = progress;
+                task.Download.speed = speed;
+                if paused {
+                    task.Download.status = st::PAUSED;
+                }
+                changed = true;
+            }
+        }
+        let _ = changed; // caller notifies from the poll's cadence
     }
 
     /// Persist a sort change (Python saved on every flyout change).
@@ -225,7 +268,11 @@ impl DownloadsScreen {
     }
 
     /// Render the screen body inside the shell.
-    pub fn render(&mut self, cx: &mut gpui_kit::Context<Shell>) -> impl IntoElement {
+    pub fn render(
+        &mut self,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Shell>,
+    ) -> impl IntoElement {
         let tab = self.model.tab;
         let downloading = self.model.downloading.tasks.len();
         let completed = self.model.completed.tasks.len();
@@ -270,7 +317,7 @@ impl DownloadsScreen {
                     ),
             )
             .child(self.render_toolbar(tab, cx))
-            .child(self.render_list(tab, cx))
+            .child(self.render_list(tab, window, cx))
     }
 
     fn render_toolbar(
@@ -371,6 +418,7 @@ impl DownloadsScreen {
     fn render_list(
         &mut self,
         tab: DownloadsTab,
+        window: &mut gpui_kit::Window,
         cx: &mut gpui_kit::Context<Shell>,
     ) -> gpui_kit::AnyElement {
         let list = match tab {
@@ -381,77 +429,88 @@ impl DownloadsScreen {
             DownloadsTab::Downloading => t("DownloadInterface", "No downloads in progress"),
             DownloadsTab::Completed => t("DownloadInterface", "No completed downloads"),
         };
-        let rows: Vec<_> = list
+        // Snapshot the visible rows' render inputs first (borrow ends),
+        // then mutate covers state per row in the render pass.
+        type RowInputs = (String, String, String, String, String, f32, String, String);
+        let row_data: Vec<RowInputs> = list
             .visible()
             .iter()
             .map(|task| {
-                let id = task.Basic.task_id.clone();
-                let title = task.Basic.show_title.clone();
-                let info = info_text(task);
-                let status = status_text(task, &tip_message, &error_message);
-                let size = size_text(task);
-                let progress = task.Download.progress as f32;
-                let action_caption = match row_action(task) {
-                    RowAction::Open => t("DownloadListView", "Pause"), // folder button styled below
-                    RowAction::Start => t("DownloadListView", "Resume"),
-                    RowAction::Retry => t("DownloadListView", "Re-download"),
-                    RowAction::Pause => t("DownloadListView", "Pause"),
-                };
-                div()
-                    .id(SharedString::from(format!("task-row-{id}")))
-                    .flex()
-                    .gap_3()
-                    .items_center()
-                    .py_2()
-                    .child(
-                        div()
-                            .w(px(24.))
-                            .h(px(60.))
-                            .rounded_md()
-                            .bg(cx.theme().muted),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_1()
-                            .flex_1()
-                            .min_w_0()
-                            .child(div().child(title).truncate())
-                            .child(div().opacity(0.6).child(info))
-                            .child(div().opacity(0.6).child(size))
-                            .child(
-                                Progress::new(SharedString::from(format!("task-progress-{id}")))
+                (
+                    task.Basic.task_id.clone(),
+                    task.Basic.show_title.clone(),
+                    info_text(task),
+                    status_text(task, &tip_message, &error_message),
+                    size_text(task),
+                    task.Download.progress as f32,
+                    task.Episode.cover.clone(),
+                    match row_action(task) {
+                        RowAction::Open => t("DownloadListView", "Pause"),
+                        RowAction::Start => t("DownloadListView", "Resume"),
+                        RowAction::Retry => t("DownloadListView", "Re-download"),
+                        RowAction::Pause => t("DownloadListView", "Pause"),
+                    },
+                )
+            })
+            .collect();
+        let rows: Vec<_> = row_data
+            .into_iter()
+            .map(
+                |(id, title, info, status, size, progress, cover_url, action_caption)| {
+                    let cover_slot = self.render_cover(&cover_url, window, cx);
+                    div()
+                        .id(SharedString::from(format!("task-row-{id}")))
+                        .flex()
+                        .gap_3()
+                        .items_center()
+                        .py_2()
+                        .child(cover_slot)
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .flex_1()
+                                .min_w_0()
+                                .child(div().child(title).truncate())
+                                .child(div().opacity(0.6).child(info))
+                                .child(div().opacity(0.6).child(size))
+                                .child(
+                                    Progress::new(SharedString::from(format!(
+                                        "task-progress-{id}"
+                                    )))
                                     .value(progress),
-                            ),
-                    )
-                    .child(div().w(px(140.)).child(status))
-                    .child(
-                        div()
-                            .flex()
-                            .gap_2()
-                            .child(
-                                Button::new(SharedString::from(format!("task-action-{id}")))
-                                    .label(action_caption)
-                                    .on_click(cx.listener({
-                                        let id = id.clone();
-                                        move |shell, _, _, cx| {
-                                            shell.downloads.row_action(&id, cx);
-                                        }
-                                    })),
-                            )
-                            .child(
-                                Button::new(SharedString::from(format!("task-delete-{id}")))
-                                    .label(t("DownloadListView", "Delete"))
-                                    .on_click(cx.listener({
-                                        let id = id.clone();
-                                        move |shell, _, _, cx| {
-                                            shell.downloads.row_delete(&id, cx);
-                                        }
-                                    })),
-                            )
-                            .child(
-                                Button::new(SharedString::from(format!("task-redownload-{id}")))
+                                ),
+                        )
+                        .child(div().w(px(140.)).child(status))
+                        .child(
+                            div()
+                                .flex()
+                                .gap_2()
+                                .child(
+                                    Button::new(SharedString::from(format!("task-action-{id}")))
+                                        .label(action_caption.clone())
+                                        .on_click(cx.listener({
+                                            let id = id.clone();
+                                            move |shell, _, _, cx| {
+                                                shell.downloads.row_action(&id, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(SharedString::from(format!("task-delete-{id}")))
+                                        .label(t("DownloadListView", "Delete"))
+                                        .on_click(cx.listener({
+                                            let id = id.clone();
+                                            move |shell, _, _, cx| {
+                                                shell.downloads.row_delete(&id, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(SharedString::from(format!(
+                                        "task-redownload-{id}"
+                                    )))
                                     .label(t("DownloadListView", "Re-download"))
                                     .disabled(tab == DownloadsTab::Downloading)
                                     .on_click(cx.listener({
@@ -460,9 +519,10 @@ impl DownloadsScreen {
                                             shell.downloads.row_redownload(&id, cx);
                                         }
                                     })),
-                            ),
-                    )
-            })
+                                ),
+                        )
+                },
+            )
             .collect();
 
         if rows.is_empty() {
@@ -476,6 +536,109 @@ impl DownloadsScreen {
             .flex_col()
             .children(rows)
             .into_any_element()
+    }
+
+    /// One row's cover slot: cached image when decoded, a one-shot
+    /// async fetch when missing, muted placeholder otherwise. Failed
+    /// fetches cache `None` so they don't retry every frame.
+    fn render_cover(
+        &mut self,
+        url: &str,
+        window: &mut gpui_kit::Window,
+        cx: &mut gpui_kit::Context<Shell>,
+    ) -> gpui_kit::AnyElement {
+        use gpui_kit::gpui::{img, Image, ImageSource, ObjectFit, StyledImage};
+
+        fn placeholder() -> gpui_kit::AnyElement {
+            div()
+                .w(px(72.))
+                .h(px(60.))
+                .rounded_md()
+                .bg(gpui_kit::rgb(0x000000))
+                .opacity(0.1)
+                .into_any_element()
+        }
+
+        if url.is_empty() {
+            return placeholder();
+        }
+        let fetching = self.model.covers_fetching.contains(url);
+        match self.model.covers.get(url) {
+            Some(Some(image)) => {
+                return img(ImageSource::from(image.clone()))
+                    .w(px(72.))
+                    .h(px(60.))
+                    .rounded_md()
+                    .object_fit(ObjectFit::Cover)
+                    .into_any_element();
+            }
+            Some(None) => return placeholder(),
+            None => {
+                if fetching {
+                    return placeholder();
+                }
+            }
+        }
+        // Spawn the one-shot fetch, then redraw.
+        self.model.covers_fetching.insert(url.to_owned());
+        let client = crate::ui::parse::dispatch::ParseService::new(&self.config.clone()).client;
+        let url_owned_fetch = url.to_owned();
+        let url_key = url.to_owned();
+        window
+            .spawn(cx, async move |cx: &mut gpui_kit::AsyncWindowContext| {
+                // gpui's executor is not a tokio context; run the fetch
+                // on the shared runtime and await the handle (never
+                // hold an EnterGuard across an await on this thread).
+                let fetched: anyhow::Result<Arc<Image>> = crate::bootstrap::on_runtime(move || {
+                    let url = url_owned_fetch.clone();
+                    let client = client.clone();
+                    async move {
+                        let bytes = client
+                            .inner()
+                            .get(&url)
+                            .send()
+                            .await?
+                            .error_for_status()?
+                            .bytes()
+                            .await?
+                            .to_vec();
+                        let format = image::guess_format(&bytes)
+                            .ok()
+                            .and_then(Self::gpui_cover_format)
+                            .ok_or_else(|| anyhow::anyhow!("unsupported cover image format"))?;
+                        Ok(Arc::new(Image::from_bytes(format, bytes)))
+                    }
+                })
+                .await
+                .map_err(anyhow::Error::from)
+                .and_then(|r| r);
+                let _ = cx.update(|window, cx| {
+                    if let Some(Some(shell)) = window.root::<Shell>() {
+                        shell.update(cx, |shell, cx| {
+                            let screen = &mut shell.downloads;
+                            screen.model.covers_fetching.remove(&url_key);
+                            screen.model.covers.insert(url_key, fetched.ok());
+                            cx.notify();
+                        });
+                    }
+                    window.refresh();
+                });
+            })
+            .detach();
+        placeholder()
+    }
+
+    fn gpui_cover_format(format: image::ImageFormat) -> Option<gpui_kit::gpui::ImageFormat> {
+        use gpui_kit::gpui::ImageFormat as G;
+        use image::ImageFormat as F;
+        Some(match format {
+            F::Jpeg => G::Jpeg,
+            F::Png => G::Png,
+            F::WebP => G::Webp,
+            F::Gif => G::Gif,
+            F::Bmp => G::Bmp,
+            _ => return None,
+        })
     }
 
     /// True while a duplicate ask is on screen (`_process_next_duplicate_download` head).

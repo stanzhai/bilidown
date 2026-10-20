@@ -105,9 +105,8 @@ fn cheese_episode_data(episode_data: &EpisodeData, episode_id: &str, info: &Valu
 /// JSON ints must not be confused with quoted ones, so match the raw
 /// text like Python does.
 fn cheese_premiered(info: &Value) -> i64 {
-    static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#""release_date"\s*:\s*(\d+)"#).unwrap()
-    });
+    static RE: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r#""release_date"\s*:\s*(\d+)"#).unwrap());
     // ponytail: re-serializing the Value is O(payload); enough until
     // profiles show it (int-vs-quoted needs the raw JSON text).
     let text = serde_json::to_string(info).unwrap_or_default();

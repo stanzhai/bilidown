@@ -5,7 +5,8 @@
 //! (none/system/manual), custom User-Agent, and per-request signing hooks.
 //! Timeouts mirror the Python client: a generous connect timeout (the TLS
 //! handshake is counted in by the stack; weak links need it) and a tight
-//! read/write timeout so stuck responses fail fast.
+//! per-read timeout so stuck responses fail fast while large ones (a
+//! 1.6 MB season page on a slow link takes ~45 s) still complete.
 
 pub mod cdn;
 pub mod probe;
@@ -145,7 +146,7 @@ impl HttpClient {
         let mut builder = Client::builder()
             .user_agent(options.user_agent)
             .default_headers(default_headers())
-            .timeout(READ_WRITE_TIMEOUT)
+            .read_timeout(READ_WRITE_TIMEOUT)
             .connect_timeout(CONNECT_TIMEOUT)
             .redirect(reqwest::redirect::Policy::limited(10));
 
@@ -311,6 +312,18 @@ impl HttpClient {
     /// Snapshot of the persisted cookie set (what a restart would replay).
     pub fn persisted_cookie_snapshot(&self) -> Vec<PersistedCookie> {
         self.cookies.read().clone()
+    }
+
+    /// The request-header view (`k=v; k2=v2`) of the live jar for `url` —
+    /// the only public window into cookies set by `Set-Cookie` responses,
+    /// which never enter the persisted list.
+    pub fn jar_cookie_header(&self, url: &str) -> String {
+        use reqwest::cookie::CookieStore;
+        Url::parse(url)
+            .ok()
+            .and_then(|u| self.jar.cookies(&u))
+            .and_then(|v| v.to_str().ok().map(str::to_owned))
+            .unwrap_or_default()
     }
 
     /// Read access to the inner reqwest client for downloads/ranges.

@@ -15,6 +15,7 @@ use gpui_kit::component::WindowExt;
 use gpui_kit::{div, prelude::*, px, Context, Global, Render, Window};
 use std::sync::Arc;
 
+use auth::session::AuthError;
 use downloads::screen::DownloadsScreen;
 use login::LoginState;
 use parse::ParseScreen;
@@ -46,6 +47,48 @@ impl services::clipboard::ClipboardSource for PolledClipboard {
     }
 }
 
+/// Downloads live tick: zero-size element that keeps a frame loop alive
+/// while the shell renders. Each frame folds engine snapshots into the
+/// rows (cheap mutex reads); the 500ms poll inside `refresh_if_active`
+/// re-queries the DB so merge-stage rows (writer-thread-driven) move too.
+/// Reschedules itself on every render, so it dies with the Shell's tree.
+struct DownloadsTick {
+    shell: gpui_kit::WeakEntity<Shell>,
+}
+
+impl DownloadsTick {
+    fn new(shell: gpui_kit::WeakEntity<Shell>) -> Self {
+        Self { shell }
+    }
+}
+
+impl Render for DownloadsTick {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        window.request_animation_frame();
+        if let Some(shell) = self.shell.upgrade() {
+            shell.update(cx, |shell, cx| shell.tick_downloads(cx));
+        }
+        div()
+    }
+}
+
+impl Shell {
+    /// Per-frame downloads update while the screen is visible.
+    fn tick_downloads(&mut self, cx: &mut Context<Self>) {
+        if self.screen == Screen::Downloads {
+            if let Some(manager) = self.manager.clone() {
+                self.downloads.fold_engine_snapshots(&manager);
+            }
+            // Per-frame engine fold is cheap; the DB poll inside
+            // `refresh_if_active` is not — gate it to ~2 Hz.
+            if self.downloads_last_poll.elapsed() >= std::time::Duration::from_millis(500) {
+                self.downloads_last_poll = std::time::Instant::now();
+                self.downloads.refresh_if_active(cx);
+            }
+        }
+    }
+}
+
 /// The main window navigation shell: sidebar + current screen
 /// (port of `src/gui/interface/main_window.py`).
 pub struct Shell {
@@ -68,6 +111,11 @@ pub struct Shell {
     pub clipboard: services::clipboard::ClipboardMonitor,
     /// Tick counter driving the clipboard poll (see `Shell::render`).
     pub clipboard_ticks: u32,
+    /// Downloads live tick (entity child; see `DownloadsTick`).
+    downloads_tick: gpui_kit::Entity<DownloadsTick>,
+    /// Last DB poll from the frame tick (coalesces per-frame
+    /// `refresh_if_active` to ~2 Hz; `refresh` itself is unthrottled).
+    downloads_last_poll: std::time::Instant,
     /// Transient shell-level note (tips, area result).
     pub status_note: Option<String>,
     /// Render language the login placeholders were built for (refreshed
@@ -105,8 +153,10 @@ impl Shell {
         // config.json Cookie section (auth stack's persistence point);
         // read before the auth client so the visitor + login sets are
         // seeded the moment it exists (ticket 34).
-        let auth_state = auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
-            .unwrap_or_default();
+        let auth_state = normalize_auth_state(
+            auth::AuthState::from_config_file(&auth::session::config_path(&cfg_dir))
+                .unwrap_or_default(),
+        );
         let is_login = auth_state.is_login;
         let client = Arc::new(
             network::HttpClient::new(network::ClientOptions {
@@ -229,6 +279,11 @@ impl Shell {
             user_agent,
             clipboard: services::clipboard::ClipboardMonitor::new(),
             clipboard_ticks: 0,
+            downloads_tick: {
+                let shell = cx.entity();
+                cx.new(|_| DownloadsTick::new(shell.downgrade()))
+            },
+            downloads_last_poll: std::time::Instant::now(),
             status_note: None,
             login_placeholders_lang: lang,
         }
@@ -332,9 +387,11 @@ impl Shell {
         self.login.open(window, cx);
     }
 
-    /// Any login success: flip the shell flag (sidebar button reflects it)
-    /// and refresh the account uname for the footer tooltip.
-    pub fn on_login_success(&mut self, cx: &mut Context<Self>) {
+    /// Any login success: close the login dialog (QR/SMS paths never
+    /// did — it just kept floating), flip the shell flag, and refresh
+    /// the account uname for the footer tooltip.
+    pub fn on_login_success(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.login.handle.close(window, cx);
         self.login.is_login = true;
         self.refresh_uname(cx);
         cx.notify();
@@ -348,11 +405,13 @@ impl Shell {
             return;
         }
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
                 return;
             };
-            let Ok(uname) = auth::login::fetch_uname(client.as_ref(), auth::wbi::NAV_API).await
+            let Ok(Ok(uname)) = crate::bootstrap::on_runtime(move || async move {
+                auth::login::fetch_uname(client.as_ref(), auth::wbi::NAV_API).await
+            })
+            .await
             else {
                 return; // offline startup keeps the persisted uname
             };
@@ -410,7 +469,6 @@ impl Shell {
         let shell = cx.entity();
         window
             .spawn(cx, async move |cx: &mut gpui_kit::AsyncWindowContext| {
-                let _tokio = crate::bootstrap::tokio_context();
                 let Ok((mut state, client, user_agent)) = cx.update(|_, cx| {
                     shell.update(cx, |shell, _| {
                         (
@@ -422,40 +480,60 @@ impl Shell {
                 }) else {
                     return;
                 };
-                let result = {
+                let post_client = client.clone();
+                let (result, state) = crate::bootstrap::on_runtime(move || async move {
                     let mut session =
                         login::controller::session_for(client.as_ref(), &mut state, &user_agent);
-                    auth::login::logout(session.client, &mut session).await
-                };
+                    // No CSRF token means no live session to revoke; skip
+                    // the doomed API call and just clear locally.
+                    if session.state.bili_jct.is_empty() {
+                        session.clear_login();
+                        (Ok(()), state)
+                    } else {
+                        let result = auth::login::logout(session.client, &mut session).await;
+                        (result, session.state.clone())
+                    }
+                })
+                .await
+                .unwrap_or((
+                    Err(AuthError::Io(std::io::Error::other("logout failed"))),
+                    Default::default(),
+                ));
                 let _ = cx.update(move |window, cx| {
-                    shell.update(cx, |shell, cx| match result {
-                        Ok(()) => {
-                            for name in ["SESSDATA", "bili_jct", "DedeUserID", "DedeUserID__ckMd5"]
-                            {
-                                client.set_cookie(name, "", ".bilibili.com", "/");
-                            }
-                            auth::seed_client_cookies(client.as_ref(), &state);
-                            shell.set_auth_state(state, cx);
-                            window.push_notification(
-                                gpui_kit::component::notification::Notification::success(
-                                    ok_msg.clone(),
-                                ),
-                                cx,
-                            );
+                    shell.update(cx, |shell, cx| {
+                        // Either way the local session is gone: clear the
+                        // login cookies the jar still holds, re-seed the
+                        // visitor set, persist the anonymous state. A
+                        // failed server revoke (session already dead)
+                        // must not trap the user logged-in forever.
+                        for name in ["SESSDATA", "bili_jct", "DedeUserID", "DedeUserID__ckMd5"] {
+                            post_client.set_cookie(name, "", ".bilibili.com", "/");
                         }
-                        Err(_) => {
-                            window.push_notification(
-                                gpui_kit::component::notification::Notification::error(
-                                    err_msg.clone(),
-                                ),
-                                cx,
-                            );
-                        }
+                        auth::seed_client_cookies(post_client.as_ref(), &state);
+                        shell.set_auth_state(state, cx);
+                        let notification = match result {
+                            Ok(()) => gpui_kit::component::notification::Notification::success(
+                                ok_msg.clone(),
+                            ),
+                            Err(_) => gpui_kit::component::notification::Notification::error(
+                                err_msg.clone(),
+                            ),
+                        };
+                        window.push_notification(notification, cx);
                     });
                 });
             })
             .detach();
     }
+}
+
+/// A session flag without its cookie is a leftover from the pre-harvest
+/// login flow — treat it as logged-out so the rail button offers Log In.
+fn normalize_auth_state(mut state: auth::AuthState) -> auth::AuthState {
+    if state.is_login && state.sessdata.is_empty() {
+        state.is_login = false;
+    }
+    state
 }
 
 /// 任务数据库路径：User Data/bilidown/task.db（Python appdata 推导）。
@@ -590,6 +668,7 @@ impl Render for Shell {
                                     },
                                 )
                                 .text_size(px(10.))
+                                .text_center()
                                 .w(px(52.))
                                 .truncate(),
                             )
@@ -629,11 +708,18 @@ impl Render for Shell {
             )
             .child(match screen {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
-                Screen::Downloads => self.downloads.render(cx).into_any_element(),
+                Screen::Downloads => self.downloads.render(window, cx).into_any_element(),
                 Screen::Favorites => self.screens.favorites.render(cx).into_any_element(),
                 Screen::About => screens::about::render_about(cx).into_any_element(),
                 Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
+            .child(
+                // Downloads live tick: keep a frame loop alive so
+                // engine snapshots fold into rows and the 500ms DB
+                // poll re-queries merge-stage rows. Zero-size; dies
+                // with the shell.
+                self.downloads_tick.clone(),
+            )
             .child(self.login.render(cx))
     }
 }
@@ -964,6 +1050,48 @@ mod tests {
             .read_with(cx, |shell: &Shell, _| shell.login.handle.is_open())
             .expect("window alive");
         assert!(open, "login dialog must stay open");
+    }
+
+    /// Regression (ticket 40): a successful login must close the login
+    /// dialog — it used to float on screen until manual dismissal.
+    #[ignore] // network-real: Shell::new boots the tokio runtime
+    #[gpui::test]
+    async fn login_success_closes_dialog(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_kit::init);
+        let handle = cx.add_window(Shell::new);
+        let window = gpui::AnyWindowHandle::from(handle);
+        cx.update_window(window, |root, window, cx| {
+            let shell = root.downcast::<Shell>().expect("root is Shell");
+            shell.update(cx, |shell, cx| {
+                shell.login.is_login = false;
+                shell.open_login(window, cx);
+                assert!(shell.login.handle.is_open());
+                shell.on_login_success(window, cx);
+                assert!(!shell.login.handle.is_open(), "dialog must close");
+            });
+        })
+        .unwrap();
+        cx.run_until_parked();
+    }
+
+    /// Regression (stale login flag): a config with `is_login=true` and
+    /// an empty SESSDATA (the pre-harvest login flow's leftover) must
+    /// boot the shell logged-out — the rail button opens the login
+    /// dialog instead of the logout confirm.
+    #[test]
+    fn stale_is_login_config_boots_shell_logged_out() {
+        let stale = auth::AuthState {
+            is_login: true,
+            ..Default::default()
+        };
+        assert!(!crate::ui::normalize_auth_state(stale).is_login);
+
+        let live = auth::AuthState {
+            is_login: true,
+            sessdata: "sd".into(),
+            ..Default::default()
+        };
+        assert!(crate::ui::normalize_auth_state(live).is_login);
     }
 }
 

@@ -308,12 +308,71 @@ impl TaskManager {
     /// overwrites are impossible), coalesce latest-wins, schedule a flush.
     pub fn update_async(&self, task_info: &TaskInfo) {
         let task_id = task_info.Basic.task_id.clone();
-        let json = task_info.to_json();
+        let mut json = task_info.to_json();
         {
             let mut pending = self.inner.pending_updates.lock();
+            // Keep any chunk offsets the engine's offset store already
+            // merged into the pending snapshot — the in-memory task the
+            // sampler serializes carries empty tables and would
+            // otherwise clobber them (resume then restarts from zero).
+            if let Some(prev) = pending.get(&task_id) {
+                if let (Ok(prev), Ok(mut new)) = (
+                    serde_json::from_str::<serde_json::Value>(prev),
+                    serde_json::from_str::<serde_json::Value>(&json),
+                ) {
+                    if let Some(prev_files) = prev
+                        .pointer("/Download/files")
+                        .and_then(|f| f.as_object())
+                        .cloned()
+                    {
+                        if let Some(new_files) = new
+                            .pointer_mut("/Download/files")
+                            .and_then(|f| f.as_object_mut())
+                        {
+                            for (key, prev_file) in prev_files {
+                                let Some(prev_offsets) = prev_file.get("chunk_offsets").cloned()
+                                else {
+                                    continue;
+                                };
+                                let Some(new_file) = new_files.get_mut(&key) else {
+                                    continue;
+                                };
+                                if let Some(map) = new_file.as_object_mut() {
+                                    if map
+                                        .get("chunk_offsets")
+                                        .and_then(|o| o.as_object())
+                                        .is_none_or(|o| o.is_empty())
+                                    {
+                                        map.insert("chunk_offsets".into(), prev_offsets);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    json = new.to_string();
+                }
+            }
             pending.insert(task_id, json);
         }
         self.inner.schedule_flush();
+    }
+
+    /// The freshest persisted `Download.files` map for a task, pending
+    /// writer updates included (resume seeding reads offset tables
+    /// through this — the DB row alone can lag the writer thread).
+    pub fn current_files(&self, task_id: &str) -> serde_json::Map<String, serde_json::Value> {
+        if let Some(json) = self.inner.pending_updates.lock().get(task_id) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(json) {
+                if let Some(files) = v.pointer("/Download/files").and_then(|f| f.as_object()) {
+                    return files.clone();
+                }
+            }
+        }
+        self.query_by_id(task_id)
+            .ok()
+            .flatten()
+            .map(|t| t.Download.files)
+            .unwrap_or_default()
     }
 
     fn discard_pending_updates(&self, task_ids: &[String]) {

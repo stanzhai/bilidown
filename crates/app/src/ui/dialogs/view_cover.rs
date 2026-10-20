@@ -129,12 +129,12 @@ pub fn open_view_cover(
                         .justify_center()
                         .items_center()
                         .child(match image {
-                              Some(image) => img(ImageSource::from(image))
+                            Some(image) => img(ImageSource::from(image))
                                 .max_w(px(VIEW_W))
                                 .max_h(px(VIEW_H))
                                 .object_fit(ObjectFit::Contain)
                                 .into_any_element(),
-                              None => Label::new(loading.clone()).into_any_element(),
+                            None => Label::new(loading.clone()).into_any_element(),
                         }),
                 )
             })

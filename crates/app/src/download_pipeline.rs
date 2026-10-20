@@ -68,7 +68,11 @@ impl PipelineOutcome {
 pub fn cdn_from_config(cfg: &ConfigStore) -> network::cdn::CdnConfig {
     use network::cdn::{Area, CdnConfig, CdnServer, PreferProvider};
 
-    let area = match cfg.get("Advanced", "area").and_then(|v| v.as_str().map(str::to_owned)).as_deref() {
+    let area = match cfg
+        .get("Advanced", "area")
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .as_deref()
+    {
         Some("cn") => Some(Area::Cn),
         Some("ov") => Some(Area::Ov),
         _ => None,
@@ -298,7 +302,8 @@ async fn parse_download(
     // codec variables are known — also re-names tasks resumed with an
     // empty file name (rows created before the naming engine existed).
     if task.File.name.is_empty() {
-        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
+        let store =
+            RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
         if task.Naming.rule.as_deref().unwrap_or("").is_empty() {
             freeze_naming_rule(task, None, &store, &Default::default());
         }
@@ -417,11 +422,35 @@ pub async fn run_task(
         let dir = PathBuf::from(&task.File.download_path).join(&task.File.folder);
         let _ = std::fs::create_dir_all(&dir);
 
-        let Ok((handle, control)) =
-            manager
-                .scheduler
-                .spawn_engine(manager, &task_id, client.clone(), specs)
-        else {
+        // Resume seeding: fold the freshest persisted offset tables into
+        // the new engine so a resumed run skips confirmed chunks instead
+        // of re-downloading from zero (files absent/empty → fresh start).
+        let resume: std::collections::BTreeMap<String, downloader::OffsetTable> = {
+            let files = manager.current_files(&task_id);
+            files
+                .iter()
+                .filter_map(|(key, file)| {
+                    let table =
+                        downloader::OffsetTable::from_json(file.get("chunk_offsets")?.clone());
+                    if table == downloader::OffsetTable::default() {
+                        None
+                    } else {
+                        Some((key.clone(), table))
+                    }
+                })
+                .collect()
+        };
+        let Ok((handle, control)) = manager.scheduler.spawn_engine_resumed(
+            manager,
+            &task_id,
+            client.clone(),
+            specs,
+            if resume.is_empty() {
+                None
+            } else {
+                Some(resume)
+            },
+        ) else {
             task.Download.status = download_status::FAILED;
             manager.update_async(&task);
             return PipelineOutcome::err(&task_id, download_status::FAILED, "engine start failed");
@@ -432,6 +461,7 @@ pub async fn run_task(
         let sampler = tokio::spawn({
             let manager = manager.clone();
             let task = task.clone();
+            let control = control.clone();
             async move {
                 let mut last_bytes = control.snapshot().downloaded_size;
                 let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
@@ -463,6 +493,16 @@ pub async fn run_task(
             }
         };
         sampler.abort();
+        // Fold the engine's final offset tables into the task row: every
+        // subsequent update/mark_as_completed persists them, so a resumed
+        // run seeds from bytes already confirmed on disk.
+        for (key, table) in control.offset_tables() {
+            if let Some(file) = task.Download.files.get_mut(&key) {
+                if let Some(map) = file.as_object_mut() {
+                    map.insert("chunk_offsets".into(), table.to_json());
+                }
+            }
+        }
         match state.status {
             downloader::TaskStatus::Completed => {}
             downloader::TaskStatus::Paused => {
@@ -794,5 +834,154 @@ mod tests {
             .unwrap()
             .expect("task moved to completed");
         assert_eq!(row.Download.status, download_status::COMPLETED);
+    }
+
+    /// Regression (downloads live progress + resume): a paused task's
+    /// persisted offset tables must seed the resumed engine, so the
+    /// resumed run never re-requests byte ranges already on disk. The
+    /// CDN mock counts ranged requests; a from-zero restart would ask
+    /// for `bytes 0-…` again and the count would double.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn resumed_run_skips_already_downloaded_ranges() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut store =
+            ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
+        let ffmpeg = producing_ffmpeg(tmp.path());
+        store.set("Advanced", "ffmpeg_source", json!("custom"));
+        store.set(
+            "Advanced",
+            "custom_ffmpeg_path",
+            json!(ffmpeg.to_string_lossy().to_string()),
+        );
+        let server = MockServer::start().await;
+        let netloc = server.uri().trim_start_matches("http://").to_owned();
+        store.set(
+            "Advanced",
+            "cn_cdn_server_list",
+            json!([{ "host": netloc, "provider": "TEST" }]),
+        );
+        store.save().unwrap();
+        let store = Arc::new(store);
+        let manager =
+            Arc::new(TaskManager::open(tmp.path().join("task.db"), store.clone()).unwrap());
+        let apis = PlayurlApis::with_base(&server.uri());
+
+        Mock::given(method("GET"))
+            .and(path("/x/player/wbi/playurl"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(dash_payload(&server.uri())))
+            .mount(&server)
+            .await;
+
+        // One 4 MiB video file only (audio keeps the range math simple).
+        let video = Arc::new(body(0x5eed, 4 * 1024 * 1024));
+        let ranges = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        {
+            let ranges = ranges.clone();
+            Mock::given(method("HEAD"))
+                .and(path("/video.m4s"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "video/mp4")
+                        .insert_header("content-length", video.len().to_string()),
+                )
+                .mount(&server)
+                .await;
+            Mock::given(method("GET"))
+                .and(path("/video.m4s"))
+                .respond_with(move |req: &wiremock::Request| {
+                    let is_range = req
+                        .headers
+                        .get("range")
+                        .and_then(|v| v.to_str().ok())
+                        .is_some_and(|r| r.starts_with("bytes="));
+                    if is_range {
+                        ranges.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    }
+                    let data = video.clone();
+                    match req.headers.get("range").and_then(|v| v.to_str().ok()) {
+                        Some(range) if range.starts_with("bytes=") => {
+                            let (s, e) = range[6..].split_once('-').unwrap();
+                            let (start, end): (usize, usize) =
+                                (s.parse().unwrap(), e.parse().unwrap());
+                            ResponseTemplate::new(206)
+                                .append_header(
+                                    "Content-Range",
+                                    format!("bytes {}-{}/{}", start, end, data.len()),
+                                )
+                                .set_body_bytes(data[start..=end].to_vec())
+                        }
+                        _ => ResponseTemplate::new(200).set_body_bytes(data.as_ref().clone()),
+                    }
+                })
+                .mount(&server)
+                .await;
+        }
+
+        // Run 1: video-only task completes fully.
+        let mut task = dash_task(tmp.path(), 5678);
+        task.Download.type_ = download_type::VIDEO;
+        task.Download.merge_video_audio = false;
+        task.File.merge_file_ext = "mp4".into();
+        {
+            let mut db = manager.reader().unwrap();
+            db.add_tasks(std::slice::from_ref(&task), false).unwrap();
+        }
+        let client = wire_client();
+        let outcome = run_task(
+            &manager,
+            &store,
+            &client,
+            &apis,
+            tmp.path().to_path_buf(),
+            task.clone(),
+        )
+        .await;
+        assert_eq!(
+            outcome.status,
+            download_status::COMPLETED,
+            "{}",
+            outcome.message
+        );
+        manager.shutdown(5.0);
+        let ranges_after_first = ranges.load(std::sync::atomic::Ordering::SeqCst);
+        assert!(ranges_after_first > 0, "first run must use ranged requests");
+
+        // A second run over the same task (files map already carries the
+        // completed chunk_offsets — the resume path's input) must not
+        // re-request any range: every chunk is confirmed on disk.
+        let ranges_before_second = ranges_after_first;
+        let manager2 = TaskManager::open(tmp.path().join("task.db"), store.clone()).unwrap();
+        let manager2 = Arc::new(manager2);
+        let mut resumed = manager2
+            .query_by_id("e2e1")
+            .unwrap()
+            .expect("row persisted");
+        resumed.Download.status = download_status::QUEUED;
+        resumed.Download.progress = 50;
+        {
+            let mut db = manager2.reader().unwrap();
+            db.add_tasks(std::slice::from_ref(&resumed), false).unwrap();
+        }
+        let outcome2 = run_task(
+            &manager2,
+            &store,
+            &client,
+            &apis,
+            tmp.path().to_path_buf(),
+            resumed,
+        )
+        .await;
+        assert_eq!(
+            outcome2.status,
+            download_status::COMPLETED,
+            "{}",
+            outcome2.message
+        );
+        manager2.shutdown(5.0);
+        let ranges_after_second = ranges.load(std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(
+            ranges_after_second, ranges_before_second,
+            "resumed run re-downloaded confirmed chunks"
+        );
     }
 }

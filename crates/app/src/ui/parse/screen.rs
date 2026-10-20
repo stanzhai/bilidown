@@ -56,7 +56,8 @@ impl ParseScreen {
         let url = cx.new(|cx| {
             InputState::new(window, cx).placeholder(c.tr("ParseInterface", "Paste a Bilibili link"))
         });
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder(c.tr("ParseInterface", "Search")));
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder(c.tr("ParseInterface", "Search")));
         let tree = cx.new(|cx| TreeState::new(cx));
         Self {
             url,
@@ -407,35 +408,40 @@ impl ParseScreen {
         let c = Self::catalog(cx);
         let episode_data = self.episode_data.clone();
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let service = super::dispatch::ParseService::with_episode_data(
-                &config::ConfigStore::open()?,
+                &config::ConfigStore::open()
+                    .unwrap_or_else(|_| config::ConfigStore::with_paths("", "")),
                 episode_data,
             );
-            let req = super::dispatch::ParseRequest {
-                url: &url,
-                pn,
-                auth: &auth,
-            };
-            // WBI-signed families wait for the nav keys (bounded).
-            if service.needs_wbi(&url) == Some(true) && !service.key_store.ready() {
-                let client = service.client.clone();
-                let base = super::dispatch::BASE_URL.to_string();
-                let _ = service
-                    .wait_for_wbi_keys(move || {
-                        let client = client.clone();
-                        let base = base.clone();
-                        async move {
-                            let resp: serde_json::Value = client
-                                .get_json(&format!("{base}/x/web-interface/nav"), &[])
-                                .await
-                                .map_err(|e| e.to_string())?;
-                            Ok(resp)
-                        }
-                    })
-                    .await;
-            }
-            let result = super::dispatch::parse(&service.client, &service.ctx, &req).await;
+            let result = crate::bootstrap::on_runtime(move || async move {
+                let req = super::dispatch::ParseRequest {
+                    url: &url,
+                    pn,
+                    auth: &auth,
+                };
+                // WBI-signed families wait for the nav keys (bounded).
+                if service.needs_wbi(&url) == Some(true) && !service.key_store.ready() {
+                    let client = service.client.clone();
+                    let base = super::dispatch::BASE_URL.to_string();
+                    let _ = service
+                        .wait_for_wbi_keys(move || {
+                            let client = client.clone();
+                            let base = base.clone();
+                            async move {
+                                let resp: serde_json::Value = client
+                                    .get_json(&format!("{base}/x/web-interface/nav"), &[])
+                                    .await
+                                    .map_err(|e| e.to_string())?;
+                                Ok(resp)
+                            }
+                        })
+                        .await;
+                }
+                super::dispatch::parse(&service.client, &service.ctx, &req).await
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r.map_err(|e| e.to_string()));
             shell.update(cx, |shell, cx| {
                 if shell.parse.generation != generation {
                     return; // a newer parse superseded this one
@@ -578,15 +584,18 @@ impl ParseScreen {
         self.status = c.tr("ParseInterface", "Parsing…").to_string();
         self.refresh_tree(cx);
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let cfg = config::ConfigStore::open()
                 .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
             let service = super::dispatch::ParseService::new(&cfg);
             let base = super::dispatch::BASE_URL.to_string();
             let interval = std::time::Duration::from_secs_f32(parsers::batch::LINK_INTERVAL);
-            let result =
+            let result = crate::bootstrap::on_runtime(move || async move {
                 parsers::batch::parse_batch(&service.client, &base, &urls, |_, _| {}, interval)
-                    .await;
+                    .await
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r.map_err(|e| e.to_string()));
             shell.update(cx, |shell, cx| {
                 if shell.parse.generation != generation {
                     return; // superseded by a newer parse
@@ -628,7 +637,6 @@ impl ParseScreen {
         self.status = c.tr("ParseInterface", "Preparing…").to_string();
         cx.notify();
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let service = std::sync::Arc::new(super::dispatch::ParseService::with_episode_data(
                 &config::ConfigStore::open()
                     .unwrap_or_else(|_| config::ConfigStore::with_paths("", "")),
@@ -642,44 +650,49 @@ impl ParseScreen {
                 end_page: payload.end_page,
                 interval: std::time::Duration::from_secs_f32(payload.interval as f32),
             };
-            let result = parsers::auto_parse::walk_pages(
-                &options,
-                move |pn| {
-                    let (client, service, url, auth) =
-                        (client.clone(), service.clone(), url.clone(), auth.clone());
-                    Box::pin(async move {
-                        let req = super::dispatch::ParseRequest {
-                            url: &url,
-                            pn,
-                            auth: &auth,
-                        };
-                        super::dispatch::parse(&client, &service.ctx, &req)
-                            .await
-                            .map_err(|e| parsers::list::ListError::Api(e.to_string()))
-                    })
-                },
-                {
-                    let cx = cx.clone();
-                    let shell = shell.clone();
-                    move |text, _page, _total| {
-                        let text = text.to_owned();
-                        cx.spawn({
-                            let shell = shell.clone();
-                            async move |cx| {
-                                if let Some(shell) = shell.upgrade() {
-                                    cx.update_entity(&shell, |shell: &mut Shell, cx| {
-                                        shell.parse.status = text;
-                                        cx.notify();
-                                    });
-                                }
-                            }
-                        })
-                        .detach();
+            // Progress callback runs on a runtime worker thread; ship the
+            // status text over a channel and drain it on the main thread so
+            // no gpui handle crosses into the runtime closure (Send bound).
+            let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+            cx.spawn({
+                let shell = shell.clone();
+                async move |cx| {
+                    while let Some(text) = progress_rx.recv().await {
+                        let _ = shell.update(cx, |shell, cx| {
+                            shell.parse.status = text;
+                            cx.notify();
+                        });
                     }
-                },
-                || false,
-            )
-            .await;
+                }
+            })
+            .detach();
+            let result = crate::bootstrap::on_runtime(move || async move {
+                parsers::auto_parse::walk_pages(
+                    &options,
+                    move |pn| {
+                        let (client, service, url, auth) =
+                            (client.clone(), service.clone(), url.clone(), auth.clone());
+                        Box::pin(async move {
+                            let req = super::dispatch::ParseRequest {
+                                url: &url,
+                                pn,
+                                auth: &auth,
+                            };
+                            super::dispatch::parse(&client, &service.ctx, &req)
+                                .await
+                                .map_err(|e| parsers::list::ListError::Api(e.to_string()))
+                        })
+                    },
+                    move |text, _page, _total| {
+                        let _ = progress_tx.send(text.to_owned());
+                    },
+                    || false,
+                )
+                .await
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r.map_err(|e| e.to_string()));
             shell.update(cx, |shell, cx| match result {
                 Ok(outcome) => {
                     // The tree is additive: page one is already loaded,
@@ -859,7 +872,8 @@ impl ParseScreen {
 
         let info = self.model.preview_info();
         let cfg = ConfigStore::open().unwrap_or_else(|_| ConfigStore::with_paths("", ""));
-        let store = RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
+        let store =
+            RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
         let candidates = self.model.preview_items(3);
         download_options::open_download_options(
             window, cx, &cfg, &info, &type_ids, &store, candidates,
@@ -1168,21 +1182,23 @@ impl ParseScreen {
                                                         ),
                                                         &[(
                                                             "count",
-                                                            &result.skipped_duplicates.len().to_string(),
+                                                            &result
+                                                                .skipped_duplicates
+                                                                .len()
+                                                                .to_string(),
                                                         )],
                                                     )
                                                 }
                                             );
                                         }
                                         Err(e) => {
-                                            shell.parse.status =
-                                                crate::ui::dialogs::format_tr(
-                                                    c.tr(
-                                                        "ParseInterface",
-                                                        "Task creation failed: {error}",
-                                                    ),
-                                                    &[("error", &e.to_string())],
-                                                );
+                                            shell.parse.status = crate::ui::dialogs::format_tr(
+                                                c.tr(
+                                                    "ParseInterface",
+                                                    "Task creation failed: {error}",
+                                                ),
+                                                &[("error", &e.to_string())],
+                                            );
                                         }
                                     }
                                     cx.notify();

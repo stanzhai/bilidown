@@ -121,14 +121,17 @@ pub fn run_startup_check(window: &mut Window, cx: &mut gpui_kit::Context<crate::
     let slot = std::rc::Rc::new(std::cell::RefCell::<Option<UpdateInfo>>::new(None));
     let tail = slot.clone();
     cx.spawn(async move |shell, cx| {
-        let _tokio = crate::bootstrap::tokio_context();
         let cfg =
             config::ConfigStore::open().unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
         let (include_preview, locale) = check_params(&cfg);
         let service = super::super::parse::dispatch::ParseService::new(&cfg);
-        let fetched =
-            check_for_update(&service.client, VERHUB_BASE_URL, include_preview, locale).await;
-        let Ok(fetched) = fetched else { return };
+        let fetched = crate::bootstrap::on_runtime(move || async move {
+            check_for_update(&service.client, VERHUB_BASE_URL, include_preview, locale).await
+        })
+        .await
+        .ok()
+        .and_then(|r| r.ok());
+        let Some(fetched) = fetched else { return };
         if let UpdateAction::Show(found) = decide(&fetched, &cfg, false) {
             *tail.borrow_mut() = Some(found);
             let _ = shell.update(cx, |_, cx| cx.notify());

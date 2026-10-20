@@ -32,6 +32,12 @@ pub struct ScreenState {
     pub pending_duplicate_ask: Option<String>,
     /// Set when the background refresh query failed (shell shows a hint).
     pub query_failed: bool,
+    /// Decoded cover images keyed by cover URL (task rows render from
+    /// this; fetched once per URL per session, `None` after a failure
+    /// so broken covers don't refetch every frame).
+    pub covers: std::collections::HashMap<String, Option<std::sync::Arc<gpui_kit::gpui::Image>>>,
+    /// Cover URLs a fetch is already in flight for.
+    pub covers_fetching: std::collections::HashSet<String>,
 }
 
 impl Default for ScreenState {
@@ -48,6 +54,8 @@ impl ScreenState {
             completed: TaskListState::new(true),
             pending_duplicate_ask: None,
             query_failed: false,
+            covers: Default::default(),
+            covers_fetching: Default::default(),
         }
     }
 

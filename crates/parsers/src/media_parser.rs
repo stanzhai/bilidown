@@ -10,8 +10,8 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use regex::Regex;
-use std::sync::LazyLock;
 use serde_json::{json, Value};
+use std::sync::LazyLock;
 
 use crate::episode;
 use crate::episode::bangumi::parse_bangumi;
@@ -105,8 +105,7 @@ pub async fn parse_video_url(
 /// `get_bvid`/`get_aid` combined: BV pass-through, av converted.
 pub fn video_bvid(url: &str) -> Option<String> {
     static BV_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:BV|bv)\w+").unwrap());
-    static AV_RE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:av|AV)([0-9]+)").unwrap());
+    static AV_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?:av|AV)([0-9]+)").unwrap());
     if let Some(bv) = find_str(&BV_RE, url) {
         return Some(bv);
     }
@@ -118,8 +117,7 @@ pub fn video_bvid(url: &str) -> Option<String> {
 /// `get_page_number`: the `?p=` page of a multi-part link.
 pub fn get_page_number(url: &str) -> Option<i64> {
     static P_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"p=(\d+)").unwrap());
-    P_RE
-        .captures(url)
+    P_RE.captures(url)
         .and_then(|c| c.get(1))
         .and_then(|m| m.as_str().parse().ok())
 }

@@ -148,18 +148,22 @@ impl SettingsScreen {
                     let c = config::ConfigStore::open()
                         .unwrap_or_else(|_| config::ConfigStore::with_paths("", ""));
                     cx.spawn(async move |shell, cx| {
-                        let _tokio = crate::bootstrap::tokio_context();
                         let (include_preview, locale) =
                             crate::ui::dialogs::update::check_params(&c);
                         let service = crate::ui::parse::dispatch::ParseService::new(&c);
-                        let fetched = crate::ui::dialogs::update::check_for_update(
-                            &service.client,
-                            crate::ui::dialogs::update::VERHUB_BASE_URL,
-                            include_preview,
-                            locale,
-                        )
-                        .await;
-                        let Ok(fetched) = fetched else { return };
+                        let fetched = crate::bootstrap::on_runtime(move || async move {
+                            crate::ui::dialogs::update::check_for_update(
+                                &service.client,
+                                crate::ui::dialogs::update::VERHUB_BASE_URL,
+                                include_preview,
+                                locale,
+                            )
+                            .await
+                        })
+                        .await
+                        .ok()
+                        .and_then(|r| r.ok());
+                        let Some(fetched) = fetched else { return };
                         if let crate::ui::dialogs::update::UpdateAction::Show(found) =
                             crate::ui::dialogs::update::decide(&fetched, &c, true)
                         {

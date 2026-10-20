@@ -13,6 +13,7 @@
 //!   parse→download→extras→merge pipeline, and fires the
 //!   download-complete notification when the active count hits zero.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -36,22 +37,28 @@ pub fn runtime() -> &'static tokio::runtime::Runtime {
     &RUNTIME
 }
 
-/// Enter [`RUNTIME`] for the remainder of the current async block.
+/// Run an async network block on the shared tokio runtime, awaiting it
+/// from any executor (gpui's included).
 ///
-/// gpui's `cx.spawn` executor is not a tokio context, so any reqwest
-/// future awaited directly in one panics ("no reactor running") the
-/// moment it arms its timeout timer. Wrap the async block: the entered
-/// guard makes `Handle::current()` resolve on the caller's thread, so
-/// timers/spawns inside the block register with our runtime.
+/// Do NOT hold an `EnterGuard` across an await on the gpui main thread:
+/// two overlapping guards (e.g. startup fetch + user-triggered parse)
+/// drop in network-completion order and tokio aborts the process
+/// ("EnterGuard values dropped out of order"). Spawning onto the
+/// runtime and awaiting the `JoinHandle` keeps the gpui thread
+/// context-free.
 ///
 /// ```ignore
 /// cx.spawn(async move |shell, cx| {
-///     let _rt = crate::bootstrap::tokio_context();
-///     network_call().await
+///     let out = crate::bootstrap::on_runtime(|| async { network_call().await })?.await;
 /// })
 /// ```
-pub fn tokio_context() -> tokio::runtime::EnterGuard<'static> {
-    runtime().enter()
+pub fn on_runtime<F, Fut>(f: F) -> tokio::task::JoinHandle<Fut::Output>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future + Send + 'static,
+    Fut::Output: Send + 'static,
+{
+    runtime().spawn(f())
 }
 
 /// Python `start_mcp_server` (post-first-frame, gated, non-fatal).

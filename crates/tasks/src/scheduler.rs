@@ -11,7 +11,7 @@ use crate::status::download_status;
 use config::ConfigStore;
 use downloader::{DownloadEngine, EngineConfig, EngineControl, FileSpec};
 use parking_lot::Mutex;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 /// Inclusive clamp bounds for `Download.download_parallel`.
@@ -118,6 +118,23 @@ impl Scheduler {
         tokio::task::JoinHandle<downloader::TaskState>,
         EngineControl,
     )> {
+        self.spawn_engine_resumed(manager, task_id, client, files, None)
+    }
+
+    /// [`Self::spawn_engine`] with resume seeding: `resume` maps file
+    /// keys to their persisted offset tables (a resumed run skips every
+    /// chunk already confirmed on disk).
+    pub fn spawn_engine_resumed(
+        &self,
+        manager: &Arc<TaskManager>,
+        task_id: &str,
+        client: network::HttpClient,
+        files: Vec<FileSpec>,
+        resume: Option<BTreeMap<String, downloader::OffsetTable>>,
+    ) -> anyhow::Result<(
+        tokio::task::JoinHandle<downloader::TaskState>,
+        EngineControl,
+    )> {
         let mut engine = DownloadEngine::new(
             client,
             self.engine_config(),
@@ -125,6 +142,9 @@ impl Scheduler {
             Arc::new(manager.offset_store(task_id)),
             files,
         );
+        if let Some(tables) = resume {
+            engine.resume_from(tables);
+        }
         let control = engine.control();
         self.slots.lock().insert(
             task_id.to_string(),
@@ -139,6 +159,13 @@ impl Scheduler {
         if let Some(slot) = self.slots.lock().get(task_id) {
             slot.control.pause();
         }
+    }
+
+    /// Live engine snapshot for a running task (progress/speed/pause),
+    /// or `None` when no engine owns the id (queued/merge/done stages —
+    /// those progress through the DB).
+    pub fn snapshot(&self, task_id: &str) -> Option<downloader::TaskState> {
+        self.slots.lock().get(task_id).map(|s| s.control.snapshot())
     }
 
     pub fn release(&self, task_id: &str) {

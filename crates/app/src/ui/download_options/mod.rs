@@ -9,7 +9,6 @@ pub mod rule_builder;
 pub mod units;
 
 use gpui_kit::base::Disableable;
-use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::base::IndexPath;
 use gpui_kit::component::button::{Button, ButtonVariants};
 use gpui_kit::component::dialog::DialogFooter;
@@ -18,6 +17,7 @@ use gpui_kit::component::searchable_list::SearchableVec;
 use gpui_kit::component::select::{Select, SelectState};
 use gpui_kit::component::switch::Switch;
 use gpui_kit::component::tab::{Tab, TabBar};
+use gpui_kit::component::theme::ActiveTheme;
 use gpui_kit::component::WindowExt;
 use gpui_kit::{
     div, px, rgb, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
@@ -292,10 +292,23 @@ impl Render for DownloadOptionsDialog {
             .p_4()
             .child(
                 TabBar::new("options-pages")
-                    .child(Tab::new().label(cx_of_catalog().tr("DownloadOptionsDialog", "Media Settings")))
-                    .child(Tab::new().label(cx_of_catalog().tr("DownloadOptionsDialog", "Additional Files")))
-                    .child(Tab::new().label(cx_of_catalog().tr("DownloadOptionsDialog", "Download Settings")))
-                    .child(Tab::new().label(cx_of_catalog().tr("DownloadOptionsDialog", "Rule Builder")))
+                    .child(
+                        Tab::new()
+                            .label(cx_of_catalog().tr("DownloadOptionsDialog", "Media Settings")),
+                    )
+                    .child(
+                        Tab::new()
+                            .label(cx_of_catalog().tr("DownloadOptionsDialog", "Additional Files")),
+                    )
+                    .child(
+                        Tab::new().label(
+                            cx_of_catalog().tr("DownloadOptionsDialog", "Download Settings"),
+                        ),
+                    )
+                    .child(
+                        Tab::new()
+                            .label(cx_of_catalog().tr("DownloadOptionsDialog", "Rule Builder")),
+                    )
                     .selected_index(page as usize)
                     .on_click(cx.listener(|this, ix: &usize, _, cx| {
                         this.page = match ix {
@@ -327,7 +340,9 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("media-video-stream")
                     .checked(m.download_video_stream)
-                    .label(cx_of_catalog().tr("MediaOptionsCard", "Download standalone video stream"))
+                    .label(
+                        cx_of_catalog().tr("MediaOptionsCard", "Download standalone video stream"),
+                    )
                     .on_change(cx.listener(|this, v: &bool, _, cx| {
                         this.model
                             .media
@@ -338,7 +353,9 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("media-audio-stream")
                     .checked(m.download_audio_stream)
-                    .label(cx_of_catalog().tr("MediaOptionsCard", "Download standalone audio stream"))
+                    .label(
+                        cx_of_catalog().tr("MediaOptionsCard", "Download standalone audio stream"),
+                    )
                     .on_change(cx.listener(|this, v: &bool, _, cx| {
                         this.model
                             .media
@@ -375,7 +392,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("MediaInfoCard", "Video Quality")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("MediaInfoCard", "Video Quality")),
+                    )
                     .child(div().flex_1().child(Select::new(&self.video_quality))),
             )
             .child(
@@ -383,7 +404,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("MediaInfoCard", "Audio Quality")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("MediaInfoCard", "Audio Quality")),
+                    )
                     .child(div().flex_1().child(Select::new(&self.audio_quality))),
             )
             .child(
@@ -391,7 +416,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("MediaInfoCard", "Video Codec")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("MediaInfoCard", "Video Codec")),
+                    )
                     .child(div().flex_1().child(Select::new(&self.video_codec))),
             )
             .child(
@@ -399,7 +428,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadOptionsDialog", "Container")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("DownloadOptionsDialog", "Container")),
+                    )
                     .child(div().flex_1().child(Select::new(&self.container))),
             )
             .child(
@@ -439,7 +472,7 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("add-danmaku")
                     .checked(a.download_danmaku)
-                    .label(cx_of_catalog().tr("DanmakuSettingCard", "Download Danmaku"))
+                    .label(cx_of_catalog().tr("DanmakuSettingCard", "Download Danmaku")),
             )
             .child(
                 Switch::new("add-danmaku-embed")
@@ -450,13 +483,15 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("add-danmaku-delete")
                     .checked(a.delete_danmaku_after_embed)
-                    .label(cx_of_catalog().tr("DanmakuSettingCard", "Delete Danmaku After Embedding"))
+                    .label(
+                        cx_of_catalog().tr("DanmakuSettingCard", "Delete Danmaku After Embedding"),
+                    )
                     .disabled(!a.danmaku_delete_after_embed_enabled()),
             )
             .child(
                 Switch::new("add-subtitle")
                     .checked(a.download_subtitle)
-                    .label(cx_of_catalog().tr("SubtitleSettingCard", "Download Subtitles"))
+                    .label(cx_of_catalog().tr("SubtitleSettingCard", "Download Subtitles")),
             )
             .child(
                 Switch::new("add-subtitle-embed")
@@ -467,7 +502,10 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("add-subtitle-delete")
                     .checked(a.delete_subtitle_after_embed)
-                    .label(cx_of_catalog().tr("SubtitleSettingCard", "Delete Subtitles After Embedding"))
+                    .label(
+                        cx_of_catalog()
+                            .tr("SubtitleSettingCard", "Delete Subtitles After Embedding"),
+                    )
                     .disabled(!a.subtitle_delete_after_embed_enabled()),
             )
             .child(
@@ -475,7 +513,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("CoverSettingCard", "Cover Format")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("CoverSettingCard", "Cover Format")),
+                    )
                     .child(div().flex_1().flex().gap_1().children(
                         ["jpg", "png", "webp", "avif"].map(|t| {
                             let selected = self.model.additional.cover_type == t;
@@ -505,12 +547,12 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("add-chapter")
                     .checked(a.embed_chapter)
-                    .label(cx_of_catalog().tr("ChapterSettingCard", "Embed Chapters"))
+                    .label(cx_of_catalog().tr("ChapterSettingCard", "Embed Chapters")),
             )
             .child(
                 Switch::new("add-metadata")
                     .checked(a.download_metadata)
-                    .label(cx_of_catalog().tr("MetadataSettingCard", "Download Metadata"))
+                    .label(cx_of_catalog().tr("MetadataSettingCard", "Download Metadata")),
             )
     }
 
@@ -524,7 +566,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadPathSettingCard", "Download Path")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("DownloadPathSettingCard", "Download Path")),
+                    )
                     .child(div().flex_1().child(Input::new(&self.path))),
             )
             .child(
@@ -532,7 +578,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadFormatCard", "Output Container Format")))
+                    .child(
+                        div().w(px(160.)).child(
+                            cx_of_catalog().tr("DownloadFormatCard", "Output Container Format"),
+                        ),
+                    )
                     .child(div().flex_1().child(Select::new(&self.container))),
             )
             .child(
@@ -547,7 +597,10 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("download-show-dialog")
                     .checked(self.model.download.show_dialog)
-                    .label(cx_of_catalog().tr("DownloadSettingsPage", "Automatically show this dialog"))
+                    .label(
+                        cx_of_catalog()
+                            .tr("DownloadSettingsPage", "Automatically show this dialog"),
+                    )
                     .on_change(cx.listener(|this, v: &bool, _, cx| {
                         this.model.download.show_dialog = *v;
                         cx.notify();
@@ -558,7 +611,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadOptionsDialog", "Metadata format")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("DownloadOptionsDialog", "Metadata format")),
+                    )
                     .child(
                         div()
                             .flex_1()
@@ -570,7 +627,11 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadOptionsDialog", "Naming rules")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("DownloadOptionsDialog", "Naming rules")),
+                    )
                     .child(div().flex_1().flex().flex_col().gap_1().children(
                         self.model.download.rule_choices.iter().map(|c| {
                             let chosen = c
@@ -578,7 +639,11 @@ impl DownloadOptionsDialog {
                                 .iter()
                                 .find(|(_, id)| Some(id) == c.selected.as_ref())
                                 .map(|(name, _)| name.clone())
-                            .unwrap_or_else(|| cx_of_catalog().tr("NamingConventionCard", "Not available").into());
+                                .unwrap_or_else(|| {
+                                    cx_of_catalog()
+                                        .tr("NamingConventionCard", "Not available")
+                                        .into()
+                                });
                             div().child(format!("type {} → {}", c.type_id, chosen))
                         }),
                     )),
@@ -588,21 +653,28 @@ impl DownloadOptionsDialog {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("DownloadOptionsDialog", "Filename preview")))
                     .child(
-                        div().flex_1().text_color(cx.theme().muted_foreground).child(
-                            self.model
-                                .filename_preview(
-                                    &self.rule_store,
-                                    self.model
-                                        .download
-                                        .rule_choices
-                                        .first()
-                                        .map(|c| c.type_id)
-                                        .unwrap_or(0),
-                                )
-                                .unwrap_or_default(),
-                        ),
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("DownloadOptionsDialog", "Filename preview")),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(
+                                self.model
+                                    .filename_preview(
+                                        &self.rule_store,
+                                        self.model
+                                            .download
+                                            .rule_choices
+                                            .first()
+                                            .map(|c| c.type_id)
+                                            .unwrap_or(0),
+                                    )
+                                    .unwrap_or_default(),
+                            ),
                     ),
             )
     }
@@ -672,7 +744,9 @@ impl DownloadOptionsDialog {
                     .items_center()
                     .gap_1()
                     .child(div().w(px(160.)).child(if is_file {
-                        cx_of_catalog().tr("RuleBuilderWidget", "File name").to_string()
+                        cx_of_catalog()
+                            .tr("RuleBuilderWidget", "File name")
+                            .to_string()
                     } else {
                         let t = cx_of_catalog().tr("RuleBuilderWidget", "directory {index}");
                         t.replace("{index}", &li.to_string())
@@ -728,7 +802,11 @@ impl DownloadOptionsDialog {
                 return div()
                     .flex()
                     .items_center()
-                    .child(div().w(px(160.)).child(cx_of_catalog().tr("RuleBuilderWidget", "text fragment")))
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("RuleBuilderWidget", "text fragment")),
+                    )
                     .child(
                         Button::new(gpui_kit::SharedString::from(format!(
                             "remove-frag-{li}-{fi}"
@@ -745,11 +823,19 @@ impl DownloadOptionsDialog {
                 .flex()
                 .items_center()
                 .gap_1()
-                .child(div().w(px(160.)).child(cx_of_catalog().tr("RuleBuilderWidget", "format ({variable})").replace("{variable}", &variable)))
+                .child(
+                    div().w(px(160.)).child(
+                        cx_of_catalog()
+                            .tr("RuleBuilderWidget", "format ({variable})")
+                            .replace("{variable}", &variable),
+                    ),
+                )
                 .children(presets.iter().enumerate().map(|(pi, spec)| {
                     Button::new(gpui_kit::SharedString::from(format!("spec-{li}-{fi}-{pi}")))
                         .label(if spec.is_empty() {
-                            cx_of_catalog().tr("RuleBuilderWidget", "default").to_string()
+                            cx_of_catalog()
+                                .tr("RuleBuilderWidget", "default")
+                                .to_string()
                         } else {
                             spec.to_string()
                         })
@@ -787,7 +873,10 @@ impl DownloadOptionsDialog {
                         .gap_1()
                         .child(
                             Button::new(gpui_kit::SharedString::from(format!("add-var-{li}-{fi}")))
-                                .label(cx_of_catalog().tr("RuleBuilderWidget", "Insert title variable"))
+                                .label(
+                                    cx_of_catalog()
+                                        .tr("RuleBuilderWidget", "Insert title variable"),
+                                )
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.rule_builder.add_variable(li, "leaf_title".into());
                                     cx.notify();
@@ -818,17 +907,16 @@ impl DownloadOptionsDialog {
                         cx.notify();
                     })),
             )
-            .child(
-                div()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(match &self.rule_builder.unsupported {
-                        Some(reason) => {
-                            let t = cx_of_catalog().tr("RuleBuilderWidget", "rule not editable: {reason}");
-                            t.replace("{reason}", &reason.reason)
-                        }
-                        None => self.rule_builder.rule(),
-                    }),
-            )
+            .child(div().text_color(cx.theme().muted_foreground).child(
+                match &self.rule_builder.unsupported {
+                    Some(reason) => {
+                        let t =
+                            cx_of_catalog().tr("RuleBuilderWidget", "rule not editable: {reason}");
+                        t.replace("{reason}", &reason.reason)
+                    }
+                    None => self.rule_builder.rule(),
+                },
+            ))
     }
 
     /// `DownloadPreviewBar`: colored tags for the selected content kinds,
@@ -939,7 +1027,8 @@ pub fn open_download_options(
         let spawn_dialog = dialog.clone();
         window
             .spawn(cx, async move |cx: &mut gpui_kit::AsyncWindowContext| {
-                let _tokio = crate::bootstrap::tokio_context();
+                // No EnterGuard here (see bootstrap::on_runtime): the
+                // whole fetch walk runs on the shared tokio runtime.
                 let Ok(client) = network::HttpClient::new(network::ClientOptions {
                     user_agent,
                     proxy: network::ProxyConfig::none(),
@@ -950,39 +1039,50 @@ pub fn open_download_options(
                 };
                 auth::seed_client_cookies(&client, &auth_state);
                 let apis = parsers::playurl::PlayurlApis::default();
-                let mut preview = parsers::preview::Preview::new(priorities);
-                let mut adopted = false;
-                for item in &candidates {
-                    if adopted {
-                        break;
+                let m = cx
+                    .update(|_, cx| spawn_dialog.read(cx).model.media.clone())
+                    .ok();
+                let (info, video, audio) = crate::bootstrap::on_runtime(move || async move {
+                    let mut preview = parsers::preview::Preview::new(priorities);
+                    let mut adopted = false;
+                    for item in &candidates {
+                        if adopted {
+                            break;
+                        }
+                        let Ok(fetched) =
+                            parsers::playurl::fetch_media_info(&client, &apis, item, None).await
+                        else {
+                            continue;
+                        };
+                        if preview
+                            .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
+                            .await
+                            .is_ok()
+                            && !preview.info.error_occurred
+                        {
+                            adopted = true;
+                        }
                     }
-                    let Ok(fetched) =
-                        parsers::playurl::fetch_media_info(&client, &apis, item, None).await
-                    else {
-                        continue;
+                    if !adopted {
+                        return (None, None, None);
+                    }
+                    let Some(m) = m else {
+                        return (None, None, None);
                     };
-                    if preview
-                        .start(item.attribute, &item.bvid, item.cid, async { Ok(fetched) })
+                    let video = preview
+                        .query_video(&client, &apis, m.video_quality_id, m.video_codec_id)
                         .await
-                        .is_ok()
-                        && !preview.info.error_occurred
-                    {
-                        adopted = true;
-                    }
-                }
-                if !adopted {
-                    return;
-                }
-                let Ok(m) = cx.update(|_, cx| spawn_dialog.read(cx).model.media.clone()) else {
+                        .ok()
+                        .flatten();
+                    let audio = preview.query_audio(m.audio_quality_id);
+                    (Some(preview.info), video, audio)
+                })
+                .await
+                .map(|(i, v, a)| (i, Some(v), Some(a)))
+                .unwrap_or((None, None, None));
+                let (Some(info), Some(video), Some(audio)) = (info, video, audio) else {
                     return;
                 };
-                let video = preview
-                    .query_video(&client, &apis, m.video_quality_id, m.video_codec_id)
-                    .await
-                    .ok()
-                    .flatten();
-                let audio = preview.query_audio(m.audio_quality_id);
-                let info = preview.info.clone();
                 _ = cx.update(|window, cx| {
                     spawn_dialog.update(cx, |d, cx| {
                         d.apply_media_choices(
