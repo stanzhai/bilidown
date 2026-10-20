@@ -89,9 +89,13 @@ impl DownloadsScreen {
     }
 
     /// Live in-frame tick (the 500ms poll's fast lane): fold the running
-    /// engines' snapshots straight into the rows — progress, speed, and
-    /// the pause the DB write may still be coalescing. Merge stages
-    /// progress through the writer thread, which the poll picks up.
+    /// engines' snapshots straight into the rows — progress and the pause
+    /// the DB write may still be coalescing. Speed is NOT folded: the
+    /// engine never computes it (its snapshot speed stays 0), so folding
+    /// it here blanked the row between polls — the speed-text flicker
+    /// (issue 42). The pipeline sampler owns speed via the DB lane.
+    /// Merge stages progress through the writer thread, which the poll
+    /// picks up.
     pub fn fold_engine_snapshots(&mut self, manager: &tasks::TaskManager) {
         let mut changed = false;
         for task in self.model.downloading.tasks.iter_mut() {
@@ -107,7 +111,6 @@ impl DownloadsScreen {
                 continue; // terminal states land via the DB poll
             }
             let downloaded = state.downloaded_size as i64;
-            let speed = (state.speed as i64).max(0);
             let progress = if state.status == downloader::TaskStatus::Paused {
                 task.Download.progress
             } else {
@@ -116,12 +119,10 @@ impl DownloadsScreen {
             let paused = state.status == downloader::TaskStatus::Paused;
             if task.Download.downloaded_size != downloaded
                 || task.Download.progress != progress
-                || task.Download.speed != speed
                 || (paused && task.Download.status != st::PAUSED)
             {
                 task.Download.downloaded_size = downloaded;
                 task.Download.progress = progress;
-                task.Download.speed = speed;
                 if paused {
                     task.Download.status = st::PAUSED;
                 }

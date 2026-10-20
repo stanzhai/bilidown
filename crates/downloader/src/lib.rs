@@ -525,7 +525,6 @@ impl DownloadEngine {
         drop(progress);
         let mut s = self.state.lock();
         s.downloaded_size = total;
-        s.speed = 0;
     }
 
     async fn sleep_interruptible(&self, mut total: Duration, _: &DownloadEngine) -> bool {

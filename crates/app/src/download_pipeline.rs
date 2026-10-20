@@ -456,14 +456,15 @@ pub async fn run_task(
             return PipelineOutcome::err(&task_id, download_status::FAILED, "engine start failed");
         };
         // Live progress: sample the engine while it runs and persist
-        // progress/downloaded_size (speed as a byte delta per window —
-        // the engine itself never computes it).
+        // progress/speed/downloaded_size (the engine itself never
+        // computes speed — it's a display concern of this sampler).
         let sampler = tokio::spawn({
             let manager = manager.clone();
             let task = task.clone();
             let control = control.clone();
             async move {
                 let mut last_bytes = control.snapshot().downloaded_size;
+                let mut smooth: f64 = 0.0;
                 let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
                 tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                 loop {
@@ -472,12 +473,19 @@ pub async fn run_task(
                     if snap.downloaded_size == last_bytes {
                         continue;
                     }
-                    let speed = snap.downloaded_size.saturating_sub(last_bytes) * 2; // 0.5s window
+                    let inst = snap.downloaded_size.saturating_sub(last_bytes) as f64 * 2.0; // 0.5s window
                     last_bytes = snap.downloaded_size;
+                    // EMA (Python 每秒采样直接显示; 0.5s 窗口的瞬时差分
+                    // 噪声大, 平滑掉显示层的数字跳动, 不影响任何决策路径)
+                    smooth = if smooth == 0.0 {
+                        inst
+                    } else {
+                        smooth * 0.6 + inst * 0.4
+                    };
                     let mut t = task.clone();
                     t.Download.downloaded_size = snap.downloaded_size as i64;
                     t.Download.progress = snap.progress() as i64;
-                    t.Download.speed = speed as i64;
+                    t.Download.speed = smooth as i64;
                     manager.update_async(&t);
                 }
             }

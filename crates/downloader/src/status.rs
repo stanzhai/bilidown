@@ -51,8 +51,6 @@ pub struct TaskState {
     pub downloaded_size: u64,
     /// Sum of all file sizes, known up front from the playurl parse.
     pub total_size: u64,
-    /// Bytes/second over the last measurement window.
-    pub speed: u64,
     /// Retry countdown in seconds (0 = none pending); mirrors the Python
     /// `AUTO_RETRY_PENDING` label contents.
     pub retry_remaining_secs: u64,
