@@ -8,7 +8,7 @@ pub mod session;
 pub mod wbi;
 
 pub use session::{
-    AuthError, AuthState, Session, login_cookie_entries, seed_client_cookies,
-    visitor_cookie_entries,
+    login_cookie_entries, seed_client_cookies, visitor_cookie_entries, AuthError, AuthState,
+    Session,
 };
 pub use wbi::{WbiKeyStore, WbiSigner};

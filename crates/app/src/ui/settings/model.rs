@@ -63,7 +63,8 @@ pub fn set_and_save(
 /// The rules saved in config (falling back to the built-ins when the value
 /// is missing or malformed — Python `load_rules` semantics).
 pub fn load_rules(cfg: &config::ConfigStore) -> Vec<RuleEntry> {
-    parse_rule_list(cfg.get("File Naming", "naming_rule_list").as_ref()).unwrap_or_else(default_entries)
+    parse_rule_list(cfg.get("File Naming", "naming_rule_list").as_ref())
+        .unwrap_or_else(default_entries)
 }
 
 /// Parse `naming_rule_list` from raw JSON.

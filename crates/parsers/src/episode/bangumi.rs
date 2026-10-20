@@ -21,7 +21,6 @@ pub fn bangumi_episode_type(category: &str) -> String {
     }
 }
 
-
 /// `update_info_data`: prepend the 正片 section built from `episodes`,
 /// then drop sections whose episodes lack bvid/cid (the "UP主陪你看"
 /// chapters). Returns `(sections, episode_number_map)` with the map

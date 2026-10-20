@@ -60,7 +60,10 @@ pub struct LockContents {
 
 impl LockContents {
     pub fn now() -> Self {
-        Self { pid: std::process::id(), started_unix_ms: unix_ms() }
+        Self {
+            pid: std::process::id(),
+            started_unix_ms: unix_ms(),
+        }
     }
 
     pub fn to_line(&self) -> String {
@@ -71,7 +74,10 @@ impl LockContents {
     /// files treat as unknown age so only staleness by mtime can save them.
     pub fn parse(s: &str) -> Option<Self> {
         let (pid, started) = s.trim().split_once(':')?;
-        Some(Self { pid: pid.parse().ok()?, started_unix_ms: started.parse().ok()? })
+        Some(Self {
+            pid: pid.parse().ok()?,
+            started_unix_ms: started.parse().ok()?,
+        })
     }
 }
 
@@ -84,13 +90,21 @@ pub fn unix_ms() -> u128 {
 
 /// Lock file path under the app-data dir (`locks/instance.lock`).
 pub fn lock_path() -> Option<PathBuf> {
-    dirs::data_dir().map(|d| d.join(config::APP_NAME).join("locks").join(INSTANCE_LOCK_NAME))
+    dirs::data_dir().map(|d| {
+        d.join(config::APP_NAME)
+            .join("locks")
+            .join(INSTANCE_LOCK_NAME)
+    })
 }
 
 /// O_EXCL-create the lock file. `Ok(true)` = acquired, `Ok(false)` = exists.
 fn try_create(path: &std::path::Path) -> std::io::Result<bool> {
     use std::io::ErrorKind;
-    match fs::OpenOptions::new().write(true).create_new(true).open(path) {
+    match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
         Ok(mut f) => f.write_all(LockContents::now().to_line().as_bytes()),
         Err(e) if e.kind() == ErrorKind::AlreadyExists => return Ok(false),
         Err(e) => return Err(e),
@@ -114,7 +128,9 @@ pub fn lock_is_stale(path: &std::path::Path, now_unix_ms: u128) -> bool {
     let contents = fs::read_to_string(path).ok();
     let parsed = contents.as_deref().and_then(LockContents::parse);
     let content_old = parsed.as_ref().is_some_and(|c| c.started_unix_ms <= cutoff);
-    let pid_dead = parsed.as_ref().is_some_and(|c| c.pid != 0 && !pid_is_alive(c.pid));
+    let pid_dead = parsed
+        .as_ref()
+        .is_some_and(|c| c.pid != 0 && !pid_is_alive(c.pid));
     mtime_old || content_old || pid_dead
 }
 
@@ -153,14 +169,17 @@ fn pid_is_alive(pid: u32) -> bool {
     {
         // kill(pid, 0): 0 = alive, ESRCH = no such process, EPERM =
         // alive but owned by someone else.
-        unsafe { libc::kill(pid as libc::pid_t, 0) == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) }
+        unsafe {
+            libc::kill(pid as libc::pid_t, 0) == 0
+                || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+        }
     }
 }
 
 /// Connect to the running instance's wake server and send `command`.
 /// Mirrors `Application.wake_existing_instance` (500 ms connect budget).
 pub fn wake_existing_instance(command: &str) -> bool {
-    use interprocess::local_socket::{GenericNamespaced, prelude::*};
+    use interprocess::local_socket::{prelude::*, GenericNamespaced};
     let Ok(name) = INSTANCE_SERVER_NAME.to_ns_name::<GenericNamespaced>() else {
         return false;
     };
@@ -183,7 +202,10 @@ impl AppMutex {
     pub fn create() -> Self {
         use windows_sys::Win32::Foundation::HANDLE;
         use windows_sys::Win32::System::Threading::CreateMutexW;
-        let wide: Vec<u16> = APP_MUTEX_NAME.encode_utf16().chain(std::iter::once(0)).collect();
+        let wide: Vec<u16> = APP_MUTEX_NAME
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
         let handle = unsafe { CreateMutexW(std::ptr::null(), 0, wide.as_ptr()) };
         Self((handle as HANDLE != 0).then_some(handle))
     }
@@ -246,7 +268,7 @@ static WAKE_SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 /// survives a crashed previous instance because interprocess removes the
 /// socket file on drop; `try_overwrite` covers the kill -9 leftover.
 pub fn start_wake_server(tx: Sender<WakeEvent>) -> anyhow::Result<()> {
-    use interprocess::local_socket::{GenericNamespaced, ListenerOptions, prelude::*};
+    use interprocess::local_socket::{prelude::*, GenericNamespaced, ListenerOptions};
     if WAKE_SERVER_RUNNING.swap(true, Ordering::SeqCst) {
         return Ok(()); // already up (Python: init_instance_server guard)
     }
@@ -339,13 +361,21 @@ impl AppInstance {
         }
 
         if !acquired {
-            let command = if ensure_running { COMMAND_ENSURE_RUNNING } else { COMMAND_ACTIVATE };
+            let command = if ensure_running {
+                COMMAND_ENSURE_RUNNING
+            } else {
+                COMMAND_ACTIVATE
+            };
             let woke = wake_existing_instance(command);
             return Ok(Err(decide(false, woke)));
         }
 
         start_wake_server(tx)?;
-        Ok(Ok(AppInstance { mutex, lock, released: false }))
+        Ok(Ok(AppInstance {
+            mutex,
+            lock,
+            released: false,
+        }))
     }
 
     /// Python `instance_lock.unlock()`: remove the lock file and release the
@@ -372,7 +402,10 @@ mod tests {
 
     #[test]
     fn lock_line_round_trips() {
-        let c = LockContents { pid: 4242, started_unix_ms: 1_700_000_000_000 };
+        let c = LockContents {
+            pid: 4242,
+            started_unix_ms: 1_700_000_000_000,
+        };
         assert_eq!(LockContents::parse(&c.to_line()), Some(c));
         assert_eq!(LockContents::parse("garbage"), None);
         assert_eq!(LockContents::parse("4242"), None);
@@ -385,12 +418,18 @@ mod tests {
         let now = 10_000_000_u128;
         fs::write(&p, "123:0").unwrap(); // started far before cutoff
         assert!(lock_is_stale(&p, now));
-        let fresh = LockContents { pid: std::process::id(), started_unix_ms: now - 1_000 };
+        let fresh = LockContents {
+            pid: std::process::id(),
+            started_unix_ms: now - 1_000,
+        };
         fs::write(&p, fresh.to_line()).unwrap();
         // Within the window AND the owning PID (this test process) is
         // alive → live.
         assert!(!lock_is_stale(&p, now));
-        assert!(lock_is_stale(&p, now + INSTANCE_LOCK_TIMEOUT_MS as u128 + 5_000));
+        assert!(lock_is_stale(
+            &p,
+            now + INSTANCE_LOCK_TIMEOUT_MS as u128 + 5_000
+        ));
     }
 
     #[test]
@@ -400,11 +439,17 @@ mod tests {
         // A fresh timestamp (within the window) but a PID that cannot
         // exist: the liveness probe must mark the lock stale so a
         // crashed instance never blocks the next launch.
-        let dead = LockContents { pid: 4_000_000, started_unix_ms: unix_ms() };
+        let dead = LockContents {
+            pid: 4_000_000,
+            started_unix_ms: unix_ms(),
+        };
         fs::write(&p, dead.to_line()).unwrap();
         assert!(lock_is_stale(&p, unix_ms()), "dead PID ⇒ stale");
         // PID 0 is never probed (kernel/unset sentinel) — only age rules.
-        let zero = LockContents { pid: 0, started_unix_ms: unix_ms() };
+        let zero = LockContents {
+            pid: 0,
+            started_unix_ms: unix_ms(),
+        };
         fs::write(&p, zero.to_line()).unwrap();
         assert!(!lock_is_stale(&p, unix_ms()));
     }
@@ -427,7 +472,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join(INSTANCE_LOCK_NAME);
         assert!(try_create(&p).unwrap());
-        let mut guard = AppInstance { mutex: AppMutex::create(), lock: p.clone(), released: false };
+        let mut guard = AppInstance {
+            mutex: AppMutex::create(),
+            lock: p.clone(),
+            released: false,
+        };
         guard.release();
         assert!(!p.exists(), "release removes the lock file");
         assert!(try_create(&p).unwrap(), "relaunch acquires immediately");
@@ -444,11 +493,18 @@ mod tests {
 
     #[test]
     fn command_words_map_to_wake_events() {
-        assert_eq!(WakeEvent::from_command(COMMAND_ACTIVATE), WakeEvent::Activate);
+        assert_eq!(
+            WakeEvent::from_command(COMMAND_ACTIVATE),
+            WakeEvent::Activate
+        );
         assert_eq!(
             WakeEvent::from_command(COMMAND_ENSURE_RUNNING),
             WakeEvent::EnsureRunning
         );
-        assert_eq!(WakeEvent::from_command(""), WakeEvent::Activate, "legacy default");
+        assert_eq!(
+            WakeEvent::from_command(""),
+            WakeEvent::Activate,
+            "legacy default"
+        );
     }
 }

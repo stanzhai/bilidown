@@ -37,6 +37,9 @@ const CTX_ERR: &str = "ERROR_MESSAGES";
 pub struct LoginState {
     pub handle: DialogHandle,
     pub cookie_handle: DialogHandle,
+    /// Window the dialog opened in — async login completion uses it to
+    /// close the dialog (QR/SMS success paths).
+    pub window: Option<gpui_kit::gpui::AnyWindowHandle>,
     pub model: LoginModel,
     pub cookie: CookieModel,
     pub qr_png: Option<Arc<Image>>,
@@ -58,6 +61,7 @@ impl LoginState {
         Self {
             handle: DialogHandle::new(false),
             cookie_handle: DialogHandle::new(false),
+            window: None,
             model: LoginModel::new(),
             cookie: CookieModel::new(),
             qr_png: None,
@@ -85,6 +89,22 @@ impl LoginState {
         }
     }
 
+    /// Close the login dialog + run the shell's success hook. Callers are
+    /// async spawns with no `Window`, so route through the handle saved
+    /// in `open` (ticket 40: the dialog used to float forever after a
+    /// successful login).
+    fn finish_login(window: Option<&gpui_kit::gpui::AnyWindowHandle>, cx: &mut gpui_kit::App) {
+        if let Some(window) = window {
+            let _ = window.update(cx, |view, window, cx| {
+                if let Ok(shell) = view.downcast::<crate::ui::Shell>() {
+                    shell.update(cx, |shell, cx| {
+                        shell.on_login_success(window, cx);
+                    });
+                }
+            });
+        }
+    }
+
     fn tr(cx: &Context<crate::ui::Shell>, context: &str, source: &str) -> String {
         let lang = cx.read_global::<crate::ui::ShellI18n, _>(|i18n, _| i18n.lang);
         catalog(lang.resolve()).tr(context, source).to_owned()
@@ -100,6 +120,7 @@ impl LoginState {
         if let Some(server) = self.server.take() {
             server.stop();
         }
+        self.window = Some(window.window_handle());
         self.generation += 1;
         self.handle.open(window, cx);
         self.start_qr(cx);
@@ -108,7 +129,11 @@ impl LoginState {
     /// Re-derive the input placeholders from the active language (ticket
     /// 36: `LoginState::new` bakes them once, so a language flip left
     /// stale strings until relaunch).
-    pub fn refresh_placeholders(&mut self, window: &mut Window, cx: &mut Context<crate::ui::Shell>) {
+    pub fn refresh_placeholders(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<crate::ui::Shell>,
+    ) {
         let tel = Self::tr(cx, CTX, "Enter phone number");
         let code = Self::tr(cx, CTX, "Enter verification code");
         let cookie = Self::tr(
@@ -116,9 +141,12 @@ impl LoginState {
             CTX_COOKIE,
             "SESSDATA=xxx;bili_jct=xxx;DedeUserID=xxx;DedeUserID__ckMd5=xxx",
         );
-        self.tel.update(cx, |s, cx| s.set_placeholder(tel, window, cx));
-        self.code.update(cx, |s, cx| s.set_placeholder(code, window, cx));
-        self.cookie_text.update(cx, |s, cx| s.set_placeholder(cookie, window, cx));
+        self.tel
+            .update(cx, |s, cx| s.set_placeholder(tel, window, cx));
+        self.code
+            .update(cx, |s, cx| s.set_placeholder(code, window, cx));
+        self.cookie_text
+            .update(cx, |s, cx| s.set_placeholder(cookie, window, cx));
     }
 
     /// Python `showEvent` → `QRCodeLogin.generate` + `start_polling`.
@@ -126,14 +154,14 @@ impl LoginState {
         let generation = self.generation;
         let endpoints = LoginEndpoints::default();
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
-            // Read the shell from the async context: at call time we are
-            // inside the Shell update lease (click handler), where a
-            // synchronous entity read would panic (double lease).
             let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
                 return;
             };
-            let Ok((png, key)) = controller::qr_start(&client, &endpoints).await else {
+            let Ok(Ok((png, key))) = crate::bootstrap::on_runtime(move || async move {
+                controller::qr_start(&client, &endpoints).await
+            })
+            .await
+            else {
                 return;
             };
             let _ = shell.update(cx, |shell, cx| {
@@ -155,8 +183,8 @@ impl LoginState {
         let generation = self.generation;
         let key = self.model.qr_key.clone();
         let endpoints = LoginEndpoints::default();
+        let window = self.window;
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             loop {
                 cx.background_executor()
                     .timer(std::time::Duration::from_secs(1))
@@ -190,7 +218,7 @@ impl LoginState {
                                 let text = Self::tr(cx, CTX, "Successfully logged in via QR code");
                                 shell.login.model.login_success(text.clone());
                                 shell.login.toast = Some(text);
-                                shell.on_login_success(cx);
+                                Self::finish_login(window.as_ref(), cx);
                                 return false;
                             }
                             s != QRCodeScanStatus::Expired
@@ -226,15 +254,18 @@ impl LoginState {
             return;
         }
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             // Same double-lease hazard as start_qr: this runs inside the
             // Shell's click-handler update, so read the client from the
             // async context instead.
             let Ok(client) = shell.read_with(cx, |shell, _| shell.auth_client.clone()) else {
                 return;
             };
-            match controller::captcha_start(&client).await {
-                Ok(server) => {
+            match crate::bootstrap::on_runtime(move || async move {
+                controller::captcha_start(&client).await
+            })
+            .await
+            {
+                Ok(Ok(server)) => {
                     let _ = shell.update(cx, |shell, cx| {
                         if let Some(old) = shell.login.server.replace(server) {
                             old.stop();
@@ -242,13 +273,14 @@ impl LoginState {
                         cx.notify();
                     });
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     let _ = shell.update(cx, |shell, cx| {
                         shell.login.model.fail(e.clone());
                         shell.login.toast = Some(e);
                         cx.notify();
                     });
                 }
+                Err(_) => {}
             }
         })
         .detach();
@@ -264,7 +296,6 @@ impl LoginState {
         let tel = self.model.tel.clone();
         let captcha_key = self.captcha_key.clone();
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let Ok((client, has_server)) = shell.read_with(cx, |shell, _| {
                 (shell.auth_client.clone(), shell.login.server.is_some())
             }) else {
@@ -273,15 +304,21 @@ impl LoginState {
             if !has_server {
                 return;
             }
-            let result = controller::sms_send_with_captcha(
-                client.as_ref(),
-                &endpoints,
-                &cid,
-                &tel,
-                solved,
-                &captcha_key,
-            )
-            .await;
+            let result = crate::bootstrap::on_runtime(move || async move {
+                controller::sms_send_with_captcha(
+                    client.as_ref(),
+                    &endpoints,
+                    &cid,
+                    &tel,
+                    solved,
+                    &captcha_key,
+                )
+                .await
+            })
+            .await
+            // JoinError (task panicked/cancelled) maps to the failure
+            // toast, same as a network error.
+            .unwrap_or_else(|e| Err(e.to_string()));
             let _ = shell.update(cx, |shell, cx| {
                 match result {
                     Ok(key) => {
@@ -339,8 +376,8 @@ impl LoginState {
         let tel = self.model.tel.clone();
         let code = self.model.code.clone();
         let captcha_key = self.captcha_key.clone();
+        let window = self.window;
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let Ok((mut state, user_agent, client)) = shell.read_with(cx, |shell, _| {
                 (
                     shell.auth_state.clone(),
@@ -350,26 +387,40 @@ impl LoginState {
             }) else {
                 return;
             };
-            let result = controller::sms_login_with(
-                client.as_ref(),
-                &endpoints,
-                &controller::SmsLoginForm {
-                    cid: &cid,
-                    tel: &tel,
-                    code: &code,
-                    captcha_key: &captcha_key,
+            let state_fallback = state.clone();
+            let (result, state) = crate::bootstrap::on_runtime(move || async move {
+                let result = controller::sms_login_with(
+                    client.as_ref(),
+                    &endpoints,
+                    &controller::SmsLoginForm {
+                        cid: &cid,
+                        tel: &tel,
+                        code: &code,
+                        captcha_key: &captcha_key,
+                    },
+                    &mut state,
+                    &user_agent,
+                )
+                .await;
+                (result, state)
+            })
+            .await
+            // JoinError (task panicked/cancelled) maps to the failure
+            // toast, same as a network error; the pre-call state clone
+            // stands in (login failed, nothing was mutated).
+            .map_or_else(
+                |_: tokio::task::JoinError| (Err(String::new()), state_fallback),
+                |(r, s)| {
+                    r.map(|()| (Ok(()), s))
+                        .unwrap_or_else(|e| (Err(e), auth::AuthState::default()))
                 },
-                &mut state,
-                &user_agent,
-            )
-            .await;
+            );
             let _ = shell.update(cx, |shell, cx| match result {
                 Ok(()) => {
                     shell.set_auth_state(state, cx);
                     let text = Self::tr(cx, CTX, "Successfully logged in via SMS");
                     shell.login.model.login_success(text.clone());
-                    shell.login.toast = Some(text);
-                    shell.on_login_success(cx);
+                    Self::finish_login(window.as_ref(), cx);
                 }
                 Err(e) => {
                     shell.login.model.fail(e.clone());
@@ -390,8 +441,8 @@ impl LoginState {
         }
         let endpoints = LoginEndpoints::default();
         let text = self.cookie.text.clone();
+        let window = self.window;
         cx.spawn(async move |shell, cx| {
-            let _tokio = crate::bootstrap::tokio_context();
             let Ok((mut state, user_agent, client, wbi)) = shell.read_with(cx, |shell, _| {
                 (
                     shell.auth_state.clone(),
@@ -402,15 +453,39 @@ impl LoginState {
             }) else {
                 return;
             };
-            let result = controller::cookie_verify(
-                client.as_ref(),
-                &endpoints,
-                &text,
-                &wbi,
-                &mut state,
-                &user_agent,
-            )
-            .await;
+            let state_fallback = state.clone();
+            let (result, state) = crate::bootstrap::on_runtime(move || async move {
+                let result = controller::cookie_verify(
+                    client.as_ref(),
+                    &endpoints,
+                    &text,
+                    &wbi,
+                    &mut state,
+                    &user_agent,
+                )
+                .await;
+                (result, state)
+            })
+            .await
+            // JoinError (task panicked/cancelled) takes the generic error
+            // arm below — the same toast a network failure gets.
+            .map_or_else(
+                |_: tokio::task::JoinError| {
+                    (
+                        Err(auth::login::CookieLoginError::Http(
+                            network::HttpError::Status {
+                                status: Default::default(),
+                                url: String::new(),
+                            },
+                        )),
+                        state_fallback,
+                    )
+                },
+                |(r, s)| match r {
+                    Ok(o) => (Ok(o), s),
+                    Err(e) => (Err(e), auth::AuthState::default()),
+                },
+            );
             let _ = shell.update(cx, |shell, cx| {
                 use auth::login::{CookieLoginError, CookieLoginOutcome};
                 match result {
@@ -420,8 +495,7 @@ impl LoginState {
                         shell.login.cookie.accept();
                         shell.login.model.login_success(text.clone());
                         shell.login.toast = Some(text);
-                        // the cookie dialog auto-closes via `CookieModel.accepted`
-                        shell.on_login_success(cx);
+                        Self::finish_login(window.as_ref(), cx);
                     }
                     Ok(CookieLoginOutcome::Invalid) => {
                         let msg = Self::tr(cx, CTX_ERR, "Cookies are invalid or expired");

@@ -16,7 +16,9 @@ fn client() -> HttpClient {
 }
 
 fn value_of<'a>(jar: &'a [network::PersistedCookie], name: &str) -> Option<&'a str> {
-    jar.iter().find(|c| c.name == name).map(|c| c.value.as_str())
+    jar.iter()
+        .find(|c| c.name == name)
+        .map(|c| c.value.as_str())
 }
 
 fn fake_state(is_login: bool) -> auth::AuthState {

@@ -321,7 +321,10 @@ pub async fn logout(client: &HttpClient, session: &mut Session<'_>) -> Result<()
 pub async fn fetch_uname(client: &HttpClient, nav_url: &str) -> Result<String, AuthError> {
     let response: serde_json::Value = client.get_json(nav_url, &[]).await?;
     check_response(&response)?;
-    Ok(response["data"]["uname"].as_str().unwrap_or_default().to_owned())
+    Ok(response["data"]["uname"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned())
 }
 
 fn check_response(response: &serde_json::Value) -> Result<(), AuthError> {
@@ -364,10 +367,12 @@ mod tests {
         let server = wiremock::MockServer::start().await;
         wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/x/web-interface/nav"))
-            .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "code": 0,
-                "data": {"isLogin": true, "uname": "bili用户"}
-            })))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "code": 0,
+                    "data": {"isLogin": true, "uname": "bili用户"}
+                })),
+            )
             .mount(&server)
             .await;
 
@@ -376,19 +381,87 @@ mod tests {
         assert_eq!(fetch_uname(&client, &url).await.unwrap(), "bili用户");
     }
 
+    /// The login flows land their cookies via `Set-Cookie` responses,
+    /// which only the live jar sees — `capture_login_cookies` must harvest
+    /// from there, not the persisted list (issue: logged-in button showed
+    /// "Log In" forever because the capture wrote empty cookies).
+    #[tokio::test]
+    async fn capture_login_cookies_reads_jar_after_set_cookie_response() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(wiremock::matchers::path("/x/web-interface/nav"))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "code": 0,
+                        "data": {"isLogin": true, "uname": "u"}
+                    }))
+                    // No Domain attribute: the cookie is host-only, so the
+                    // mock server's own host keeps it in the jar.
+                    .append_header("set-cookie", "SESSDATA=sd; Path=/")
+                    .append_header("set-cookie", "bili_jct=jct; Path=/")
+                    .append_header("set-cookie", "DedeUserID=7; Path=/")
+                    .append_header("set-cookie", "DedeUserID__ckMd5=ck; Path=/"),
+            )
+            .mount(&server)
+            .await;
+
+        // Harvest domain must match the mock server's host (the jar cookie
+        // is host-only); production passes "bilibili.com".
+        let host = server.uri().trim_start_matches("http://").to_owned();
+        let url = swap_host(crate::wbi::NAV_API, &server.uri());
+        let client = mock_client();
+        client
+            .get_json::<serde_json::Value>(&url, &[])
+            .await
+            .unwrap();
+
+        let mut state = crate::session::AuthState::default();
+        let mut session = crate::session::Session {
+            client: &client,
+            domain: host.as_str(),
+            state: &mut state,
+            user_agent: String::new(),
+            now: 0,
+            now_ms: 0,
+            rng_seed: 0,
+        };
+        session.capture_login_cookies();
+        assert!(state.is_login);
+        assert_eq!(state.sessdata, "sd");
+        assert_eq!(state.bili_jct, "jct");
+        assert_eq!(state.dede_user_id, "7");
+        assert_eq!(state.dede_user_id_ck_md5, "ck");
+    }
+
+    /// `is_login=true` with an empty SESSDATA is a stale flag — the
+    /// config loader normalizes it to logged-out.
     #[test]
-    fn uname_round_trips_through_config_file() {
+    fn config_load_normalizes_stale_is_login_flag() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
-        let state = crate::session::AuthState {
+        let stale = crate::session::AuthState {
             is_login: true,
             uname: "bili用户".to_owned(),
             ..Default::default()
         };
-        state.save_to_config_file(&path).unwrap();
+        stale.save_to_config_file(&path).unwrap();
+        assert!(
+            !crate::session::AuthState::from_config_file(&path)
+                .unwrap()
+                .is_login
+        );
 
+        let real = crate::session::AuthState {
+            is_login: true,
+            sessdata: "sd".to_owned(),
+            uname: "bili用户".to_owned(),
+            ..Default::default()
+        };
+        real.save_to_config_file(&path).unwrap();
         let loaded = crate::session::AuthState::from_config_file(&path).unwrap();
-        assert_eq!(loaded.uname, "bili用户");
         assert!(loaded.is_login);
+        assert_eq!(loaded.sessdata, "sd");
+        assert_eq!(loaded.uname, "bili用户");
     }
 }

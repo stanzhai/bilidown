@@ -55,10 +55,7 @@ async fn start_generates_and_persists_token_then_serves() {
     // 32 bytes → 43 URL-safe base64 chars, generated not configured.
     assert_eq!(token.len(), 43);
     // Persisted for the next run.
-    assert_eq!(
-        shared.lock().get("MCP", "mcp_token"),
-        Some(json!(token))
-    );
+    assert_eq!(shared.lock().get("MCP", "mcp_token"), Some(json!(token)));
 
     // Live round trip: tools/list over the loopback with the Bearer token.
     let body = json!({

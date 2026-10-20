@@ -50,6 +50,14 @@ pub fn swap_host(api: &str, base: &str) -> String {
     format!("{base}{path}")
 }
 
+/// Host[:port] of an `http(s)://` URL — where its `Set-Cookie`s live.
+fn url_host(url: &str) -> Option<String> {
+    let rest = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))?;
+    Some(rest.split('/').next()?.to_owned())
+}
+
 /// One QR round: generate + paint. Returns `(png, qrcode_key)`.
 pub async fn qr_start(
     client: &HttpClient,
@@ -98,7 +106,10 @@ pub async fn qr_poll_once(
     let code = response["data"]["code"].as_i64().unwrap_or(86038);
     let status = login::QRCodeScanStatus::from_code(code);
     if status == login::QRCodeScanStatus::Success {
-        let mut session = session_for(client, state, user_agent);
+        // Harvest at the host the poll response (and its Set-Cookies)
+        // came from — `session_for`'s default assumes bilibili.com.
+        let host = url_host(&endpoints.qr_poll).unwrap_or_else(|| "bilibili.com".into());
+        let mut session = session_for_domain(client, state, user_agent, &host);
         session.capture_login_cookies();
     }
     Ok(status)
@@ -271,6 +282,18 @@ pub fn session_for<'a>(
     state: &'a mut AuthState,
     user_agent: &str,
 ) -> Session<'a> {
+    session_for_domain(client, state, user_agent, "bilibili.com")
+}
+
+/// `session_for` with the cookie-capture domain made explicit: tests
+/// point it at the mock host so host-only `Set-Cookie`s land where the
+/// harvest looks.
+pub fn session_for_domain<'a>(
+    client: &'a HttpClient,
+    state: &'a mut AuthState,
+    user_agent: &str,
+    domain: &'a str,
+) -> Session<'a> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
@@ -283,7 +306,7 @@ pub fn session_for<'a>(
         client,
         state,
         user_agent: user_agent.to_owned(),
-        domain: "bilibili.com",
+        domain,
         now,
         now_ms,
         rng_seed: 0,
@@ -374,13 +397,10 @@ mod tests {
                         "code": 0,
                         "data": {"code": 0, "url": "https://www.bilibili.com/", "refresh_token": "rt"}
                     }))
-                    .append_header("set-cookie", "SESSDATA=abc; Path=/; Domain=.bilibili.com")
-                    .append_header("set-cookie", "bili_jct=csrf; Path=/; Domain=.bilibili.com")
-                    .append_header("set-cookie", "DedeUserID=42; Path=/; Domain=.bilibili.com")
-                    .append_header(
-                        "set-cookie",
-                        "DedeUserID__ckMd5=md5; Path=/; Domain=.bilibili.com",
-                    ),
+                    .append_header("set-cookie", "SESSDATA=abc; Path=/")
+                    .append_header("set-cookie", "bili_jct=csrf; Path=/")
+                    .append_header("set-cookie", "DedeUserID=42; Path=/")
+                    .append_header("set-cookie", "DedeUserID__ckMd5=md5; Path=/"),
             )
             .mount(&server)
             .await;

@@ -72,10 +72,7 @@ impl ParseListState {
                         .filter_map(|v| {
                             Some(ColumnEntry {
                                 attr_key: v.get("attr_key")?.as_str()?.to_owned(),
-                                width: v
-                                    .get("width")
-                                    .and_then(Value::as_i64)
-                                    .unwrap_or(0),
+                                width: v.get("width").and_then(Value::as_i64).unwrap_or(0),
                                 show: v.get("show").and_then(Value::as_bool).unwrap_or(true),
                             })
                         })

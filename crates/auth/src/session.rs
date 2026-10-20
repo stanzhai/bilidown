@@ -80,11 +80,18 @@ pub struct AuthState {
 }
 
 impl AuthState {
-    /// Read the `Cookie` section out of a config.json.
+    /// Read the `Cookie` section out of a config.json. A persisted
+    /// `is_login=true` with no session cookie is a stale flag (the
+    /// pre-harvest login flow set it without capturing SESSDATA); there
+    /// is nothing to log out of, so normalize to logged-out.
     pub fn from_config_file(path: &Path) -> Option<Self> {
         let text = std::fs::read_to_string(path).ok()?;
         let root: serde_json::Value = serde_json::from_str(&text).ok()?;
-        serde_json::from_value(root.get("Cookie")?.clone()).ok()
+        let mut state: Self = serde_json::from_value(root.get("Cookie")?.clone()).ok()?;
+        if state.is_login && state.sessdata.is_empty() {
+            state.is_login = false;
+        }
+        Some(state)
     }
 
     /// Write back into the config.json's `Cookie` key, preserving every
@@ -296,12 +303,29 @@ impl Session<'_> {
         }
     }
 
-    /// Python `update_cookies` after login success: snapshot the client
-    /// jar and persist the four login cookies + `is_login=true`.
+    /// Python `update_cookies` after login success: snapshot the live
+    /// client jar (login flows land their cookies via `Set-Cookie`
+    /// responses, which only the jar sees) and persist the four login
+    /// cookies + `is_login=true`; explicit `set_cookie` provisioning is
+    /// the fallback.
     pub fn capture_login_cookies(&mut self) {
-        let jar = self.client.persisted_cookie_snapshot();
+        let host = self.domain.trim_start_matches('.');
+        let header = self.client.jar_cookie_header(&format!("https://{host}/"));
+        let from_header = |name: &str| {
+            header
+                .split("; ")
+                .find_map(|pair| pair.split_once('=').filter(|(k, _)| *k == name))
+                .map(|(_, v)| v.to_owned())
+                .unwrap_or_default()
+        };
+        let persisted = self.client.persisted_cookie_snapshot();
         let get = |name: &str| {
-            jar.iter()
+            let harvested = from_header(name);
+            if !harvested.is_empty() {
+                return harvested;
+            }
+            persisted
+                .iter()
                 .find(|c| c.name == name)
                 .map(|c| c.value.clone())
                 .unwrap_or_default()

@@ -3,8 +3,7 @@
 
 use config::ConfigStore;
 use services::window_state::{
-    default_state, save_state, saved_state, ScreenRect, WindowState, DEFAULT_HEIGHT,
-    DEFAULT_WIDTH,
+    default_state, save_state, saved_state, ScreenRect, WindowState, DEFAULT_HEIGHT, DEFAULT_WIDTH,
 };
 
 fn full_screen() -> Vec<ScreenRect> {
