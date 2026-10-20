@@ -516,6 +516,9 @@ pub async fn run_task(
             downloader::TaskStatus::Paused => {
                 manager.scheduler.release(&task_id);
                 task.Download.status = download_status::PAUSED;
+                task.Download.downloaded_size = state.downloaded_size as i64;
+                task.Download.progress = state.progress() as i64;
+                task.Download.speed = 0;
                 manager.update_async(&task);
                 return PipelineOutcome::ok(&task_id, download_status::PAUSED);
             }
@@ -990,6 +993,228 @@ mod tests {
         assert_eq!(
             ranges_after_second, ranges_before_second,
             "resumed run re-downloaded confirmed chunks"
+        );
+    }
+
+    /// Regression (issue 43): pausing must persist the engine's final
+    /// progress (the UI row kept showing 0 downloaded after pause), and
+    /// the resumed run must continue from the confirmed offset instead
+    /// of restarting the file. 8 MiB = 2 chunks; chunk 1's response is
+    /// delayed so pause lands with chunk 0 finished and committed,
+    /// chunk 1 unstarted.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn paused_run_persists_progress_and_resumes_from_confirmed_offset() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let mut store =
+            ConfigStore::with_paths(tmp.path().join("config"), tmp.path().join("downloads"));
+        let ffmpeg = producing_ffmpeg(tmp.path());
+        store.set("Advanced", "ffmpeg_source", json!("custom"));
+        store.set(
+            "Advanced",
+            "custom_ffmpeg_path",
+            json!(ffmpeg.to_string_lossy().to_string()),
+        );
+        let server = MockServer::start().await;
+        let netloc = server.uri().trim_start_matches("http://").to_owned();
+        store.set(
+            "Advanced",
+            "cn_cdn_server_list",
+            json!([{ "host": netloc, "provider": "TEST" }]),
+        );
+        store.save().unwrap();
+        let store = Arc::new(store);
+        let manager =
+            Arc::new(TaskManager::open(tmp.path().join("task.db"), store.clone()).unwrap());
+        let apis = PlayurlApis::with_base(&server.uri());
+
+        Mock::given(method("GET"))
+            .and(path("/x/player/wbi/playurl"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(dash_payload(&server.uri())))
+            .mount(&server)
+            .await;
+
+        let chunk = 4 * 1024 * 1024usize;
+        let video = Arc::new(body(0x5eed, 2 * chunk as u64));
+        // Full-chunk-0 requests (`bytes=0-…`): the probe is HEAD-only
+        // here (HEAD succeeds with a large size), so every ranged GET
+        // starting at 0 is a chunk download from zero.
+        let from_zero = Arc::new(AtomicUsize::new(0));
+        Mock::given(method("HEAD"))
+            .and(path("/video.m4s"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "video/mp4")
+                    .insert_header("content-length", video.len().to_string()),
+            )
+            .mount(&server)
+            .await;
+        {
+            let video = video.clone();
+            let from_zero = from_zero.clone();
+            Mock::given(method("GET"))
+                .and(path("/video.m4s"))
+                .respond_with(move |req: &wiremock::Request| {
+                    let range = req
+                        .headers
+                        .get("range")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or_default()
+                        .to_owned();
+                    let (start, end) = match range.strip_prefix("bytes=") {
+                        Some(r) => match r.split_once('-') {
+                            Some((s, e)) => {
+                                (s.parse::<usize>().unwrap(), e.parse::<usize>().unwrap())
+                            }
+                            None => return ResponseTemplate::new(416),
+                        },
+                        None => {
+                            return ResponseTemplate::new(200)
+                                .set_body_bytes(video.as_ref().clone())
+                        }
+                    };
+                    if start == 0 {
+                        from_zero.fetch_add(1, Ordering::SeqCst);
+                    }
+                    let mut template = ResponseTemplate::new(206)
+                        .append_header(
+                            "Content-Range",
+                            format!("bytes {}-{}/{}", start, end, video.len()),
+                        )
+                        .set_body_bytes(video[start..=end].to_vec());
+                    // Chunk 1 responds late, so pausing while chunk 0 is
+                    // committed leaves chunk 1 with no bytes on disk.
+                    if start == chunk {
+                        template = template.set_delay(std::time::Duration::from_millis(500));
+                    }
+                    template
+                })
+                .mount(&server)
+                .await;
+        }
+
+        // Run 1: pause mid-download through the UI's own verb.
+        let mut task = dash_task(tmp.path(), 9999);
+        task.Download.type_ = download_type::VIDEO;
+        task.Download.merge_video_audio = false;
+        task.File.merge_file_ext = "mp4".into();
+        {
+            let mut db = manager.reader().unwrap();
+            db.add_tasks(std::slice::from_ref(&task), false).unwrap();
+        }
+        let client = wire_client();
+        let pipeline = tokio::spawn({
+            let manager = manager.clone();
+            let store = store.clone();
+            let wire = client.clone();
+            let apis = apis.clone();
+            let install_root = tmp.path().to_path_buf();
+            let task = task.clone();
+            async move { run_task(&manager, &store, &wire, &apis, install_root, task).await }
+        });
+
+        // Wait until chunk 0 is finished (finish_chunk commits its
+        // offset), then pause before chunk 1's delayed body arrives.
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let committed = manager
+                .scheduler
+                .snapshot("e2e1")
+                .map(|s| s.downloaded_size)
+                .unwrap_or(0);
+            if committed >= chunk as u64 {
+                break;
+            }
+            if pipeline.is_finished() {
+                let o = pipeline.await.unwrap();
+                panic!("pipeline exited before chunk 0: {o:?}");
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "chunk 0 never finished"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let mut ui_task = task.clone();
+        ui_task.Download.status = download_status::DOWNLOADING;
+        crate::ui::downloads::model::toggle_pause_resume(&manager, &mut ui_task);
+
+        let outcome = tokio::time::timeout(std::time::Duration::from_secs(10), pipeline)
+            .await
+            .expect("pipeline hung on pause")
+            .unwrap();
+        assert_eq!(
+            outcome.status,
+            download_status::PAUSED,
+            "{}",
+            outcome.message
+        );
+        manager.shutdown(5.0);
+
+        // The persisted row keeps the paused progress — the pre-fix
+        // pipeline overwrote it with a stale zero-progress snapshot.
+        let db = database::TaskDatabase::open(tmp.path().join("task.db")).unwrap();
+        let row = db
+            .query_task_by_id("e2e1", false)
+            .unwrap()
+            .expect("paused row persisted");
+        assert_eq!(row.Download.status, download_status::PAUSED);
+        assert!(
+            row.Download.downloaded_size >= chunk as i64,
+            "paused row lost downloaded_size: {}",
+            row.Download.downloaded_size
+        );
+        assert!(
+            row.Download.progress > 0 && row.Download.progress < 100,
+            "paused row progress: {}",
+            row.Download.progress
+        );
+        assert!(
+            row.Download
+                .files
+                .get("video")
+                .and_then(|f| f.get("chunk_offsets"))
+                .and_then(|o| o.as_object())
+                .is_some_and(|o| !o.is_empty()),
+            "paused row lost chunk_offsets"
+        );
+
+        // Run 2: resume through the same pipeline; chunk 0 must never be
+        // re-requested from zero.
+        let manager2 =
+            Arc::new(TaskManager::open(tmp.path().join("task.db"), store.clone()).unwrap());
+        let mut resumed = manager2
+            .query_by_id("e2e1")
+            .unwrap()
+            .expect("row persisted");
+        resumed.Download.status = download_status::QUEUED;
+        let outcome2 = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            run_task(
+                &manager2,
+                &store,
+                &client,
+                &apis,
+                tmp.path().to_path_buf(),
+                resumed,
+            ),
+        )
+        .await
+        .expect("resume hung");
+        assert_eq!(
+            outcome2.status,
+            download_status::COMPLETED,
+            "{}",
+            outcome2.message
+        );
+        manager2.shutdown(5.0);
+        assert_eq!(
+            from_zero.load(Ordering::SeqCst),
+            1,
+            "resumed run re-downloaded chunk 0 from zero"
         );
     }
 }
