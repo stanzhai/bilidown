@@ -333,6 +333,24 @@ impl AdditionalPage {
         self.cover_type = type_;
     }
 
+    /// `CoverSettingCard.on_change_download`: unchecking download-cover
+    /// force-clears attach (and delete follows the attach gate).
+    pub fn set_download_cover(&mut self, on: bool) {
+        if !on {
+            self.attach_cover = false;
+        }
+        self.download_cover = on;
+    }
+
+    /// `update_cover_option_states`: unchecking attach clears
+    /// delete-after-attach.
+    pub fn set_attach_cover(&mut self, on: bool) {
+        if !on {
+            self.delete_cover_after_attach = false;
+        }
+        self.attach_cover = on;
+    }
+
     /// `update_cover_option_states`.
     pub fn cover_attach_enabled(&self) -> bool {
         self.download_cover && self.cover_type != "avif"

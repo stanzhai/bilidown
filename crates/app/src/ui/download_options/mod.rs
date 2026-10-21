@@ -58,6 +58,8 @@ pub struct DownloadOptionsDialog {
     pub audio_quality: Entity<SelectState<SearchableVec<String>>>,
     pub video_codec: Entity<SelectState<SearchableVec<String>>>,
     pub container: Entity<SelectState<SearchableVec<String>>>,
+    pub danmaku_type: Entity<SelectState<SearchableVec<String>>>,
+    pub subtitle_type: Entity<SelectState<SearchableVec<String>>>,
     pub path: Entity<InputState>,
 }
 
@@ -104,6 +106,26 @@ impl DownloadOptionsDialog {
         );
         let container_items = vec!["mp4".to_string(), "mkv".to_string()];
         let container_sel = usize::from(model.download.video_container == "mkv");
+        // Python card formats (card.py:259-345); labels are the raw values,
+        // same as the cover-format buttons below.
+        let danmaku_items = vec!["xml".into(), "ass".into(), "json".into()];
+        let danmaku_sel = danmaku_items
+            .iter()
+            .position(|s| *s == model.additional.danmaku_type)
+            .unwrap_or(0);
+        let danmaku_type = mk(danmaku_items, danmaku_sel, window, cx);
+        let subtitle_items = vec![
+            "srt".into(),
+            "lrc".into(),
+            "txt".into(),
+            "ass".into(),
+            "json".into(),
+        ];
+        let subtitle_sel = subtitle_items
+            .iter()
+            .position(|s| *s == model.additional.subtitle_type)
+            .unwrap_or(0);
+        let subtitle_type = mk(subtitle_items, subtitle_sel, window, cx);
         let container = mk(container_items, container_sel, window, cx);
         let path_value = model.download.download_path.clone();
         let path = cx.new(|cx| {
@@ -131,6 +153,8 @@ impl DownloadOptionsDialog {
             audio_quality: aq,
             video_codec: vc,
             container,
+            danmaku_type,
+            subtitle_type,
             path,
         };
         subscribe_selects(&this, cx);
@@ -257,6 +281,28 @@ fn subscribe_selects(dialog: &DownloadOptionsDialog, cx: &mut Context<DownloadOp
     cx.subscribe(&container, |this, _, evt: &SelectEvent<_>, cx| {
         if let SelectEvent::Confirm(Some(label)) = evt {
             this.model.set_video_container(label.to_string());
+            cx.notify();
+        }
+    })
+    .detach();
+
+    // Changing the format re-evaluates the embed gating (xml/srt/… can't
+    // be embedded): the setter only records the value; `cx.notify()`
+    // re-renders the disabled states. No reset — Python keeps the embed
+    // switches checked and silently skips at runtime.
+    let danmaku_type = dialog.danmaku_type.clone();
+    cx.subscribe(&danmaku_type, |this, _, evt: &SelectEvent<_>, cx| {
+        if let SelectEvent::Confirm(Some(label)) = evt {
+            this.model.additional.danmaku_type = label.to_string();
+            cx.notify();
+        }
+    })
+    .detach();
+
+    let subtitle_type = dialog.subtitle_type.clone();
+    cx.subscribe(&subtitle_type, |this, _, evt: &SelectEvent<_>, cx| {
+        if let SelectEvent::Confirm(Some(label)) = evt {
+            this.model.additional.subtitle_type = label.to_string();
             cx.notify();
         }
     })
@@ -472,13 +518,33 @@ impl DownloadOptionsDialog {
             .child(
                 Switch::new("add-danmaku")
                     .checked(a.download_danmaku)
-                    .label(cx_of_catalog().tr("DanmakuSettingCard", "Download Danmaku")),
+                    .label(cx_of_catalog().tr("DanmakuSettingCard", "Download Danmaku"))
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.download_danmaku = *v;
+                        cx.notify();
+                    })),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("DanmakuSettingCard", "Danmaku Format")),
+                    )
+                    .child(div().flex_1().child(Select::new(&self.danmaku_type))),
             )
             .child(
                 Switch::new("add-danmaku-embed")
                     .checked(a.embed_danmaku)
                     .label(cx_of_catalog().tr("DanmakuSettingCard", "Embed Danmaku"))
-                    .disabled(!a.danmaku_embed_enabled()),
+                    .disabled(!a.danmaku_embed_enabled())
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.embed_danmaku = *v;
+                        cx.notify();
+                    })),
             )
             .child(
                 Switch::new("add-danmaku-delete")
@@ -486,18 +552,42 @@ impl DownloadOptionsDialog {
                     .label(
                         cx_of_catalog().tr("DanmakuSettingCard", "Delete Danmaku After Embedding"),
                     )
-                    .disabled(!a.danmaku_delete_after_embed_enabled()),
+                    .disabled(!a.danmaku_delete_after_embed_enabled())
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.delete_danmaku_after_embed = *v;
+                        cx.notify();
+                    })),
             )
             .child(
                 Switch::new("add-subtitle")
                     .checked(a.download_subtitle)
-                    .label(cx_of_catalog().tr("SubtitleSettingCard", "Download Subtitles")),
+                    .label(cx_of_catalog().tr("SubtitleSettingCard", "Download Subtitles"))
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.download_subtitle = *v;
+                        cx.notify();
+                    })),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .w(px(160.))
+                            .child(cx_of_catalog().tr("SubtitleSettingCard", "Subtitle Format")),
+                    )
+                    .child(div().flex_1().child(Select::new(&self.subtitle_type))),
             )
             .child(
                 Switch::new("add-subtitle-embed")
                     .checked(a.embed_subtitle)
                     .label(cx_of_catalog().tr("SubtitleSettingCard", "Embed Subtitles"))
-                    .disabled(!a.subtitle_embed_enabled()),
+                    .disabled(!a.subtitle_embed_enabled())
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.embed_subtitle = *v;
+                        cx.notify();
+                    })),
             )
             .child(
                 Switch::new("add-subtitle-delete")
@@ -506,7 +596,20 @@ impl DownloadOptionsDialog {
                         cx_of_catalog()
                             .tr("SubtitleSettingCard", "Delete Subtitles After Embedding"),
                     )
-                    .disabled(!a.subtitle_delete_after_embed_enabled()),
+                    .disabled(!a.subtitle_delete_after_embed_enabled())
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.delete_subtitle_after_embed = *v;
+                        cx.notify();
+                    })),
+            )
+            .child(
+                Switch::new("add-cover")
+                    .checked(a.download_cover)
+                    .label(cx_of_catalog().tr("CoverSettingCard", "Download Cover"))
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.set_download_cover(*v);
+                        cx.notify();
+                    })),
             )
             .child(
                 div()
@@ -536,23 +639,39 @@ impl DownloadOptionsDialog {
                 Switch::new("add-cover-attach")
                     .checked(a.attach_cover)
                     .label(cx_of_catalog().tr("CoverSettingCard", "Embed Cover"))
-                    .disabled(!a.cover_attach_enabled()),
+                    .disabled(!a.cover_attach_enabled())
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.set_attach_cover(*v);
+                        cx.notify();
+                    })),
             )
             .child(
                 Switch::new("add-cover-delete")
                     .checked(a.delete_cover_after_attach)
                     .label(cx_of_catalog().tr("CoverSettingCard", "Delete Cover After Embedding"))
-                    .disabled(!a.cover_delete_after_attach_enabled()),
+                    .disabled(!a.cover_delete_after_attach_enabled())
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.delete_cover_after_attach = *v;
+                        cx.notify();
+                    })),
             )
             .child(
                 Switch::new("add-chapter")
                     .checked(a.embed_chapter)
-                    .label(cx_of_catalog().tr("ChapterSettingCard", "Embed Chapters")),
+                    .label(cx_of_catalog().tr("ChapterSettingCard", "Embed Chapters"))
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.embed_chapter = *v;
+                        cx.notify();
+                    })),
             )
             .child(
                 Switch::new("add-metadata")
                     .checked(a.download_metadata)
-                    .label(cx_of_catalog().tr("MetadataSettingCard", "Download Metadata")),
+                    .label(cx_of_catalog().tr("MetadataSettingCard", "Download Metadata"))
+                    .on_change(cx.listener(|this, v: &bool, _, cx| {
+                        this.model.additional.download_metadata = *v;
+                        cx.notify();
+                    })),
             )
     }
 

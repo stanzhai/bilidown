@@ -100,6 +100,24 @@ fn avif_cover_forces_attach_off_and_gates_delete() {
     assert!(!m.additional.cover_delete_after_attach_enabled());
 }
 
+/// Python `CoverSettingCard`: unchecking download-cover force-clears
+/// attach; unchecking attach clears delete-after-attach. Checking never
+/// restores — the user re-ticks each box.
+#[test]
+fn cover_uncheck_cascades_clear_dependents() {
+    let mut m = open_model(&test_cfg());
+    m.additional.set_download_cover(true);
+    m.additional.set_attach_cover(true);
+    m.additional.delete_cover_after_attach = true;
+    m.additional.set_attach_cover(false);
+    assert!(!m.additional.delete_cover_after_attach);
+    assert!(m.additional.download_cover);
+    m.additional.set_download_cover(false);
+    assert!(!m.additional.attach_cover);
+    assert!(!m.additional.cover_attach_enabled());
+    assert!(!m.additional.cover_delete_after_attach_enabled());
+}
+
 #[test]
 fn codec_fallback_message_rules() {
     let mut m = open_model(&test_cfg());

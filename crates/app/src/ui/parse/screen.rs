@@ -11,6 +11,7 @@
 
 use super::model::ParseViewModel;
 use crate::ui::download_options;
+use crate::ui::Screen;
 use crate::ui::Shell;
 use config::ConfigStore;
 use gpui_kit::base::Disableable;
@@ -126,7 +127,12 @@ impl ParseScreen {
                         Button::new("download-button")
                             .label(c.tr("ParseInterface", "Download Selected Items"))
                             .on_click(cx.listener(|shell, _, window, cx| {
-                                shell.parse.on_download(window, shell.manager.clone(), cx);
+                                let queued =
+                                    shell.parse.on_download(window, shell.manager.clone(), cx);
+                                if queued > 0 {
+                                    shell.screen = Screen::Downloads;
+                                    shell.downloads.refresh(cx);
+                                }
                             })),
                     ),
             )
@@ -883,12 +889,16 @@ impl ParseScreen {
     /// `on_download` (F8 UI story): checked episodes → task rows via
     /// `TaskManager::create`; the bootstrap driver picks them up from
     /// QUEUED and runs the full pipeline.
+    ///
+    /// Returns the queued task count — the caller jumps to the Downloads
+    /// screen when it's non-zero (Python lands on the download page after
+    /// queuing via the task-table page switch).
     pub fn on_download(
         &mut self,
         window: &mut Window,
         manager: Option<std::sync::Arc<tasks::TaskManager>>,
         cx: &mut Context<Shell>,
-    ) {
+    ) -> usize {
         // Python `on_download`: the options dialog runs first when the
         // behavior flag is on; its OK handler commits settings, task
         // creation then proceeds for the still-checked rows.
@@ -907,7 +917,7 @@ impl ParseScreen {
                 .tr("ParseInterface", "Downloads unavailable (no task database)")
                 .to_string();
             cx.notify();
-            return;
+            return 0;
         };
         let episodes: Vec<serde_json::Map<String, serde_json::Value>> = self
             .model
@@ -916,17 +926,21 @@ impl ParseScreen {
             .filter_map(|v| v.as_object().cloned())
             .collect();
         if episodes.is_empty() {
-            return;
+            return 0;
         }
         let episode_data = self.episode_data.clone();
         let created = {
-            let Ok(cfg) = ConfigStore::open() else { return };
+            let Ok(cfg) = ConfigStore::open() else {
+                return 0;
+            };
             manager.create(&cfg, &episode_data, &episodes, None, |_| {
                 tasks::info::NamingInput::default()
             })
         };
+        let mut queued = 0;
         match created {
             Ok(result) => {
+                queued = result.created.len();
                 self.status = format!(
                     "{}{}",
                     crate::ui::dialogs::format_tr(
@@ -953,7 +967,7 @@ impl ParseScreen {
             }
         }
         cx.notify();
-        let _ = window;
+        queued
     }
 
     // ---- Pager actions (widget/pager.py) ----
@@ -1051,6 +1065,10 @@ impl ParseScreen {
                             c.tr("ParseInterface", "Queued {count} task(s)"),
                             &[("count", &result.created.len().to_string())],
                         );
+                        if !result.created.is_empty() {
+                            shell.screen = Screen::Downloads;
+                            shell.downloads.refresh(cx);
+                        }
                     }
                     Err(e) => {
                         shell.parse.status = crate::ui::dialogs::format_tr(
@@ -1190,6 +1208,10 @@ impl ParseScreen {
                                                     )
                                                 }
                                             );
+                                            if !result.created.is_empty() {
+                                                shell.screen = Screen::Downloads;
+                                                shell.downloads.refresh(cx);
+                                            }
                                         }
                                         Err(e) => {
                                             shell.parse.status = crate::ui::dialogs::format_tr(
