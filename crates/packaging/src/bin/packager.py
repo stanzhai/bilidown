@@ -194,7 +194,7 @@ def build_inno(out: Path, root: Path, args: argparse.Namespace) -> Path:
     shutil.copytree(root, work / "bilidown", dirs_exist_ok=True)
     shutil.copy2(REPO / "LICENSE", work / "LICENSE")
     subprocess.run(
-        [iscc, f"/DMyAppVersion={args.version}", f"/DMyAppVersionName={args.version}", str(staged)],
+        [iscc, f"/DMyAppVersion={args.version}", f"/DMyAppVersionName={args.version}", str(staged.resolve())],
         check=True,
         cwd=work,
     )
