@@ -44,7 +44,7 @@ dirs = "=6.0.0"
 uuid = { version = "=1.28.0", features = ["v4"] }
 
 [target."cfg(windows)".dependencies]
-windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading"] }
 
 [dev-dependencies]
 wiremock = "=0.6.5"

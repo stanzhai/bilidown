@@ -144,26 +144,21 @@ fn pid_is_alive(pid: u32) -> bool {
         use windows_sys::Win32::System::Threading::{
             GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
         };
-        let Ok(h) = (|| {
+        let alive = (|| {
             let h = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
             if h.is_null() {
-                return Err(());
+                return false;
             }
             let mut code: u32 = 0;
             if unsafe { GetExitCodeProcess(h, &mut code) } == 0 {
-                return Err(());
+                unsafe { CloseHandle(h) };
+                return false;
             }
             unsafe { CloseHandle(h) };
-            if code == windows_sys::Win32::Foundation::STILL_ACTIVE {
-                Ok(())
-            } else {
-                Err(())
-            }
-        }) else {
-            return false;
-        };
-        let _ = h;
-        true
+            // STILL_ACTIVE is NTSTATUS (i32) 259; GetExitCodeProcess writes u32.
+            code as i32 == windows_sys::Win32::Foundation::STILL_ACTIVE
+        })();
+        alive
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -207,7 +202,7 @@ impl AppMutex {
             .chain(std::iter::once(0))
             .collect();
         let handle = unsafe { CreateMutexW(std::ptr::null(), 0, wide.as_ptr()) };
-        Self((handle as HANDLE != 0).then_some(handle))
+        Self((!handle.is_null()).then_some(handle))
     }
 
     /// Close the handle; the OS releases the mutex when the last handle
