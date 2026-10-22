@@ -305,12 +305,15 @@ def package_linux(args: argparse.Namespace) -> list[Path]:
     )
     metainfo = (REPO / "assets" / "cn.stanzhai.bilidown.metainfo.xml").read_text(encoding="utf-8")
     import datetime
+    import re
 
+    metainfo = re.sub(
+        r'<release version="[^"]*" date="[^"]*"\s*/>',
+        f'<release version="{args.version}" date="{datetime.date.today().isoformat()}"/>',
+        metainfo,
+    )
     (share / "metainfo" / "cn.stanzhai.bilidown.metainfo.xml").write_text(
-        metainfo.replace('__VERSION__', args.version).replace(
-            '__DATE__', datetime.date.today().isoformat()
-        ),
-        encoding="utf-8",
+        metainfo, encoding="utf-8"
     )
 
     apprun = appdir / "AppRun"
