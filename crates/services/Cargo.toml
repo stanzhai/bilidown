@@ -26,4 +26,4 @@ tokio = { version = "=1.53.3", features = ["rt", "macros"] }
 wiremock = "=0.6.5"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "=0.52.0", features = ["Win32_System_SystemInformation"] }
+windows-sys = { version = "=0.52.0", features = ["Win32_Foundation", "Win32_System_SystemInformation"] }

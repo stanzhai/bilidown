@@ -438,7 +438,7 @@ fn detect_platform_version() -> Option<String> {
 #[cfg(windows)]
 fn windows_product_version() -> String {
     use std::mem;
-    use windows_sys::Win32::System_SystemInformation::{GetVersionExW, OSVERSIONINFOW};
+    use windows_sys::Win32::System::SystemInformation::{GetVersionExW, OSVERSIONINFOW};
 
     // ponytail: no manifest is embedded to force Win10 reporting, so
     // GetVersionExW can lie on compat-shimmed processes; RtlGetVersion via
@@ -572,6 +572,7 @@ fn format_client_time() -> String {
 /// Local-vs-UTC offset at the given instant, from the OS timezone
 /// (`localtime_r`), 0 when the OS has none set (SDK formats whatever the
 /// host believes; UTC is the honest fallback).
+#[cfg(not(windows))]
 fn local_utc_offset_secs(unix_secs: i64) -> i64 {
     unsafe {
         let t: libc::time_t = unix_secs as _;
@@ -581,6 +582,38 @@ fn local_utc_offset_secs(unix_secs: i64) -> i64 {
         }
         // tm_gmtoff already accounts for DST at this instant.
         tm.tm_gmtoff as i64
+    }
+}
+
+#[cfg(windows)]
+fn local_utc_offset_secs(unix_secs: i64) -> i64 {
+    unsafe {
+        let t: libc::time_t = unix_secs as _;
+        let mut local: libc::tm = std::mem::zeroed();
+        let mut utc: libc::tm = std::mem::zeroed();
+        // libc on Windows: localtime_s/gmtime_s (errno_t != 0 on failure),
+        // no tm_gmtoff — offset = local-as-field vs utc-as-field, like the
+        // C `tm_gmtoff` derivation.
+        if libc::localtime_s(&mut local, &t) != 0 || libc::gmtime_s(&mut utc, &t) != 0 {
+            return 0;
+        }
+        let (l, u) = (&local, &utc);
+        let day = l.tm_yday as i64 * 86_400
+            + l.tm_hour as i64 * 3_600
+            + l.tm_min as i64 * 60
+            + l.tm_sec as i64;
+        let day_utc = u.tm_yday as i64 * 86_400
+            + u.tm_hour as i64 * 3_600
+            + u.tm_min as i64 * 60
+            + u.tm_sec as i64;
+        let mut diff = day - day_utc;
+        // Wrap-around dates (local = Dec 31, UTC = Jan 1, and vice versa).
+        if diff > 86_400 {
+            diff -= 86_400 * 2 * ((diff + 86_400) / (86_400 * 2));
+        } else if diff < -86_400 {
+            diff += 86_400 * 2 * ((-diff + 86_400) / (86_400 * 2));
+        }
+        diff
     }
 }
 
