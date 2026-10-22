@@ -3,7 +3,7 @@
 use std::fs;
 
 use config::{ConfigStore, APP_CONFIG_VERSION};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 fn base(version: i64) -> String {
     serde_json::json!({
