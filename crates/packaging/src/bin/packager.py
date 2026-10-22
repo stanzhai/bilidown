@@ -64,9 +64,13 @@ FFMPEG_BUILDS = {
         "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
         "ffmpeg-master-latest-linux64-gpl.zip"
     ),
-    ("macos", "universal"): (
+    ("macos", "arm64"): (
         "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/"
-        "ffmpeg-macos-universal"
+        "ffmpeg-darwin-arm64"
+    ),
+    ("macos", "x86_64"): (
+        "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/"
+        "ffmpeg-darwin-x64"
     ),
 }
 
@@ -103,9 +107,12 @@ def obtain_ffmpeg(mode: str, dest: Path, args: argparse.Namespace) -> Path:
             with zf.open(member) as rf, open(dest, "wb") as wf:
                 shutil.copyfileobj(rf, wf)
     else:
-        key = ("windows", "amd64") if mode == "windows" else (
-            ("macos", "universal") if mode == "macos" else ("linux", "amd64")
-        )
+        if mode == "windows":
+            key = ("windows", "amd64")
+        elif mode == "macos":
+            key = ("macos", "arm64" if platform.machine().lower() == "arm64" else "x86_64")
+        else:
+            key = ("linux", "amd64")
         url = FFMPEG_BUILDS[key]
         print(f"downloading ffmpeg: {url}", file=sys.stderr)
         with tempfile.TemporaryDirectory() as tmp:
