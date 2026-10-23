@@ -347,7 +347,7 @@ def build_appimage(out: Path, appdir: Path, args: argparse.Namespace) -> Path:
             print(f"downloading appimagetool: {url}", file=sys.stderr)
             urllib.request.urlretrieve(url, local)  # noqa: S310
             ensure_executable(local)
-        tool = str(local)
+        tool = f"./{local}"
     runtime = Path(f"runtime-{arch}")
     if not runtime.is_file():
         url = (
