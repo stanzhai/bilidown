@@ -62,7 +62,7 @@ FFMPEG_BUILDS = {
     ),
     ("linux", "amd64"): (
         "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
-        "ffmpeg-master-latest-linux64-gpl.zip"
+        "ffmpeg-master-latest-linux64-gpl.tar.xz"
     ),
     ("macos", "arm64"): (
         "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/"
@@ -117,13 +117,21 @@ def obtain_ffmpeg(mode: str, dest: Path, args: argparse.Namespace) -> Path:
         print(f"downloading ffmpeg: {url}", file=sys.stderr)
         with tempfile.TemporaryDirectory() as tmp:
             t = Path(tmp)
-            if url.endswith(".zip"):
-                z = t / "f.zip"
-                urllib.request.urlretrieve(url, z)  # noqa: S310 - pinned https url
-                with zipfile.ZipFile(z) as zf:
-                    member = next(m for m in zf.namelist() if m.split("/")[-1] == name)
-                    with zf.open(member) as rf, open(dest, "wb") as wf:
-                        shutil.copyfileobj(rf, wf)
+            if url.endswith((".zip", ".tar.xz", ".txz")):
+                a = t / ("f.zip" if url.endswith(".zip") else "f.tar.xz")
+                urllib.request.urlretrieve(url, a)  # noqa: S310 - pinned https url
+                if a.name.endswith(".zip"):
+                    with zipfile.ZipFile(a) as zf:
+                        member = next(m for m in zf.namelist() if m.split("/")[-1] == name)
+                        with zf.open(member) as rf, open(dest, "wb") as wf:
+                            shutil.copyfileobj(rf, wf)
+                else:
+                    import tarfile
+
+                    with tarfile.open(a) as tf:
+                        member = next(m for m in tf.getnames() if m.split("/")[-1] == name)
+                        with tf.extractfile(member) as rf, open(dest, "wb") as wf:
+                            shutil.copyfileobj(rf, wf)
             else:
                 urllib.request.urlretrieve(url, dest)  # noqa: S310
     ensure_executable(dest)
