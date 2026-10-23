@@ -336,7 +336,18 @@ def package_linux(args: argparse.Namespace) -> list[Path]:
 
 def build_appimage(out: Path, appdir: Path, args: argparse.Namespace) -> Path:
     arch = gnu_arch()
-    tool = shutil.which("appimagetool") or f"appimagetool-{arch}.AppImage"
+    tool = shutil.which("appimagetool")
+    if not tool:
+        local = Path(f"appimagetool-{arch}.AppImage")
+        if not local.is_file():
+            url = (
+                "https://github.com/AppImage/appimagetool/releases/download/"
+                f"continuous/appimagetool-{arch}.AppImage"
+            )
+            print(f"downloading appimagetool: {url}", file=sys.stderr)
+            urllib.request.urlretrieve(url, local)  # noqa: S310
+            ensure_executable(local)
+        tool = str(local)
     runtime = Path(f"runtime-{arch}")
     if not runtime.is_file():
         url = (
