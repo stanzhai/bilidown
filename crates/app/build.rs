@@ -17,8 +17,9 @@ fn main() {
             // gpui calls GetDpiForWindow / handles WM_DPICHANGED but never
             // marks the process DPI-aware — without this Windows
             // virtualizes coordinates and the window renders blurred on
-            // scaled displays.
-            res.set_manifest_with_id(include_str!("assets/app.manifest"), 1);
+            // scaled displays. (winresource writes the manifest as the
+            // RT_MANIFEST resource of the version-info's FILETYPE id.)
+            res.set_manifest(include_str!("assets/app.manifest"));
             res.compile().expect("embed windows icon + manifest");
         }
     }

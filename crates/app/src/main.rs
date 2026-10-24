@@ -125,7 +125,7 @@ fn startup_bounds(cfg: &ConfigStore, cx: &App) -> Option<WindowBounds> {
 /// `app.ico`/`app.icns`). Wayland and macOS ignore `WindowOptions::icon`.
 #[cfg(target_os = "linux")]
 fn x11_window_icon() -> std::sync::Arc<image::RgbaImage> {
-    const PNG: &[u8] = include_bytes!("assets/tray-icon.png");
+    const PNG: &[u8] = include_bytes!("../assets/tray-icon.png");
     image::load_from_memory_with_format(PNG, image::ImageFormat::Png)
         .map(|img| std::sync::Arc::new(img.to_rgba8()))
         .expect("embedded tray-icon.png decodes")
