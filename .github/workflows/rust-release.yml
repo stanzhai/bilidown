@@ -253,6 +253,5 @@ jobs:
           draft: false
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
-          discussion_category_name: announcements
           files: |
             release-artifacts/*

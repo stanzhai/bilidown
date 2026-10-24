@@ -60,19 +60,10 @@ impl LogViewModel {
 }
 
 /// Open the log directory in the platform file manager
-/// (`Directory.open_directory_in_explorer`).
+/// (`Directory.open_directory_in_explorer`). Shared implementation in
+/// `super::open_directory` handles the explorer/Documents trap.
 pub fn open_logs_directory(dir: &Path) -> std::io::Result<()> {
-    let dir = dir.to_string_lossy().into_owned();
-    #[cfg(target_os = "windows")]
-    let status = std::process::Command::new("explorer").arg(&dir).spawn();
-    #[cfg(target_os = "macos")]
-    let status = std::process::Command::new("open").arg(&dir).spawn();
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let status = std::process::Command::new("xdg-open").arg(&dir).spawn();
-    match status {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }
+    super::open_directory(dir)
 }
 
 #[cfg(test)]

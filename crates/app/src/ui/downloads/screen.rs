@@ -192,7 +192,7 @@ impl DownloadsScreen {
             RowAction::Open => {
                 let dir =
                     std::path::PathBuf::from(&task.File.download_path).join(&task.File.folder);
-                let _ = open_directory(&dir);
+                let _ = super::open_directory(&dir);
             }
             _ => {
                 toggle_pause_resume(&manager, &mut task);
@@ -215,7 +215,7 @@ impl DownloadsScreen {
         .find(|t| t.Basic.task_id == task_id);
         if let Some(task) = task {
             let dir = std::path::PathBuf::from(&task.File.download_path).join(&task.File.folder);
-            let _ = open_directory(&dir);
+            let _ = super::open_directory(&dir);
         }
         cx.notify();
     }
@@ -660,17 +660,6 @@ impl DownloadsScreen {
 
 fn t(context: &str, source: &str) -> String {
     super::dialogs::tr(context, source)
-}
-
-fn open_directory(dir: &std::path::Path) -> std::io::Result<()> {
-    let dir = dir.to_string_lossy().into_owned();
-    #[cfg(target_os = "windows")]
-    let status = std::process::Command::new("explorer").arg(&dir).spawn();
-    #[cfg(target_os = "macos")]
-    let status = std::process::Command::new("open").arg(&dir).spawn();
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let status = std::process::Command::new("xdg-open").arg(&dir).spawn();
-    status.map(|_| ())
 }
 
 /// Kept for the row-loop signature (TaskInfo rows are owned by the model).
