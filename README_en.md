@@ -68,7 +68,7 @@ Release artifacts are produced by `crates/packaging/src/bin/packager.py`; see `.
 
 Platform icons:
 
-- **Windows**: `crates/app/build.rs` embeds `crates/app/assets/app.ico` (resource ID 1, where gpui's window class loads it) plus a DPI-aware manifest into `bilidown.exe` via [winresource](https://crates.io/crates/winresource) — that resource is the title-bar/taskbar icon. Release builds link with the `windows` subsystem, so no console window pops up on launch (debug builds keep the console for logs).
+- **Windows**: `crates/app/build.rs` embeds `crates/app/assets/app.ico` (resource ID 1, where gpui's window class loads it) into `bilidown.exe` via [winresource](https://crates.io/crates/winresource) — that resource is the title-bar/taskbar icon. The DPI-aware (PerMonitorV2) manifest comes from gpui's own `windows-manifest` feature; don't embed a second one or linking fails with a duplicate RT_MANIFEST. Release builds link with the `windows` subsystem, so no console window pops up on launch (debug builds keep the console for logs).
 - **macOS**: `assets/app.icns` is copied to `Resources/app.icns` and registered as `CFBundleIconFile` by the packager.
 - **Linux**: the X11 window icon is embedded from `crates/app/assets/tray-icon.png` (same source SVG as `assets/app.svg`).
 

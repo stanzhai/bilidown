@@ -68,7 +68,7 @@ cargo build --release -p app --manifest-path crates/Cargo.toml
 
 平台图标说明：
 
-- **Windows**：`crates/app/build.rs` 通过 [winresource](https://crates.io/crates/winresource) 把 `crates/app/assets/app.ico`（资源 ID 1，gpui 窗口类加载处）和 DPI 感知清单嵌入 `bilidown.exe`，标题栏 / 任务栏图标即来自该资源；release 构建以 `windows` 子系统链接，启动不再弹出控制台窗口（debug 构建保留控制台便于看日志）。
+- **Windows**：`crates/app/build.rs` 通过 [winresource](https://crates.io/crates/winresource) 把 `crates/app/assets/app.ico`（资源 ID 1，gpui 窗口类加载处）嵌入 `bilidown.exe`，标题栏 / 任务栏图标即来自该资源；DPI 感知（PerMonitorV2）清单由 gpui 自带的 `windows-manifest` feature 提供，不要再嵌入第二份，否则 RT_MANIFEST 资源重复导致链接失败。release 构建以 `windows` 子系统链接，启动不再弹出控制台窗口（debug 构建保留控制台便于看日志）。
 - **macOS**：`assets/app.icns` 经 packager 写入 `Resources/app.icns` 并登记 `CFBundleIconFile`。
 - **Linux**：X11 窗口图标内嵌自 `crates/app/assets/tray-icon.png`（与 `assets/app.svg` 同源）。
 

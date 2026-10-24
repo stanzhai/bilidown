@@ -9,9 +9,12 @@ generic "unknown" icon (macOS was already fine via app.icns).
 ## Answer
 - Windows: `crates/app/build.rs` (winresource, `cfg(windows)`-gated build
   dep) embeds `crates/app/assets/app.ico` at resource ID 1 — where gpui's
-  `register_window_class` `LoadImageW` reads the title-bar/taskbar icon —
-  plus `assets/app.manifest` (PerMonitorV2 DPI awareness; gpui never
-  marks the process DPI-aware itself). `main.rs` gains
+  `register_window_class` `LoadImageW` reads the title-bar/taskbar icon.
+  No app manifest is embedded: gpui's default `windows-manifest` feature
+  already compiles one in at RT_MANIFEST ID 1 (PerMonitorV2 +
+  Common-Controls); a second manifest at the same ID is a CVT1100
+  duplicate-resource link error (hit on CI after the first packaging
+  attempt). `main.rs` gains
   `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` so
   release builds show no console (debug keeps it for logs; mcp-stdio is a
   separate bin). `app.ico` (6 sizes) regenerated from `assets/app.svg`
