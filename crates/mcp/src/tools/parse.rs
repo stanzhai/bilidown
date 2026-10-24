@@ -351,6 +351,7 @@ pub async fn run_parse(
     let client = http_client(state)?;
     let base = state.api_base.clone();
     let auth = auth_state(state);
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let raw = reqwest::Client::new();
 
     // b23 / festival: expand once, then re-classify.

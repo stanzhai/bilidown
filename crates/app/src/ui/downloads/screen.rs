@@ -202,6 +202,24 @@ impl DownloadsScreen {
         cx.notify();
     }
 
+    /// Per-row "Open Directory": each task's own target folder
+    /// (`download_path/folder`), which can differ per task (44 → user
+    /// request: the toolbar button opened the global config path).
+    pub fn row_open_directory(&mut self, task_id: &str, cx: &mut gpui_kit::Context<Shell>) {
+        let task = [
+            self.model.downloading.tasks.iter(),
+            self.model.completed.tasks.iter(),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|t| t.Basic.task_id == task_id);
+        if let Some(task) = task {
+            let dir = std::path::PathBuf::from(&task.File.download_path).join(&task.File.folder);
+            let _ = open_directory(&dir);
+        }
+        cx.notify();
+    }
+
     pub fn row_delete(&mut self, task_id: &str, cx: &mut gpui_kit::Context<Shell>) {
         let Some(manager) = self.manager.clone() else {
             return;
@@ -357,13 +375,6 @@ impl DownloadsScreen {
                     })),
             )
             .child(
-                Button::new("downloads-open-dir")
-                    .label(t("TopStackedWidget", "Open Download Directory"))
-                    .on_click(cx.listener(|shell, _, _, _| {
-                        shell.downloads.open_download_directory();
-                    })),
-            )
-            .child(
                 Button::new("downloads-logs")
                     .label(t("LogViewerDialog", "Logs"))
                     .on_click(cx.listener(|shell, _, window, cx| {
@@ -403,17 +414,6 @@ impl DownloadsScreen {
         };
         self.set_sort(tab, next, !ascending);
         cx.notify();
-    }
-
-    fn open_download_directory(&mut self) {
-        if let Some(dir) = self
-            .config
-            .get("Download", "download_path")
-            .and_then(|v| v.as_str().map(str::to_owned))
-            .map(std::path::PathBuf::from)
-        {
-            let _ = open_directory(&dir);
-        }
     }
 
     fn render_list(
@@ -520,6 +520,16 @@ impl DownloadsScreen {
                                             shell.downloads.row_redownload(&id, cx);
                                         }
                                     })),
+                                )
+                                .child(
+                                    Button::new(SharedString::from(format!("task-open-dir-{id}")))
+                                        .label(t("DownloadListView", "Open Directory"))
+                                        .on_click(cx.listener({
+                                            let id = id.clone();
+                                            move |shell, _, _, cx| {
+                                                shell.downloads.row_open_directory(&id, cx);
+                                            }
+                                        })),
                                 ),
                         )
                 },

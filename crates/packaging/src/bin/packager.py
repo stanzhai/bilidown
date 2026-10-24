@@ -52,7 +52,12 @@ REPO = Path(__file__).resolve().parents[4]
 
 APP_NAME = "bilidown"
 APP_ID = "cn.stanzhai.bilidown"
-INNO_APP_GUID = "B096F0C1-D105-4EF9-86E1-5E87DA884EA4"
+# Fresh GUID: breaks the upgrade link to the legacy Python "Bili23
+# Downloader" install (shared the old GUID), so the Rust release installs
+# to its own Program Files\bilidown tree instead of following the old
+# InstallLocation. The single-instance mutex name is independent and
+# unchanged.
+INNO_APP_GUID = "3C3AEF77-CE35-40B1-8767-74C8D42586A0"
 
 # Static ffmpeg builds used by the Python releases (GPL + libmp3lame).
 FFMPEG_BUILDS = {
@@ -196,11 +201,13 @@ def build_inno(out: Path, root: Path, args: argparse.Namespace) -> Path:
     script = REPO / "crates" / "packaging" / "windows" / "setup.iss"
     work = out / "inno"
     work.mkdir(parents=True, exist_ok=True)
-    # setup.iss resolves .\bilidown and .\LICENSE relative to itself
+    # setup.iss resolves .\bilidown, .\LICENSE and .\app.ico relative to
+    # itself
     staged = work / "setup.iss"
     shutil.copy2(script, staged)
     shutil.copytree(root, work / "bilidown", dirs_exist_ok=True)
     shutil.copy2(REPO / "LICENSE", work / "LICENSE")
+    shutil.copy2(REPO / "crates" / "app" / "assets" / "app.ico", work / "app.ico")
     subprocess.run(
         [iscc, f"/DMyAppVersion={args.version}", f"/DMyAppVersionName={args.version}", str(staged.resolve())],
         check=True,

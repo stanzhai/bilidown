@@ -43,6 +43,15 @@ pub struct ParseScreen {
     /// Python); task creation reads it keyed by episode_id.
     pub episode_data: std::sync::Arc<parsers::EpisodeData>,
 }
+
+/// How a "Download Selected Items" click proceeds.
+#[derive(Debug, PartialEq, Eq)]
+enum DownloadGate {
+    /// Options dialog opens first; queueing waits for its Download button.
+    Dialog,
+    /// Queue the checked rows immediately.
+    Direct,
+}
 impl ParseScreen {
     /// Active catalog off the shell-global language.
     fn catalog(cx: &Context<Shell>) -> &'static services::i18n::Catalog {
@@ -864,7 +873,15 @@ impl ParseScreen {
         );
     }
 
-    pub fn open_download_options_dialog(&mut self, window: &mut Window, cx: &mut Context<Shell>) {
+    /// Open the download options dialog; `on_accept` is the continuation
+    /// that runs when the dialog's Download button commits (Cancel and
+    /// a rejected accept never fire it).
+    fn open_download_options_dialog(
+        &mut self,
+        on_accept: impl FnOnce(&mut gpui_kit::App) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Shell>,
+    ) {
         // `get_checked_type_ids` — one naming-rule selector per checked
         // content type.
         let attributes: Vec<i64> = self
@@ -882,8 +899,28 @@ impl ParseScreen {
             RuleStore::from_config_value(cfg.get("File Naming", "naming_rule_list").as_ref());
         let candidates = self.model.preview_items(3);
         download_options::open_download_options(
-            window, cx, &cfg, &info, &type_ids, &store, candidates,
+            window, cx, &cfg, &info, &type_ids, &store, candidates, on_accept,
         );
+    }
+
+    /// Whether "Download Selected Items" opens the options dialog first
+    /// (`Behavior/show_download_options_dialog`, default on — Python's
+    /// default). Pure so the gating rule is testable without gpui.
+    fn download_gate(cfg: Option<&ConfigStore>) -> DownloadGate {
+        match cfg {
+            None => DownloadGate::Direct,
+            Some(cfg) => {
+                let show = cfg
+                    .get("Behavior", "show_download_options_dialog")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                if show {
+                    DownloadGate::Dialog
+                } else {
+                    DownloadGate::Direct
+                }
+            }
+        }
     }
 
     /// `on_download` (F8 UI story): checked episodes → task rows via
@@ -892,25 +929,42 @@ impl ParseScreen {
     ///
     /// Returns the queued task count — the caller jumps to the Downloads
     /// screen when it's non-zero (Python lands on the download page after
-    /// queuing via the task-table page switch).
+    /// queuing via the task-table page switch). When the options dialog
+    /// gates the click (flag on), only the dialog opens here; the queueing
+    /// runs as the dialog's accept continuation and switches the screen
+    /// itself — Cancel queues nothing.
     pub fn on_download(
         &mut self,
         window: &mut Window,
         manager: Option<std::sync::Arc<tasks::TaskManager>>,
         cx: &mut Context<Shell>,
     ) -> usize {
-        // Python `on_download`: the options dialog runs first when the
-        // behavior flag is on; its OK handler commits settings, task
-        // creation then proceeds for the still-checked rows.
         let c = Self::catalog(cx);
-        if let Ok(cfg) = ConfigStore::open() {
-            let show = cfg
-                .get("Behavior", "show_download_options_dialog")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-            if show {
-                self.open_download_options_dialog(window, cx);
-            }
+        let gate = Self::download_gate(ConfigStore::open().as_ref().ok());
+        let shell = cx.entity();
+        if gate == DownloadGate::Dialog {
+            let queue = move |shell: &mut Shell, cx: &mut Context<Shell>| {
+                let episode_data = shell.parse.episode_data.clone();
+                let queued = Self::queue_checked(
+                    &mut shell.parse,
+                    manager,
+                    &episode_data,
+                    Self::catalog(cx),
+                    cx,
+                );
+                if queued > 0 {
+                    shell.screen = Screen::Downloads;
+                    shell.downloads.refresh(cx);
+                }
+            };
+            self.open_download_options_dialog(
+                move |cx: &mut gpui_kit::App| {
+                    shell.update(cx, queue);
+                },
+                window,
+                cx,
+            );
+            return 0;
         }
         let Some(manager) = manager else {
             self.status = c
@@ -919,7 +973,28 @@ impl ParseScreen {
             cx.notify();
             return 0;
         };
-        let episodes: Vec<serde_json::Map<String, serde_json::Value>> = self
+        let episode_data = self.episode_data.clone();
+        Self::queue_checked(self, Some(manager), &episode_data, c, cx)
+    }
+
+    /// Checked rows → tasks; shared tail of the direct path and the
+    /// options-dialog continuation (runs on the shell, after the
+    /// dialog committed its settings).
+    fn queue_checked(
+        parse: &mut ParseScreen,
+        manager: Option<std::sync::Arc<tasks::TaskManager>>,
+        episode_data: &std::sync::Arc<parsers::EpisodeData>,
+        c: &'static services::i18n::Catalog,
+        cx: &mut Context<Shell>,
+    ) -> usize {
+        let Some(manager) = manager else {
+            parse.status = c
+                .tr("ParseInterface", "Downloads unavailable (no task database)")
+                .to_string();
+            cx.notify();
+            return 0;
+        };
+        let episodes: Vec<serde_json::Map<String, serde_json::Value>> = parse
             .model
             .checked_dicts_mark_downloaded()
             .into_iter()
@@ -928,12 +1003,11 @@ impl ParseScreen {
         if episodes.is_empty() {
             return 0;
         }
-        let episode_data = self.episode_data.clone();
         let created = {
             let Ok(cfg) = ConfigStore::open() else {
                 return 0;
             };
-            manager.create(&cfg, &episode_data, &episodes, None, |_| {
+            manager.create(&cfg, episode_data, &episodes, None, |_| {
                 tasks::info::NamingInput::default()
             })
         };
@@ -941,7 +1015,7 @@ impl ParseScreen {
         match created {
             Ok(result) => {
                 queued = result.created.len();
-                self.status = format!(
+                parse.status = format!(
                     "{}{}",
                     crate::ui::dialogs::format_tr(
                         c.tr("ParseInterface", "Queued {count} task(s)"),
@@ -957,10 +1031,10 @@ impl ParseScreen {
                     }
                 );
                 // Leave checked rows visibly downloaded.
-                self.refresh_tree(cx);
+                parse.refresh_tree(cx);
             }
             Err(e) => {
-                self.status = crate::ui::dialogs::format_tr(
+                parse.status = crate::ui::dialogs::format_tr(
                     c.tr("ParseInterface", "Task creation failed: {error}"),
                     &[("error", &e.to_string())],
                 );
@@ -1293,6 +1367,32 @@ mod tests {
         it.title = title.into();
         it.number = Number::Int(number);
         it
+    }
+
+    /// "Download Selected Items" must open the options dialog (and queue
+    /// nothing) whenever the behavior flag is on or unset — the flag-off
+    /// direct queue is the only path that returns a queued count. Regresses
+    /// the bug where tasks were queued and the screen switched before the
+    /// dialog's Download button was pressed.
+    #[test]
+    fn download_gate_dialog_by_default_and_direct_when_disabled() {
+        // No config store: fall through to direct (Python's dialog-less
+        // path only exists with the flag explicitly off, but a broken
+        // config must not strand the user with no download at all).
+        assert_eq!(ParseScreen::download_gate(None), DownloadGate::Direct);
+
+        // Flag unset → default on → dialog gates queueing.
+        let cfg = ConfigStore::with_paths("", "");
+        assert_eq!(ParseScreen::download_gate(Some(&cfg)), DownloadGate::Dialog);
+
+        // Flag explicitly off → direct.
+        let mut cfg = ConfigStore::with_paths("", "");
+        cfg.set(
+            "Behavior",
+            "show_download_options_dialog",
+            serde_json::Value::Bool(false),
+        );
+        assert_eq!(ParseScreen::download_gate(Some(&cfg)), DownloadGate::Direct);
     }
 
     /// Ticket 32 item 3: the per-row metadata table must line up with

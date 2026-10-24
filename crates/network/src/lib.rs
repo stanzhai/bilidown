@@ -143,6 +143,10 @@ impl HttpClient {
     /// Builds a client per the options: rustls, cookie jar, proxy per mode,
     /// UA from config, shared referer header.
     pub fn new(options: ClientOptions) -> Result<Self, HttpError> {
+        // reqwest is built with `rustls-no-provider` + rustls/ring: the
+        // ring provider must be installed process-wide before the first
+        // Client (idempotent — later calls return Err and are ignored).
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let mut builder = Client::builder()
             .user_agent(options.user_agent)
             .default_headers(default_headers())
@@ -184,6 +188,7 @@ impl HttpClient {
     /// `user_agent` and `proxy` come from the same options as
     /// [`HttpClient::new`].
     pub fn probe(options: ClientOptions) -> Result<Self, HttpError> {
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let mut builder = Client::builder()
             .user_agent(options.user_agent)
             .default_headers(default_headers())

@@ -327,6 +327,7 @@ mod tests {
             .await;
 
         let url = format!("{}/mcp", server.uri());
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let client = reqwest::Client::new();
         let message = json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",

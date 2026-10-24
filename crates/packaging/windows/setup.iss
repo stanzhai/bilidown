@@ -1,10 +1,12 @@
 ; Inno Setup script for the Rust build (ticket 29).
 ;
-; Same application identity as the Python installer: identical AppId,
-; AppMutex (the single-instance named mutex, ticket 26 interop), publisher,
-; URLs and install layout — upgrading from a Python install is an in-place
-; replacement. Version comes from CI via /DMyAppVersion(=Name) flags; local
-; compiles get the defaults below.
+; Fresh AppId (no link to the legacy Python "Bili23 Downloader"
+; install): the Rust release always installs to Program Files\bilidown.
+; The legacy cleanup below still detects and removes an old Python
+; install by its own registry key. AppMutex is the single-instance named
+; mutex (ticket 26 interop) — independent of the AppId. Version comes
+; from CI via /DMyAppVersion(=Name) flags; local compiles get the
+; defaults below.
 ;
 ; Exe is the self-contained Rust binary; no runtime/, no site-packages/.
 ; Staged layout (relative to this script): .\bilidown\ with
@@ -22,7 +24,7 @@
 #define MyAppExeName "bilidown.exe"
 
 [Setup]
-AppId={{B096F0C1-D105-4EF9-86E1-5E87DA884EA4}
+AppId={{3C3AEF77-CE35-40B1-8767-74C8D42586A0}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -37,6 +39,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 LicenseFile=.\LICENSE
+SetupIconFile=.\app.ico
 OutputDir=.\
 OutputBaseFilename=bilidown_{#MyAppVersionName}_windows_x64
 SolidCompression=yes
@@ -130,6 +133,8 @@ begin
       exit;
     end;
 
+  // Legacy Python install's own key (old AppId): if present, offer to
+  // delete its folder so the two never coexist.
   KeyName := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + '{B096F0C1-D105-4EF9-86E1-5E87DA884EA4}' + '_is1';
 
   if RegQueryStringValue(HKLM, KeyName, 'InstallLocation', InstallDir) then

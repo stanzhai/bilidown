@@ -1113,6 +1113,12 @@ pub fn set_shell_lang(lang: services::i18n::Language) {
 /// from `button_props` (those only install the OK/Cancel callbacks), so the
 /// previous empty `DialogFooter::new()` left the dialog with no Download
 /// button at all.
+///
+/// `on_accept` runs only after the footer Download button commits — the
+/// dialog gates whatever follows it (task queueing), so Cancel queues
+/// nothing. `FnOnce` + `take()`: the builder may re-run, the continuation
+/// must fire at most once.
+#[allow(clippy::too_many_arguments)]
 pub fn open_download_options(
     window: &mut Window,
     cx: &mut Context<crate::ui::Shell>,
@@ -1121,6 +1127,7 @@ pub fn open_download_options(
     type_ids: &[i64],
     store: &RuleStore,
     candidates: Vec<parsers::tree::TreeItem>,
+    on_accept: impl FnOnce(&mut gpui_kit::App) + 'static,
 ) -> Entity<DownloadOptionsDialog> {
     let dialog = cx.new(|cx| DownloadOptionsDialog::new(cfg, info, type_ids, store, window, cx));
 
@@ -1218,6 +1225,7 @@ pub fn open_download_options(
             .detach();
     }
     let for_content = std::rc::Rc::new(dialog.clone());
+    let on_accept = std::rc::Rc::new(std::cell::RefCell::new(Some(on_accept)));
     window.open_dialog(cx, move |d, _w, _a| {
         let entity = for_content.clone();
         d.title(cx_of_catalog().tr("DownloadOptionsDialog", "Download Options"))
@@ -1240,9 +1248,13 @@ pub fn open_download_options(
                             .primary()
                             .on_click({
                                 let entity = for_content.clone();
+                                let on_accept = on_accept.clone();
                                 move |_, window, cx| {
                                     if confirm_ok(&entity, cx) {
                                         window.close_dialog(cx);
+                                        if let Some(cb) = on_accept.borrow_mut().take() {
+                                            cb(cx);
+                                        }
                                     }
                                 }
                             }),

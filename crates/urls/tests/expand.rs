@@ -19,6 +19,7 @@ async fn expands_redirect_to_final_url() {
         .mount(&server)
         .await;
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::new();
     let short = format!("{}/abcdef", server.uri());
     assert_eq!(expand_b23(&client, &short).await, Ok(target));
@@ -35,6 +36,7 @@ async fn strips_garbage_prefix() {
         .mount(&server)
         .await;
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::new();
     let dirty = format!("garbage {}/abcdef", server.uri());
     assert_eq!(expand_b23(&client, &dirty).await, Ok(target));
@@ -50,6 +52,7 @@ async fn expired_short_link_lands_on_itself() {
         .mount(&server)
         .await;
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::new();
     let short = format!("{}/abcdef", server.uri());
     assert_eq!(expand_b23(&client, &short).await, Err(ExpandError::Expired));
@@ -57,6 +60,7 @@ async fn expired_short_link_lands_on_itself() {
 
 #[tokio::test]
 async fn no_https_scheme_is_invalid() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::new();
     assert_eq!(
         expand_b23(&client, "b23.tv/abcdef").await,
@@ -74,6 +78,7 @@ async fn festival_scrapes_initial_state_bvid() {
         .mount(&server)
         .await;
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::new();
     let url = format!("{}/festival/abc", server.uri());
     assert_eq!(
@@ -91,6 +96,7 @@ async fn festival_without_initial_state_is_invalid() {
         .mount(&server)
         .await;
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = reqwest::Client::new();
     let url = format!("{}/festival/abc", server.uri());
     assert_eq!(

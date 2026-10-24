@@ -295,10 +295,23 @@ def bundle_metadata_identity():
 @check
 def inno_script_keeps_app_id_and_exes():
     text = (REPO / "crates" / "packaging" / "windows" / "setup.iss").read_text(encoding="utf-8")
-    assert "B096F0C1-D105-4EF9-86E1-5E87DA884EA4" in text, "Inno AppId must be unchanged"
+    # Rust release AppId — fresh GUID, deliberately NOT the legacy Python
+    # "Bili23 Downloader" one (which may only appear in the legacy-cleanup
+    # registry probe).
+    assert text.count("AppId={{") == 1, "exactly one AppId"
+    assert "AppId={{3C3AEF77-CE35-40B1-8767-74C8D42586A0}" in text, "Inno AppId must match packager.py INNO_APP_GUID"
     assert "MyAppExeName \"bilidown.exe\"" in text
     assert "bundle\\*" in text, "installer must ship bundle/ffmpeg"
 
+
+@check
+def packager_guid_matches_inno_script():
+    py = (REPO / "crates" / "packaging" / "src" / "bin" / "packager.py").read_text(encoding="utf-8")
+    iss = (REPO / "crates" / "packaging" / "windows" / "setup.iss").read_text(encoding="utf-8")
+    m = re.search(r'INNO_APP_GUID = "([0-9A-F-]+)"', py)
+    assert m, "packager.py defines INNO_APP_GUID"
+    # Inno escaping: "{{" opens, single "}" closes — `AppId={{GUID}`.
+    assert f"AppId={{{{{m.group(1)}}}" in iss, "setup.iss AppId must match packager.py INNO_APP_GUID"
 
 @check
 def version_line_continues_v2210():

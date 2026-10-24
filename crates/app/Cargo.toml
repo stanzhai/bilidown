@@ -50,3 +50,8 @@ windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Secu
 wiremock = "=0.6.5"
 tempfile = "=3.27.0"
 gpui-pre = { version = "=0.3.9", features = ["test-support"] }
+
+[target.'cfg(windows)'.build-dependencies]
+# Embeds the icon (resource ID 1, where gpui's register_window_class
+# LoadImageW looks) and a DPI-aware manifest into bilidown.exe.
+winresource = "=0.1.34"

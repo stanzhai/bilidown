@@ -64,7 +64,20 @@ cd bilidown
 cargo build --release -p app --manifest-path crates/Cargo.toml
 ```
 
-Release artifacts are produced by `crates/packaging/src/bin/packager.py`; see `.github/workflows/rust-release.yml` for the full CI pipeline.
+Release artifacts are produced by `crates/packaging/src/bin/packager.py`; see `.github/workflows/rust-release.yml` for the full CI pipeline. The Windows installer installs to `Program Files\bilidown` (independent of the legacy Bili23 Downloader installs — no upgrade coupling).
+
+Platform icons:
+
+- **Windows**: `crates/app/build.rs` embeds `crates/app/assets/app.ico` (resource ID 1, where gpui's window class loads it) plus a DPI-aware manifest into `bilidown.exe` via [winresource](https://crates.io/crates/winresource) — that resource is the title-bar/taskbar icon. Release builds link with the `windows` subsystem, so no console window pops up on launch (debug builds keep the console for logs).
+- **macOS**: `assets/app.icns` is copied to `Resources/app.icns` and registered as `CFBundleIconFile` by the packager.
+- **Linux**: the X11 window icon is embedded from `crates/app/assets/tray-icon.png` (same source SVG as `assets/app.svg`).
+
+Regenerate `app.ico` / the size PNGs from `assets/app.svg` (requires `rsvg-convert` and Python Pillow):
+
+```bash
+for s in 256 128 64 48 32 16; do rsvg-convert -w $s -h $s assets/app.svg -o app_$s.png; done
+python3 -c "from PIL import Image; imgs=[Image.open(f'app_{s}.png').convert('RGBA') for s in (256,128,64,48,32,16)]; imgs[0].save('crates/app/assets/app.ico', format='ICO', append_images=imgs[1:], sizes=[(i.width,i.height) for i in imgs])"
+```
 
 ## 🪧 Terms of use
 This project is for personal study and research only. Downloaded content is **limited to personal, non-commercial use; commercial use, public redistribution or resale is strictly prohibited**.  

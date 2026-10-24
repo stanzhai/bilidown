@@ -57,7 +57,7 @@ async fn start_generates_and_persists_token_then_serves() {
     // Persisted for the next run.
     assert_eq!(shared.lock().get("MCP", "mcp_token"), Some(json!(token)));
 
-    // Live round trip: tools/list over the loopback with the Bearer token.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let body = json!({
         "jsonrpc": "2.0", "id": 1, "method": "tools/list",
         "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": mcp::protocol::MODERN_VERSION}}

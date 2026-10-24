@@ -1,3 +1,8 @@
+// Release builds on Windows are a GUI app: no console window flashes on
+// launch. (Debug keeps the console so `cargo run` shows logs; the MCP
+// stdio bridge is a separate binary and is unaffected.)
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::rc::Rc;
 use std::sync::mpsc::channel;
 use std::time::Duration;
@@ -116,6 +121,16 @@ fn startup_bounds(cfg: &ConfigStore, cx: &App) -> Option<WindowBounds> {
     })
 }
 
+/// X11 window icon, decoded from the 128px tray PNG (same SVG render as
+/// `app.ico`/`app.icns`). Wayland and macOS ignore `WindowOptions::icon`.
+#[cfg(target_os = "linux")]
+fn x11_window_icon() -> std::sync::Arc<image::RgbaImage> {
+    const PNG: &[u8] = include_bytes!("assets/tray-icon.png");
+    image::load_from_memory_with_format(PNG, image::ImageFormat::Png)
+        .map(|img| std::sync::Arc::new(img.to_rgba8()))
+        .expect("embedded tray-icon.png decodes")
+}
+
 /// Opens one native window; returns when the app event loop exits cleanly.
 pub fn run() -> anyhow::Result<()> {
     let ensure_running = std::env::args().any(|a| a == ENSURE_RUNNING_FLAG);
@@ -176,6 +191,10 @@ pub fn run() -> anyhow::Result<()> {
                     height: px(600.),
                 }),
                 app_id: Some("cn.stanzhai.bilidown".to_string()),
+                // X11-only field (gpui): Wayland/macos ignore it. Without
+                // it the Linux window gets the generic "unknown" icon.
+                #[cfg(target_os = "linux")]
+                icon: Some(x11_window_icon()),
                 ..Default::default()
             };
             let cfg =
