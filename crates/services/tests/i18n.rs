@@ -18,12 +18,13 @@ const NAMED_CONTEXTS: &[(&str, &str)] = &[
 ];
 
 /// Catalog totals pin the `.ts` extraction plus the HAND-ADDED block:
-/// 125 contexts, 1053 live messages (973 generated + 80 hand-added),
-/// same (context, source) set in both zh columns.
+/// 124 contexts, 1041 live messages, same (context, source) set in both
+/// zh columns. (Was 125/1053; the About screen removal dropped the
+/// hand-added `AboutDialog` block and the generated `MainWindow/About`.)
 #[test]
 fn catalog_covers_all_contexts_and_sources() {
-    assert_eq!(i18n::catalog_len(), 1053);
-    assert_eq!(i18n::catalog_contexts().len(), 125);
+    assert_eq!(i18n::catalog_len(), 1041);
+    assert_eq!(i18n::catalog_contexts().len(), 124);
 
     // Both zh columns are built from the same (context, source) table, so
     // every context's entries resolve in both languages by construction;
@@ -92,6 +93,7 @@ fn unknown_key_falls_back_to_source() {
 /// `Interface.language` values parse; Auto resolves off the system locale.
 #[test]
 fn language_config_parsing() {
+    assert_eq!(Language::from_config(""), Language::ChineseSimplified);
     assert_eq!(Language::from_config("zh_CN"), Language::ChineseSimplified);
     assert_eq!(Language::from_config("zh_TW"), Language::ChineseTraditional);
     assert_eq!(Language::from_config("en_US"), Language::English);

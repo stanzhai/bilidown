@@ -9,7 +9,6 @@
 //! gpui) plus a thin `open_*` render fn using gpui-kit `Dialog`
 //! through `WindowExt::open_dialog`.
 
-pub mod about;
 pub mod auto_parse;
 pub mod auto_select;
 pub mod batch_parse;

@@ -15,9 +15,9 @@ use std::sync::Arc;
 
 use auth::login::QRCodeScanStatus;
 use gpui_kit::base::Disableable;
-use gpui_kit::base::{Dialog, DialogHandle};
 use gpui_kit::component::button::Button;
 use gpui_kit::component::input::{Input, InputState};
+use gpui_kit::component::WindowExt;
 use gpui_kit::gpui::{img, Image, ImageFormat, ImageSource};
 use gpui_kit::{div, prelude::*, px, AppContext, Context, Entity, IntoElement, Window};
 use services::i18n::catalog;
@@ -31,14 +31,16 @@ const CTX: &str = "LoginDialog";
 const CTX_COOKIE: &str = "CookieLoginDialog";
 const CTX_ERR: &str = "ERROR_MESSAGES";
 
-/// The shell-owned login state: dialog handles + models + the running
-/// loopback server. All network I/O goes through the shell's shared
-/// auth client so captured cookies stick.
+/// The shell-owned login state: managed-dialog open flag + models + the
+/// running loopback server. All network I/O goes through the shell's
+/// shared auth client so captured cookies stick.
 pub struct LoginState {
-    pub handle: DialogHandle,
-    pub cookie_handle: DialogHandle,
-    /// Window the dialog opened in — async login completion uses it to
-    /// close the dialog (QR/SMS success paths).
+    /// The window-managed login dialog is open (mirrors the dialog's
+    /// lifetime; cleared on every close path so poll/countdown loops
+    /// stop).
+    pub is_open: bool,
+    /// The main window — async login completion uses it to reach the
+    /// shell and close the dialog (QR/SMS success paths).
     pub window: Option<gpui_kit::gpui::AnyWindowHandle>,
     pub model: LoginModel,
     pub cookie: CookieModel,
@@ -59,8 +61,7 @@ pub struct LoginState {
 impl LoginState {
     pub fn new(window: &mut Window, cx: &mut Context<crate::ui::Shell>, is_login: bool) -> Self {
         Self {
-            handle: DialogHandle::new(false),
-            cookie_handle: DialogHandle::new(false),
+            is_open: false,
             window: None,
             model: LoginModel::new(),
             cookie: CookieModel::new(),
@@ -110,7 +111,9 @@ impl LoginState {
         catalog(lang.resolve()).tr(context, source).to_owned()
     }
 
-    /// Open (or reopen) the login dialog: reset state, kick QR generate.
+    /// Open (or reopen) the login flow: reset state, open the managed
+    /// dialog (解析记录-style title bar + blocking overlay), kick QR
+    /// generate.
     pub fn open(&mut self, window: &mut Window, cx: &mut Context<crate::ui::Shell>) {
         self.model = LoginModel::new();
         self.cookie = CookieModel::new();
@@ -122,8 +125,65 @@ impl LoginState {
         }
         self.window = Some(window.window_handle());
         self.generation += 1;
-        self.handle.open(window, cx);
+        self.is_open = true;
+        self.open_managed_dialog(window, cx);
         self.start_qr(cx);
+    }
+
+    /// The login dialog as a window-managed modal (same form as the
+    /// parse-history dialog): title bar, dim overlay, close X. Overlay
+    /// click does NOT close it — login runs to completion or is
+    /// explicitly cancelled (X / Escape via `on_close`).
+    fn open_managed_dialog(&mut self, window: &mut Window, cx: &mut Context<crate::ui::Shell>) {
+        let shell = cx.entity();
+        let title = Self::tr(cx, CTX, "Log In");
+        window.open_dialog(cx, move |dialog, _, _| {
+            let shell_for_close = shell.clone();
+            dialog
+                .title(title.clone())
+                .w(px(760.))
+                .overlay_closable(false)
+                .on_close(move |_, _, cx| {
+                    let _ = shell_for_close.update(cx, |shell, cx| shell.login.dialog_closed(cx));
+                })
+                .content({
+                    let shell = shell.clone();
+                    move |content, _, cx| {
+                        let body = shell
+                            .update(cx, |shell, cx| shell.login.render_body(cx))
+                            .into_any_element();
+                        content.child(body)
+                    }
+                })
+        });
+    }
+
+    /// Any manual close path (X button, Escape): mark closed so the
+    /// poll/countdown loops stop and the captcha server shuts down.
+    pub fn dialog_closed(&mut self, cx: &mut Context<crate::ui::Shell>) {
+        self.is_open = false;
+        if let Some(server) = self.server.take() {
+            server.stop();
+        }
+        cx.notify();
+    }
+
+    /// Open the cookie sub-dialog (stacks above the login dialog).
+    pub fn open_cookie(&mut self, window: &mut Window, cx: &mut Context<crate::ui::Shell>) {
+        let shell = cx.entity();
+        let title = Self::tr(cx, CTX_COOKIE, "Log in with Cookies");
+        window.open_dialog(cx, move |dialog, _, _| {
+            dialog.title(title.clone()).w(px(560.)).content({
+                let shell = shell.clone();
+                move |content, _, cx| {
+                    let body = shell
+                        .update(cx, |shell, cx| shell.login.render_cookie_body(cx))
+                        .into_any_element();
+                    content.child(body)
+                }
+            })
+        });
+        cx.notify();
     }
 
     /// Re-derive the input placeholders from the active language (ticket
@@ -198,16 +258,34 @@ impl LoginState {
                 }) else {
                     break;
                 };
-                let status = controller::qr_poll_once(
-                    client.as_ref(),
-                    &endpoints,
-                    &key,
-                    &mut state,
-                    &user_agent,
-                )
-                .await;
+                // Same on_runtime wrapper as every other login network
+                // call: reqwest needs a tokio reactor and panics on the
+                // gpui executor (first-use crash: QR shows, app dies on
+                // the first poll tick).
+                let endpoints = endpoints.clone();
+                let key = key.clone();
+                let state_fallback = state.clone();
+                let (status, state) = crate::bootstrap::on_runtime(move || async move {
+                    let status = controller::qr_poll_once(
+                        client.as_ref(),
+                        &endpoints,
+                        &key,
+                        &mut state,
+                        &user_agent,
+                    )
+                    .await;
+                    (status, state)
+                })
+                .await
+                // JoinError (task panicked/cancelled) maps to the same
+                // keep-polling branch as a transport hiccup; the
+                // pre-call state clone stands in (nothing was mutated).
+                .map_or_else(
+                    |_: tokio::task::JoinError| (Err(String::new()), state_fallback),
+                    |(s, state)| (s, state),
+                );
                 let keep_going = shell.update(cx, |shell, cx| {
-                    if shell.login.generation != generation || !shell.login.handle.is_open() {
+                    if shell.login.generation != generation || !shell.login.is_open {
                         return false;
                     }
                     match status {
@@ -538,18 +616,8 @@ impl LoginState {
         cx.notify();
     }
 
-    /// Render both dialogs into the shell's element tree.
-    pub fn render(&mut self, cx: &mut Context<crate::ui::Shell>) -> impl IntoElement {
-        let login = Dialog::new(cx)
-            .handle(self.handle.clone())
-            .close_on_backdrop_press(true)
-            .child(self.render_body(cx));
-        let cookie = Dialog::new(cx)
-            .handle(self.cookie_handle.clone())
-            .close_on_backdrop_press(true)
-            .child(self.render_cookie_body(cx));
-        div().child(login).child(cookie)
-    }
+    // The dialogs themselves are window-managed (`open_managed_dialog` /
+    // `open_cookie`); the shell tree renders nothing for login.
 
     fn render_body(&mut self, cx: &mut Context<crate::ui::Shell>) -> impl IntoElement {
         let tr = |source: &str| Self::tr(cx, CTX, source);
@@ -586,33 +654,37 @@ impl LoginState {
         div()
             .id("login-dialog-body")
             .flex()
-            .gap_8()
+            .w_full()
+            .justify_center()
+            .items_start()
+            .gap_10()
             .p_6()
-            .min_w(px(700.))
             .child(
-                // left: QR
+                // left: QR — fixed-width column, everything centered
                 div()
                     .flex()
                     .flex_col()
                     .gap_3()
                     .items_center()
+                    .w(px(220.))
                     .child(div().text_sm().child(tr("Scan QR Code to Log In")))
                     .child(qr_element)
-                    .child(div().min_w(px(200.)).text_sm().child(status_text)),
+                    .child(div().text_sm().child(status_text)),
             )
             .child(
-                // right: SMS
+                // right: SMS — fills the rest, all controls full-width
                 div()
                     .flex()
                     .flex_col()
                     .gap_3()
+                    .w(px(360.))
                     .child(div().text_sm().child(tr("SMS Login")))
                     .child(
                         div()
                             .flex()
                             .w_full()
                             .gap_2()
-                            .child(div().w(px(100.)).child(self.render_cid_select()))
+                            .child(div().w(px(64.)).child(self.render_cid_select()))
                             .child(div().flex_1().child(Input::new(&self.tel).id("login-tel"))),
                     )
                     .child(
@@ -626,7 +698,7 @@ impl LoginState {
                                     .child(Input::new(&self.code).id("login-code")),
                             )
                             .child(
-                                div().min_w(px(100.)).child(
+                                div().w(px(120.)).child(
                                     Button::new("login-send-code")
                                         .label(countdown_label)
                                         .disabled(send_disabled)
@@ -637,7 +709,7 @@ impl LoginState {
                             ),
                     )
                     .child(
-                        div().w(px(175.)).child(
+                        div().w_full().child(
                             Button::new("login-submit")
                                 .label(tr("Log In"))
                                 .on_click(cx.listener(|shell, _, _, cx| {
@@ -646,13 +718,15 @@ impl LoginState {
                         ),
                     )
                     .child(
-                        Button::new("login-cookies")
-                            .label(tr_cookie("Log in with Cookies"))
-                            .on_click(cx.listener(|shell, _, window, cx| {
-                                shell.login.cookie_handle.open(window, cx);
-                            })),
+                        div().w_full().child(
+                            Button::new("login-cookies")
+                                .label(tr_cookie("Log in with Cookies"))
+                                .on_click(cx.listener(|shell, _, window, cx| {
+                                    shell.login.open_cookie(window, cx);
+                                })),
+                        ),
                     )
-                    .children(toast.map(|t| div().id("login-toast").text_sm().child(t))),
+                    .children(toast.map(|t| div().id("login-toast").text_sm().w_full().child(t))),
             )
     }
 

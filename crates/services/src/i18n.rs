@@ -25,13 +25,13 @@ pub enum Language {
 }
 
 impl Language {
-    /// Parse the serialized `Interface.language` config value.
-    /// Anything else falls back to `Auto` (OptionsValidator behavior:
-    /// unknown value → first option... but the first option is `zh_CN`
-    /// while QConfig loads the raw string; `Auto` is the Python default).
+    /// Parse the serialized `Interface.language` config value. A missing
+    /// or empty value defaults to Simplified Chinese (first run shows
+    /// zh_CN instead of following the system locale); unknown garbage
+    /// keeps the Python OptionsValidator fallback (`Auto`).
     pub fn from_config(v: &str) -> Self {
         match v {
-            "zh_CN" => Self::ChineseSimplified,
+            "zh_CN" | "" => Self::ChineseSimplified,
             "zh_TW" => Self::ChineseTraditional,
             "en_US" => Self::English,
             _ => Self::Auto,

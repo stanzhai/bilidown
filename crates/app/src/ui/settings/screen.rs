@@ -489,7 +489,10 @@ fn interface_page(ui: &Entity<SettingsUi>, lang: Lang) -> SettingPage {
                         .into(),
                 ),
             ],
-            move |cx| model::get_str(&get.read(cx).cfg, "Interface", "language").into(),
+            move |cx| {
+                let v = model::get_str(&get.read(cx).cfg, "Interface", "language");
+                SharedString::from(if v.is_empty() { "zh_CN" } else { v.as_str() })
+            },
             move |v, cx| {
                 set.update(cx, |ui, cx| apply_language(ui, cx, &v));
                 kick(cx, id);

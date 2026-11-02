@@ -29,11 +29,6 @@ pub use ui::{Screen, Shell};
 
 const APP_DISPLAY_NAME: &str = "bilidown";
 
-/// Product identity line used by the About surface and smoke checks.
-pub fn version_line() -> String {
-    format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
-}
-
 /// Live displays as `services::window_state::ScreenRect`s.
 fn display_rect(d: &Rc<dyn PlatformDisplay>) -> services::window_state::ScreenRect {
     let b = d.bounds();
@@ -278,15 +273,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn version_line_reports_app_identity() {
-        // Product renamed bilidown; version line continues the v2.21.0 line.
-        assert_eq!(
-            crate::version_line(),
-            format!("bilidown v{}", env!("CARGO_PKG_VERSION"))
-        );
-    }
 
     #[test]
     fn lock_file_lives_under_app_data() {

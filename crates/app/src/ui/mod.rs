@@ -26,7 +26,6 @@ pub enum Screen {
     Parse,
     Downloads,
     Favorites,
-    About,
     Settings,
 }
 
@@ -137,11 +136,12 @@ impl Shell {
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_default();
-        // i18n global: `Interface.language` (auto → system)
+        // i18n global: `Interface.language` (missing → Simplified
+        // Chinese, the first-run default; `Auto` follows the system)
         let lang = services::i18n::Language::from_config(
             &cfg.get("Interface", "language")
                 .and_then(|v| v.as_str().map(str::to_owned))
-                .unwrap_or_else(|| "auto".into()),
+                .unwrap_or_default(),
         );
         cx.set_global(ShellI18n { lang });
         crate::ui::download_options::set_shell_lang(lang);
@@ -387,11 +387,12 @@ impl Shell {
         self.login.open(window, cx);
     }
 
-    /// Any login success: close the login dialog (QR/SMS paths never
-    /// did — it just kept floating), flip the shell flag, and refresh
-    /// the account uname for the footer tooltip.
+    /// Any login success: close the login (and possibly stacked cookie)
+    /// dialogs (QR/SMS paths never did — ticket 40), flip the shell
+    /// flag, and refresh the account uname for the footer tooltip.
     pub fn on_login_success(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.login.handle.close(window, cx);
+        window.close_all_dialogs(cx);
+        self.login.dialog_closed(cx);
         self.login.is_login = true;
         self.refresh_uname(cx);
         cx.notify();
@@ -591,7 +592,6 @@ impl Render for Shell {
                             (Screen::Parse, "Parser", IconName::Search),
                             (Screen::Downloads, "Downloads", IconName::CloudDownload),
                             (Screen::Favorites, "Favorites", IconName::Star),
-                            (Screen::About, "About", IconName::Info),
                             (Screen::Settings, "Settings", IconName::Settings),
                         ]
                         .map(|(s, label, icon)| {
@@ -710,7 +710,6 @@ impl Render for Shell {
                 Screen::Parse => self.parse.render(cx).into_any_element(),
                 Screen::Downloads => self.downloads.render(window, cx).into_any_element(),
                 Screen::Favorites => self.screens.favorites.render(cx).into_any_element(),
-                Screen::About => screens::about::render_about(cx).into_any_element(),
                 Screen::Settings => self.screens.settings.render(window, cx).into_any_element(),
             })
             .child(
@@ -720,7 +719,8 @@ impl Render for Shell {
                 // with the shell.
                 self.downloads_tick.clone(),
             )
-            .child(self.login.render(cx))
+        // The login dialogs are window-managed; nothing login-related
+        // renders in the shell tree.
     }
 }
 
@@ -749,7 +749,6 @@ mod tests {
             ("MainWindow", "Parser"),
             ("MainWindow", "Downloads"),
             ("MainWindow", "Favorites"),
-            ("MainWindow", "About"),
             ("MainWindow", "Settings"),
             ("MainWindow", "Logged in"),
             (
@@ -1041,13 +1040,13 @@ mod tests {
                 // when logged in, so force the flag off first.
                 shell.login.is_login = false;
                 shell.open_login(window, cx);
-                assert!(shell.login.handle.is_open());
+                assert!(shell.login.is_open);
             });
         })
         .unwrap();
         cx.run_until_parked();
         let open = handle
-            .read_with(cx, |shell: &Shell, _| shell.login.handle.is_open())
+            .read_with(cx, |shell: &Shell, _| shell.login.is_open)
             .expect("window alive");
         assert!(open, "login dialog must stay open");
     }
@@ -1065,9 +1064,9 @@ mod tests {
             shell.update(cx, |shell, cx| {
                 shell.login.is_login = false;
                 shell.open_login(window, cx);
-                assert!(shell.login.handle.is_open());
+                assert!(shell.login.is_open);
                 shell.on_login_success(window, cx);
-                assert!(!shell.login.handle.is_open(), "dialog must close");
+                assert!(!shell.login.is_open, "dialog must close");
             });
         })
         .unwrap();
